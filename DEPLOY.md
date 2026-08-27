@@ -36,8 +36,21 @@ Then:
 fly deploy
 ```
 
-Subsequent deploys are the same `fly deploy`. The app is reachable at
-`https://<app>.fly.dev`.
+Deployed at **[alloyra.fly.dev](https://alloyra.fly.dev/)** (single machine,
+`--ha=false`).
+
+## Redeploying
+
+```bash
+fly deploy --ha=false --strategy bluegreen
+```
+
+Blue-green keeps updates zero-downtime on a single machine: Fly boots one
+extra machine on the new version, waits for its `/healthz` check, switches
+traffic, and destroys the old one — the second machine exists only for the
+seconds the deploy takes. Plain `fly deploy --ha=false` (rolling) also
+works; it restarts the one machine, a gap of a few seconds during which
+Fly's proxy holds most requests rather than failing them.
 
 ## What the configuration assumes
 
