@@ -61,6 +61,23 @@ approval. All 15 seed failure rules are drafts — excluded from audits by
 default, and promotable only through a named, dated review record.
 Outputs are screening guidance for expert judgment, never design approval.
 
+## Deployment (fly.io)
+
+Production is static files only: `pnpm build` emits `apps/web/out/`
+(~1.5 MB), which nginx serves from a single `shared-cpu-1x` / 256 MB
+machine that suspends when idle — no server-side code, no secrets, no
+database. All state lives in the visitor's browser; the CALPHAD bridge
+runs on the engineer's workstation and is never deployed.
+
+```bash
+fly launch --no-deploy    # first time — answer no to overwriting fly.toml
+fly deploy --ha=false --strategy bluegreen
+```
+
+Blue-green keeps redeploys zero-downtime on the single machine. Full
+details — files, assumptions, CSP/bridge configuration, local smoke
+test — are in [DEPLOY.md](DEPLOY.md).
+
 ## License and contributions
 
 MIT — see [LICENSE](LICENSE). Pull requests are **not accepted** and are
