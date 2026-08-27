@@ -61,6 +61,12 @@ approval. All 15 seed failure rules are drafts — excluded from audits by
 default, and promotable only through a named, dated review record.
 Outputs are screening guidance for expert judgment, never design approval.
 
+## License and contributions
+
+MIT — see [LICENSE](LICENSE). Pull requests are **not accepted** and are
+closed automatically: the failure-rule content requires named expert
+review that a PR workflow cannot provide. Forking is welcome.
+
 ## Data policy
 
 Only redistributable values: standards' published minimums (`spec-min`) or

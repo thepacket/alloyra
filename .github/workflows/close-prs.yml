@@ -1,0 +1,33 @@
+# Pull requests are not accepted on this repository. This workflow closes
+# them automatically with a polite explanation. The code is MIT-licensed —
+# forking is welcome.
+name: Close pull requests
+
+on:
+  pull_request_target:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  close:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close with explanation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const n = context.payload.pull_request.number;
+            await github.rest.issues.createComment({
+              ...context.repo,
+              issue_number: n,
+              body:
+                "Thanks for your interest in Alloyra. This repository does not " +
+                "accept pull requests — it is a research preview maintained " +
+                "without external contributions, and its failure-rule content " +
+                "in particular requires named expert review that a PR workflow " +
+                "cannot provide. The code is MIT-licensed, so you are welcome " +
+                "to fork and build on it. This PR is being closed automatically.",
+            });
+            await github.rest.pulls.update({ ...context.repo, pull_number: n, state: "closed" });
