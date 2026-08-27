@@ -23,5 +23,14 @@ export type {
   Severity,
 } from "./rules/types.ts";
 export { describeClause, estimateContent, evaluateRules } from "./rules/evaluate.ts";
+export { isValidRule, validateRule } from "./rules/validate.ts";
+export type {
+  EquilibriumQuery,
+  EquilibriumResult,
+  ModelProvider,
+  PhaseFraction,
+  ProviderCapabilities,
+  SystemInfo,
+} from "./provider.ts";
 export type { Contribution, RankResult, Weights } from "./ranking.ts";
 export { DEFAULT_WEIGHTS, rankCandidate } from "./ranking.ts";

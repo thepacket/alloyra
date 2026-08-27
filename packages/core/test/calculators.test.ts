@@ -62,6 +62,10 @@ describe("CE(IIW)", () => {
     const r = ceIIW({ C: 0.08, Mn: 1.4 });
     expect(r.warnings.length).toBeGreaterThan(0);
   });
+
+  it("non-ferrous-dominant compositions are out of window", () => {
+    expect(ceIIW({ Al: 89, Zn: 5.6, Cu: 1.6 }).inWindow).toBe(false);
+  });
 });
 
 describe("Ms (Andrews)", () => {
@@ -74,6 +78,10 @@ describe("Ms (Andrews)", () => {
   it("austenitic stainless is out of window", () => {
     const r = msAndrews({ C: 0.03, Cr: 17, Ni: 12 });
     expect(r.inWindow).toBe(false);
+  });
+
+  it("aluminum-dominant compositions are out of window", () => {
+    expect(msAndrews({ Al: 89, Zn: 5.6, Mg: 2.5 }).inWindow).toBe(false);
   });
 });
 

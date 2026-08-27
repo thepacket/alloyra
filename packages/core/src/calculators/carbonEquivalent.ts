@@ -23,6 +23,13 @@ export function ceIIW(c: Composition): CalcResult {
     inWindow = false;
     warnings.push("Stainless composition — CE(IIW) does not apply.");
   }
+  const dominant = (Object.entries(c) as [string, number][]).find(
+    ([el, v]) => el !== "Fe" && v > 50,
+  );
+  if (dominant) {
+    inWindow = false;
+    warnings.push(`${dominant[0]}-dominant composition — CE(IIW) applies to steels only.`);
+  }
   return {
     value,
     unit: "",

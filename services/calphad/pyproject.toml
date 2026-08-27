@@ -1,0 +1,10 @@
+[project]
+name = "alloyra-calphad"
+version = "0.0.1"
+description = "Alloyra CALPHAD bridge — pycalphad equilibrium queries behind the ModelProvider seam"
+requires-python = ">=3.11"
+dependencies = [
+    "pycalphad>=0.11",
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]

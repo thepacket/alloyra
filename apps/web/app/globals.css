@@ -575,6 +575,40 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
   .wrc-and-lmp { grid-template-columns: 1fr; }
 }
 
+/* ---- Rule authoring ---- */
+.rule-card.disabled { opacity: 0.45; }
+.origin-chip {
+  font-family: var(--font-mono); font-size: 8.5px; letter-spacing: 0.08em;
+  border-radius: 3px; padding: 2px 6px; flex: none;
+}
+.origin-chip.edited { background: var(--straw-wash); color: var(--straw); border: 1px solid #4a3d1f; }
+.origin-chip.local { background: var(--accent-wash); color: var(--accent); border: 1px solid var(--accent-deep); }
+.origin-chip.off { background: var(--panel-3); color: var(--muted); border: 1px solid var(--line-strong); }
+.rule-actions { display: flex; gap: 6px; }
+.rule-editor {
+  background: var(--panel); border: 1px solid var(--accent-deep); border-radius: 6px;
+  padding: 12px 14px; margin-bottom: 14px; max-width: 860px;
+}
+.rule-editor-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.rule-json {
+  width: 100%; background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 4px; color: var(--ink); font-size: 11.5px; line-height: 1.5;
+  padding: 10px 12px; outline: none; resize: vertical;
+}
+.rule-json:focus { border-color: var(--accent-deep); }
+
+/* ---- Phase equilibrium panel ---- */
+.eq-card { max-width: 720px; }
+.eq-offline { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; }
+.eq-controls { display: flex; align-items: flex-end; gap: 12px; margin-top: 8px; flex-wrap: wrap; }
+.eq-controls label { display: flex; flex-direction: column; gap: 3px; font-size: 10px; color: var(--muted); }
+.eq-result { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+.eq-phase { display: grid; grid-template-columns: 130px 1fr 56px; align-items: center; gap: 10px; }
+.eq-phase-name { font-size: 10.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+.eq-bar { height: 8px; background: var(--panel-3); border-radius: 4px; overflow: hidden; }
+.eq-bar span { display: block; height: 100%; background: var(--straw); }
+.eq-frac { font-size: 10.5px; color: var(--straw); text-align: right; }
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--panel-3); border-radius: 5px; border: 2px solid var(--bg); }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -25,6 +25,13 @@ export function msAndrews(c: Composition): CalcResult {
     inWindow = false;
     warnings.push("High-alloy composition — Andrews' relation is for low-alloy steels.");
   }
+  const dominant = (Object.entries(c) as [string, number][]).find(
+    ([el, v]) => el !== "Fe" && v > 50,
+  );
+  if (dominant) {
+    inWindow = false;
+    warnings.push(`${dominant[0]}-dominant composition — Andrews' relation applies to steels only.`);
+  }
   return {
     value,
     unit: "°C",

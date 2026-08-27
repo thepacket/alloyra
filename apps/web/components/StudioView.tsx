@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { alloys, DATASET_VERSION } from "@alloyra/data";
+import { EquilibriumPanel } from "./EquilibriumPanel";
 import {
   ceIIW,
   elementCost,
@@ -464,6 +465,9 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.distance.
               </div>
             </div>
           </div>
+
+          <h3 className="studio-h">Phase equilibrium — via ModelProvider (M3)</h3>
+          <EquilibriumPanel comp={comp} />
         </div>
       </div>
     </>

@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import {
   alloys,
   candidateFacts,
-  failureRules,
   DATASET_VERSION,
   RULESET_VERSION,
 } from "@alloyra/data";
@@ -17,6 +16,7 @@ import {
   type Weights,
 } from "@alloyra/core";
 import { dutyFromProfile, loadProfiles, type DutyProfile } from "../lib/profiles";
+import { activeRules, emptyOverlay, loadOverlay, rulesetLabel, type RuleOverlay } from "../lib/rules";
 import { ProvenanceChip } from "./ProvenanceChip";
 
 /** One comparison slot: an alloy IN a condition, plus expert overrides (R-3.4). */
@@ -99,14 +99,18 @@ function AuditList({ audits }: { audits: RuleAudit[] }) {
 export function ComparisonView() {
   const [stored, setStored] = useState<StoredComparison>(defaultStored());
   const [profiles, setProfiles] = useState<DutyProfile[]>([]);
+  const [overlay, setOverlay] = useState<RuleOverlay>(emptyOverlay());
   const [loaded, setLoaded] = useState(false);
   const [adding, setAdding] = useState("");
 
   useEffect(() => {
     setStored(loadStored());
     setProfiles(loadProfiles());
+    setOverlay(loadOverlay());
     setLoaded(true);
   }, []);
+
+  const rules = useMemo(() => activeRules(overlay), [overlay]);
 
   const update = (mut: (s: StoredComparison) => StoredComparison) => {
     setStored((s) => {
@@ -129,12 +133,12 @@ export function ComparisonView() {
       const condition = alloy?.conditions.find((c) => c.id === slot.conditionId);
       if (!alloy || !condition) return [];
       const facts = candidateFacts(alloy, condition);
-      const audits = duty ? evaluateRules(facts, duty, failureRules) : [];
+      const audits = duty ? evaluateRules(facts, duty, rules) : [];
       const rank = duty ? rankCandidate(facts, duty, audits, stored.weights) : null;
       const p = pren(midpointComposition(alloy.composition));
       return [{ slot, alloy, condition, facts, audits, rank, pren: p.inWindow ? p.value : null }];
     });
-  }, [stored.slots, stored.weights, duty]);
+  }, [stored.slots, stored.weights, duty, rules]);
 
   const ordered = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -189,7 +193,7 @@ export function ComparisonView() {
       <div className="pane-header">
         <h1>Comparison</h1>
         <span className="count">
-          rules {RULESET_VERSION} · data {DATASET_VERSION}
+          rules {rulesetLabel(overlay)} · data {DATASET_VERSION}
         </span>
         <span style={{ flex: 1 }} />
         <label className="inline-label" htmlFor="cmp-profile">Duty profile</label>

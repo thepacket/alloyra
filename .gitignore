@@ -4,3 +4,9 @@ dist/
 *.tsbuildinfo
 .env*
 .DS_Store
+.venv/
+__pycache__/
+*.egg-info/
+# User-supplied thermodynamic databases — licensing is the user's (N-5)
+services/calphad/databases/*.tdb
+services/calphad/databases/*.TDB

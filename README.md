@@ -17,6 +17,29 @@ throughout the code).
   and the Postgres-first Drizzle schema (not yet wired; M0 reads seeds).
 - `apps/web` — Next.js workbench UI. Fixed-viewport shell, ⌘K palette,
   dense grids, provenance chips (blueprint § 8.1: an instrument, not a website).
+- `services/calphad` — Python microservice wrapping pycalphad behind the
+  `ModelProvider` seam (equilibrium phase fractions). Thermodynamic
+  databases are user-supplied; see `services/calphad/databases/README.md`.
+
+## CALPHAD bridge
+
+```bash
+cd services/calphad
+uv venv .venv && uv pip install -p .venv/bin/python -e .
+.venv/bin/uvicorn main:app --port 8791
+```
+
+The studio's phase-equilibrium panel finds it via `/api/calphad/*`
+(override the address with `CALPHAD_URL`). Without the service or without
+databases, the panel degrades to an honest offline/no-database state.
+
+## Rule authoring
+
+Seed rules ship in `@alloyra/data` and are never mutated. Experts edit
+through a local overlay on the Failure rules page — edit/add/disable with
+structural validation (citations required) — and every comparison records
+the effective ruleset label (e.g. `2026.08.0+local(2)`). Overlays
+export/import as JSON for sharing.
 
 ## Run
 
