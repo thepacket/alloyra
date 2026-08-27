@@ -71,6 +71,28 @@ export default function Home() {
         </ol>
 
         <section className="home-coverage">
+          <h2 className="studio-h">Release boundary — research preview</h2>
+          <div className="boundary">
+            <div className="boundary-col">
+              <span className="boundary-h ok">Appropriate use</span>
+              <ul>
+                <li>Demonstration and materials education</li>
+                <li>Preliminary screening and shortlisting</li>
+                <li>Hypothesis generation for expert review</li>
+                <li>Failure-rule drafting and development</li>
+              </ul>
+            </div>
+            <div className="boundary-col">
+              <span className="boundary-h no">Not appropriate</span>
+              <ul>
+                <li>Material qualification or procurement specification</li>
+                <li>Code-compliance decisions</li>
+                <li>Safety-critical design approval</li>
+                <li>Any use without independent expert judgment</li>
+              </ul>
+            </div>
+          </div>
+
           <h2 className="studio-h">Current coverage — read before trusting</h2>
           <div className="coverage-grid">
             <div className="cov">

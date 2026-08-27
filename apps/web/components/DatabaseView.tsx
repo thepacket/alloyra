@@ -169,8 +169,10 @@ function DetailPanel({
           ))}
           <div className="note-text">
             Ranges span the specification's composition limits; a real heat
-            sits at one point inside them. Enter heat chemistry in the
-            Composition studio for point values.
+            sits at one point inside them. A trailing "+" means the interval
+            is open above (an element has a spec minimum but no maximum, so
+            the upper value is a floor, not a bound). Enter heat chemistry
+            in the Composition studio for point values.
           </div>
         </section>
       )}
@@ -254,7 +256,7 @@ export function DatabaseView() {
                 <th>Family</th>
                 <th className="num">σy min (MPa)</th>
                 <th className="num">UTS min (MPa)</th>
-                <th className="num" title="Interval permitted by the specification's composition ranges — a real heat sits at one point inside it">
+                <th className="num" title="Interval permitted by the specification's composition ranges — a real heat sits at one point inside it. A trailing + means the interval is open above (spec minimum with no maximum).">
                   PREN (spec range) <span className="prov computed">COMPUTED</span>
                 </th>
               </tr>
