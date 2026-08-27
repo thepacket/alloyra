@@ -96,8 +96,9 @@ export function rankCandidate(
       "No corrosion index available for this family — neutral 0.5; apply expert judgment.";
   }
 
-  // Audit cleanliness.
-  let auditRaw = 1;
+  // Audit cleanliness. With no rules run there is nothing to be clean
+  // against — score neutral, never perfect.
+  let auditRaw = audits.length === 0 ? 0.5 : 1;
   const hits: string[] = [];
   for (const a of audits) {
     if (a.status === "hit") {
@@ -133,7 +134,12 @@ export function rankCandidate(
       raw: auditRaw,
       weight: weights.auditCleanliness,
       points: auditRaw * weights.auditCleanliness,
-      note: hits.length ? `Deductions: ${hits.join("; ")}.` : "No rule hits.",
+      note:
+        audits.length === 0
+          ? "No rules were run — neutral 0.5, not a clean bill."
+          : hits.length
+            ? `Deductions: ${hits.join("; ")}.`
+            : "No rule hits.",
     },
   ];
 

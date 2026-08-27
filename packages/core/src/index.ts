@@ -19,6 +19,7 @@ export type {
   CandidateFacts,
   Clause,
   FailureRule,
+  ReviewStatus,
   RuleAudit,
   Severity,
 } from "./rules/types.ts";

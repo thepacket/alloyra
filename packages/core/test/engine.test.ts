@@ -49,6 +49,7 @@ const tempRule: FailureRule = {
   mechanism: "",
   citation: "",
   mitigations: [],
+  reviewStatus: "draft",
   reviewedBy: "test",
 };
 

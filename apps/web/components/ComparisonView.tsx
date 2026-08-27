@@ -16,7 +16,8 @@ import {
   type Weights,
 } from "@alloyra/core";
 import { dutyFromProfile, loadProfiles, type DutyProfile } from "../lib/profiles";
-import { activeRules, emptyOverlay, loadOverlay, rulesetLabel, type RuleOverlay } from "../lib/rules";
+import Link from "next/link";
+import { activeRules, effectiveRuleList, emptyOverlay, loadOverlay, rulesetLabel, type RuleOverlay } from "../lib/rules";
 import { ProvenanceChip } from "./ProvenanceChip";
 
 /** One comparison slot: an alloy IN a condition, plus expert overrides (R-3.4). */
@@ -31,6 +32,8 @@ interface StoredComparison {
   profileId: string | null;
   slots: Slot[];
   weights: Weights;
+  /** Draft (unreviewed) rules run only on visible opt-in — default off. */
+  includeDrafts: boolean;
   /** Append-only audit trail of expert overrides (R-3.4). */
   overrideLog: string[];
   datasetVersion: string;
@@ -44,6 +47,7 @@ const defaultStored = (): StoredComparison => ({
   profileId: null,
   slots: [],
   weights: { strength: 1, corrosion: 1, auditCleanliness: 1 },
+  includeDrafts: false,
   overrideLog: [],
   datasetVersion: DATASET_VERSION,
   rulesetVersion: RULESET_VERSION,
@@ -61,7 +65,14 @@ function loadStored(): StoredComparison {
 
 const sevRank = { disqualifying: 0, serious: 1, caution: 2 } as const;
 
-function AuditList({ audits }: { audits: RuleAudit[] }) {
+function AuditList({ audits, rulesRan }: { audits: RuleAudit[]; rulesRan: number }) {
+  if (rulesRan === 0) {
+    return (
+      <div className="audit-unchecked">
+        Audit not run — no active rules (see the rule-status bar above).
+      </div>
+    );
+  }
   const flagged = audits
     .filter((a) => a.status !== "clear")
     .sort(
@@ -110,7 +121,19 @@ export function ComparisonView() {
     setLoaded(true);
   }, []);
 
-  const rules = useMemo(() => activeRules(overlay), [overlay]);
+  const rules = useMemo(
+    () => activeRules(overlay, { includeDrafts: stored.includeDrafts }),
+    [overlay, stored.includeDrafts],
+  );
+  const { draftCount, reviewedCount } = useMemo(() => {
+    const enabled = effectiveRuleList(overlay).filter((e) => !e.disabled);
+    return {
+      draftCount: enabled.filter((e) => e.rule.reviewStatus === "draft").length,
+      reviewedCount: enabled.filter(
+        (e) => e.rule.reviewStatus === "expert-reviewed" || e.rule.reviewStatus === "validated",
+      ).length,
+    };
+  }, [overlay]);
 
   const update = (mut: (s: StoredComparison) => StoredComparison) => {
     setStored((s) => {
@@ -257,14 +280,41 @@ export function ComparisonView() {
         ))}
       </div>
 
+      <div className="rule-status-bar" role="status">
+        <span className="rsb-counts">
+          {reviewedCount} expert-reviewed rule{reviewedCount === 1 ? "" : "s"} ·{" "}
+          {draftCount} draft
+        </span>
+        <label className="rsb-toggle">
+          <input
+            type="checkbox"
+            checked={stored.includeDrafts}
+            onChange={(e) =>
+              update((s) => ({ ...s, includeDrafts: e.target.checked }))
+            }
+          />
+          Include draft rules in the audit
+        </label>
+        <span className="rsb-note">
+          {stored.includeDrafts
+            ? `Audit runs ${rules.length} rules, including drafts awaiting expert review — screening guidance, not design approval.`
+            : reviewedCount === 0
+              ? "All rules are drafts awaiting expert review; the audit runs none until you opt in."
+              : "Audit runs expert-reviewed rules only."}
+        </span>
+      </div>
+
       {!profile && (
         <div className="empty-state">
           <span className="phase-tag">NO DUTY SELECTED</span>
           <span className="t">Pick a duty profile to audit against</span>
           <span className="d">
             Candidates can be added now, but scores and the failure audit need a
-            duty. Create one under Duty profiles if the list is empty.
+            duty profile describing the environment and loads.
           </span>
+          <Link className="btn" href="/profiles?from=comparisons">
+            Create a duty profile
+          </Link>
         </div>
       )}
 
@@ -370,7 +420,7 @@ export function ComparisonView() {
               );
             })}
 
-            <div className="cmp-rowlabel">PREN <span className="prov computed">C</span></div>
+            <div className="cmp-rowlabel">PREN (mid-spec) <span className="prov computed" title="Computed from mid-spec composition">COMPUTED</span></div>
             {ordered.map(({ condition, pren: p }) => (
               <div key={condition.id} className="cmp-cell num mono">
                 {p === null ? "n/a" : p.toFixed(1)}
@@ -380,7 +430,7 @@ export function ComparisonView() {
             <div className="cmp-rowlabel">Failure audit</div>
             {ordered.map(({ condition, audits }) => (
               <div key={condition.id} className="cmp-cell">
-                <AuditList audits={audits} />
+                <AuditList audits={audits} rulesRan={rules.length} />
               </div>
             ))}
           </div>

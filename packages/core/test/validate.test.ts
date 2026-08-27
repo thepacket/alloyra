@@ -12,6 +12,7 @@ const good = {
   mechanism: "Something happens.",
   citation: "A real citation",
   mitigations: ["Do less of it"],
+  reviewStatus: "draft",
   reviewedBy: "test",
 };
 
@@ -49,6 +50,11 @@ describe("validateRule", () => {
   it("rejects an empty when array", () => {
     const errs = validateRule({ ...good, when: [] });
     expect(errs.join(" ")).toMatch(/at least one clause/);
+  });
+
+  it("rejects a missing or invalid review status", () => {
+    const errs = validateRule({ ...good, reviewStatus: "vibes-checked" });
+    expect(errs.join(" ")).toMatch(/reviewStatus/);
   });
 
   it("rejects non-kebab ids", () => {

@@ -30,6 +30,7 @@ const TEMPLATE: FailureRule = {
   mechanism: "State the mechanism as a flag for expert judgment.",
   citation: "Required — uncited rules are not admissible.",
   mitigations: ["First mitigation"],
+  reviewStatus: "draft",
   reviewedBy: "your name, today",
 };
 
@@ -146,7 +147,9 @@ export function RulesView() {
       <div className="pane-header">
         <h1>Failure rules</h1>
         <span className="count">
-          {rules.filter((r) => !r.disabled).length} active · ruleset {rulesetLabel(overlay)}
+          {rules.filter((r) => !r.disabled).length} enabled (
+          {rules.filter((r) => !r.disabled && r.rule.reviewStatus !== "draft").length} reviewed,{" "}
+          {rules.filter((r) => !r.disabled && r.rule.reviewStatus === "draft").length} draft) · ruleset {rulesetLabel(overlay)}
         </span>
         <span style={{ flex: 1 }} />
         <button type="button" className="btn ghost" onClick={exportOverlay}>Export overlay</button>
@@ -170,6 +173,9 @@ export function RulesView() {
           additions, and disables live in a local overlay recorded on every
           comparison as “{rulesetLabel(overlay)}”. Rules are edited as the JSON
           the engine runs; saving validates structure and requires a citation.
+          Draft rules do not run in comparisons unless explicitly included
+          there — promote a rule to expert-reviewed by editing its
+          reviewStatus once a domain expert has signed off.
         </div>
 
         {editingId !== null && (
@@ -197,6 +203,9 @@ export function RulesView() {
           <article className={`rule-card ${disabled ? "disabled" : ""}`} key={r.id}>
             <header>
               <span className={`sev-chip ${r.severity}`}>{r.severity.toUpperCase()}</span>
+              <span className={`status-chip ${r.reviewStatus}`} title="Review lifecycle: draft rules only run in audits when explicitly included">
+                {r.reviewStatus.toUpperCase().replace("-", " ")}
+              </span>
               <h2>{r.name}</h2>
               {origin !== "seed" && (
                 <span className={`origin-chip ${origin}`}>{origin === "edited" ? "EDITED" : "LOCAL"}</span>

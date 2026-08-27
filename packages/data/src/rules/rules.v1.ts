@@ -32,6 +32,7 @@ export const failureRules: FailureRule[] = [
       "Stress-relieve to reduce residual tensile stress",
       "Lower metal temperature below ~60 °C or shield from chloride concentration",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -51,6 +52,7 @@ export const failureRules: FailureRule[] = [
       "Select a sour-service-qualified grade and temper within the hardness cap",
       "Requalify the joint/part to ISO 15156 with certified hardness surveys",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -69,6 +71,7 @@ export const failureRules: FailureRule[] = [
       "Limit protection potential (avoid over-polarization)",
       "Use a lower-strength temper where the design allows",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -88,6 +91,7 @@ export const failureRules: FailureRule[] = [
       "Stress-relief anneal after forming (~260–300 °C)",
       "Move to a low-Zn brass, cupronickel, or bronze",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -108,6 +112,7 @@ export const failureRules: FailureRule[] = [
       "Avoid sustained short-transverse tension in design and assembly",
       "Shot peen critical surfaces",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -124,6 +129,7 @@ export const failureRules: FailureRule[] = [
       "T73-class overaging greatly improves but does not erase 7xxx SCC susceptibility; keep short-transverse sustained stresses low.",
     citation: "ASM Handbook Vol. 13B",
     mitigations: ["Detail to minimize short-transverse tension", "Periodic inspection of clamped joints"],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -143,6 +149,7 @@ export const failureRules: FailureRule[] = [
       "Use the L-grade (304L/316L) or a stabilized grade (321/347)",
       "Solution anneal after welding where practical",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -161,6 +168,7 @@ export const failureRules: FailureRule[] = [
       "Step up in PREN (316L → 317L → duplex → 6-Mo)",
       "Control temperature and chloride concentration/evaporation",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -179,6 +187,7 @@ export const failureRules: FailureRule[] = [
       "Design out crevices (full-penetration welds, no backing strips, gasket choice)",
       "Higher-PREN grade sized to crevice (not open-surface) resistance",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -196,6 +205,7 @@ export const failureRules: FailureRule[] = [
       "Isolate electrically (sleeves, washers, coatings on the CATHODE)",
       "Keep the anode large relative to the cathode",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -210,6 +220,7 @@ export const failureRules: FailureRule[] = [
       "Design to creep-rupture data at life and temperature, not room-temperature yield",
       "Consider creep-resistant grades (e.g. 625, Grade 91) for sustained hot service",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -227,6 +238,7 @@ export const failureRules: FailureRule[] = [
       "Use environment-specific S-N data or apply corrosion-fatigue knockdowns",
       "Surface protection + compressive residual stress (peening)",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -243,6 +255,7 @@ export const failureRules: FailureRule[] = [
       "Dried chloride salt deposits on stressed titanium above ~250 °C can drive hot-salt SCC — niche, but severe when the geometry traps deposits.",
     citation: "ASM Handbook Vol. 13B",
     mitigations: ["Prevent salt deposition/drying on hot stressed surfaces", "Wash-down provisions in design"],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
@@ -261,6 +274,7 @@ export const failureRules: FailureRule[] = [
       "Stress-relieve before galvanizing; control dip practice",
       "Remove coating locally before welding galvanized parts",
     ],
+    reviewStatus: "draft",
     reviewedBy: SEED,
   },
 ];

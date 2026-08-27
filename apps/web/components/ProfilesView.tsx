@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   blankProfile as blank,
   loadProfiles as load,
@@ -15,6 +16,9 @@ function num(v: string): number | null {
 }
 
 export function ProfilesView() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const returnTo = params.get("from") === "comparisons" ? "/comparisons" : null;
   const [profiles, setProfiles] = useState<DutyProfile[]>([]);
   const [draft, setDraft] = useState<DutyProfile>(blank());
   const [loaded, setLoaded] = useState(false);
@@ -39,6 +43,7 @@ export function ProfilesView() {
     };
     persist([record, ...profiles.filter((p) => p.id !== draft.id)]);
     setDraft(record);
+    if (returnTo) router.push(returnTo);
   };
 
   const set = <K extends keyof DutyProfile>(key: K, value: DutyProfile[K]) =>
@@ -50,10 +55,24 @@ export function ProfilesView() {
         <h1>Duty profiles</h1>
         <span className="count">{loaded ? `${profiles.length} saved` : ""}</span>
         <span style={{ flex: 1 }} />
+        {returnTo && (
+          <span className="save-hint">Saving returns you to the comparison</span>
+        )}
+        {!draft.name.trim() && (
+          <span className="save-hint" id="save-hint">
+            Name the profile to enable Save
+          </span>
+        )}
         <button type="button" className="btn ghost" onClick={() => setDraft(blank())}>
           New profile
         </button>
-        <button type="button" className="btn" onClick={save} disabled={!draft.name.trim()}>
+        <button
+          type="button"
+          className="btn"
+          onClick={save}
+          disabled={!draft.name.trim()}
+          aria-describedby={!draft.name.trim() ? "save-hint" : undefined}
+        >
           Save {profiles.some((p) => p.id === draft.id) ? `(v${draft.version + 1})` : ""}
         </button>
       </div>

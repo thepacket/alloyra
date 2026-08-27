@@ -27,6 +27,13 @@ export function loadOverlay(): RuleOverlay {
     const raw = localStorage.getItem(STORE);
     if (!raw) return emptyOverlay();
     const o = { ...emptyOverlay(), ...(JSON.parse(raw) as RuleOverlay) };
+    // Backward-compat: overlays saved before review statuses existed.
+    const fill = (r: FailureRule): FailureRule => ({
+      ...r,
+      reviewStatus: r.reviewStatus ?? "draft",
+    });
+    o.added = o.added.map(fill);
+    for (const [id, r] of Object.entries(o.edits)) o.edits[id] = fill(r);
     // Drop anything invalid rather than letting it reach the engine.
     o.added = o.added.filter((r) => validateRule(r).length === 0);
     for (const [id, r] of Object.entries(o.edits)) {
@@ -73,11 +80,21 @@ export function effectiveRuleList(o: RuleOverlay): EffectiveRule[] {
   return [...seeds, ...added];
 }
 
-/** What the audit engine actually runs. */
-export function activeRules(o: RuleOverlay): FailureRule[] {
+/**
+ * What the audit engine actually runs. Draft rules participate only when
+ * the caller passes `includeDrafts: true` — a visible, per-comparison
+ * opt-in, so unreviewed rules never drive output silently. Superseded
+ * rules never run.
+ */
+export function activeRules(
+  o: RuleOverlay,
+  opts: { includeDrafts: boolean },
+): FailureRule[] {
   return effectiveRuleList(o)
     .filter((e) => !e.disabled)
-    .map((e) => e.rule);
+    .map((e) => e.rule)
+    .filter((r) => r.reviewStatus !== "superseded")
+    .filter((r) => (opts.includeDrafts ? true : r.reviewStatus !== "draft"));
 }
 
 /** Label recorded on comparisons: seed version, plus local-delta marker. */

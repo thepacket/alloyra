@@ -5,6 +5,12 @@ import type { LmeContact, LoadType, Medium } from "../duty.ts";
 export type Severity = "caution" | "serious" | "disqualifying";
 
 /**
+ * Review lifecycle of a rule. Draft rules may drive screening output only
+ * when the user has visibly opted in — never silently.
+ */
+export type ReviewStatus = "draft" | "expert-reviewed" | "validated" | "superseded";
+
+/**
  * The declarative predicate DSL (R-5.3: rules are data, not code).
  * A rule fires when ALL of its clauses match. Numeric clauses may carry a
  * `nearBand` (fraction): a value inside the band but short of the
@@ -53,6 +59,7 @@ export interface FailureRule {
   mechanism: string;
   citation: string;
   mitigations: string[];
+  reviewStatus: ReviewStatus;
   reviewedBy: string;
 }
 

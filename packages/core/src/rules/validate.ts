@@ -18,6 +18,7 @@ const FLAG_FIELDS = new Set(["crevices", "welded", "cathodicProtection", "ammoni
 const MEDIA = new Set(["atmospheric", "immersion", "soil", "process-fluid"]);
 const LOADS = new Set(["static", "cyclic", "impact", "sustained"]);
 const SEVERITIES = new Set(["caution", "serious", "disqualifying"]);
+const REVIEW_STATUSES = new Set(["draft", "expert-reviewed", "validated", "superseded"]);
 
 function validateClause(c: unknown, i: number): string[] {
   const errs: string[] = [];
@@ -115,6 +116,9 @@ export function validateRule(rule: unknown): string[] {
     errs.push("mitigations: must be a string array (may be empty)");
   }
   if (typeof r.reviewedBy !== "string" || r.reviewedBy.length === 0) errs.push("reviewedBy: required");
+  if (!REVIEW_STATUSES.has(r.reviewStatus as string)) {
+    errs.push(`reviewStatus: must be one of ${[...REVIEW_STATUSES].join(", ")}`);
+  }
   if (!Array.isArray(r.when) || r.when.length === 0) {
     errs.push("when: at least one clause required");
   } else {

@@ -236,8 +236,8 @@ export function DatabaseView() {
                 <th>Family</th>
                 <th className="num">σy min (MPa)</th>
                 <th className="num">UTS min (MPa)</th>
-                <th className="num" title="Computed at mid-spec composition">
-                  PREN <span className="prov computed">C</span>
+                <th className="num" title="Pitting resistance equivalent, computed at mid-spec composition">
+                  PREN (mid-spec) <span className="prov computed">COMPUTED</span>
                 </th>
               </tr>
             </thead>
@@ -249,6 +249,15 @@ export function DatabaseView() {
                     key={a.uns}
                     className={a.uns === sel ? "selected" : ""}
                     onClick={() => select(a.uns)}
+                    tabIndex={0}
+                    aria-selected={a.uns === sel}
+                    aria-label={`${a.names[0]} ${a.uns}`}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        select(a.uns);
+                      }
+                    }}
                   >
                     <td className="mono">{a.uns}</td>
                     <td>{a.names[0]}</td>

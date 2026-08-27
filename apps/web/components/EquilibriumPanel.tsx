@@ -67,23 +67,35 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     <div className="calc-card eq-card">
       <div className="calc-top">
         <span className="calc-label">
-          Phase equilibrium — CALPHAD bridge <span className="prov computed">COMPUTED</span>
+          Phase equilibrium <span className="prov computed">COMPUTED</span>
         </span>
-        <button type="button" className="mini" onClick={refresh}>Recheck</button>
+        <button type="button" className="mini" onClick={refresh}>
+          {caps === null ? "Checking…" : "Retry"}
+        </button>
       </div>
 
-      {caps === null && <div className="calc-src">Checking bridge…</div>}
+      {caps === null && <div className="calc-src">Checking for a CALPHAD bridge…</div>}
 
       {caps !== null && !caps.available && (
         <div className="eq-offline">
-          <div className="calc-warn">{caps.reason === "request failed" ? "Bridge unreachable." : caps.reason}</div>
-          <div className="calc-src mono">
-            cd services/calphad && .venv/bin/uvicorn main:app --port 8791
-          </div>
+          <div className="eq-offline-title">Phase calculation unavailable</div>
           <div className="calc-src">
-            Databases are user-supplied (.tdb) — see services/calphad/databases/README.md
-            for openly available options. Licensing is yours to clear (N-5).
+            {caps.reason === "request failed"
+              ? "No CALPHAD bridge is connected. Equilibrium phase fractions need a local companion service running pycalphad on your own machine — everything else in the studio works without it."
+              : caps.reason}
           </div>
+          <details className="eq-howto">
+            <summary>For engineers: connect a local bridge</summary>
+            <div className="calc-src mono">
+              cd services/calphad && .venv/bin/uvicorn main:app --port 8791
+            </div>
+            <div className="calc-src">
+              From the Alloyra repository. Thermodynamic databases (.tdb) are
+              user-supplied — see services/calphad/databases/README.md for
+              openly available options; licensing is yours to clear. Then hit
+              Retry.
+            </div>
+          </details>
         </div>
       )}
 
