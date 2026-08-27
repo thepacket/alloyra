@@ -1,0 +1,13 @@
+{
+  "name": "alloyra",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Alloy-design workbench for metallurgists",
+  "scripts": {
+    "dev": "pnpm --filter @alloyra/web dev",
+    "build": "pnpm --filter @alloyra/web build",
+    "test": "pnpm -r --if-present test",
+    "typecheck": "pnpm -r --if-present typecheck"
+  },
+  "packageManager": "pnpm@11.10.0"
+}

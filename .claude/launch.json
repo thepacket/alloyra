@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "alloyra-web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@alloyra/web", "dev"],
+      "port": 3000
+    }
+  ]
+}
