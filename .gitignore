@@ -10,3 +10,4 @@ __pycache__/
 # User-supplied thermodynamic databases — licensing is the user's (N-5)
 services/calphad/databases/*.tdb
 services/calphad/databases/*.TDB
+out/
