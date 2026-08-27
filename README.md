@@ -1,5 +1,7 @@
 # Alloyra
 
+**Research preview** — live at [alloyra.fly.dev](https://alloyra.fly.dev/).
+
 An alloy-design workbench for metallurgists. Captures the duty (application,
 environment, loads), ranks candidate alloys, tunes composition off a base
 metal, and audits candidates against interaction failure modes (SCC, hydrogen
@@ -48,6 +50,16 @@ pnpm install
 pnpm dev      # workbench at http://localhost:3000
 pnpm test     # calculator validation cases
 ```
+
+## Release boundary
+
+Alloyra v0.1.0 is a **research preview**: appropriate for demonstration,
+materials education, preliminary screening, and failure-rule development.
+It is **not** appropriate for material qualification, procurement
+specification, code-compliance decisions, or safety-critical design
+approval. All 15 seed failure rules are drafts — excluded from audits by
+default, and promotable only through a named, dated review record.
+Outputs are screening guidance for expert judgment, never design approval.
 
 ## Data policy
 
