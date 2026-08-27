@@ -7,6 +7,11 @@ export { wrc1992, type Wrc1992Result } from "./calculators/wrc1992.ts";
 export { ceIIW } from "./calculators/carbonEquivalent.ts";
 export { msAndrews } from "./calculators/msAndrews.ts";
 export { larsonMiller } from "./calculators/larsonMiller.ts";
+export { md30Nohara } from "./calculators/md30.ts";
+export type { ElementDelta, GradeMatch, GradeRef } from "./analysis/nearestGrades.ts";
+export { nearestGrades } from "./analysis/nearestGrades.ts";
+export type { CostResult } from "./analysis/cost.ts";
+export { elementCost } from "./analysis/cost.ts";
 export type { DutyInput, LoadType, Medium, LmeContact } from "./duty.ts";
 export { tensileStressPresent } from "./duty.ts";
 export type {

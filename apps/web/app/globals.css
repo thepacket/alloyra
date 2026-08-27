@@ -507,6 +507,74 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
 }
 .review-flag { color: var(--straw); font-family: var(--font-mono); font-size: 9.5px; }
 
+/* ---- Composition studio ---- */
+.studio-left {
+  width: 380px; flex: none; border-right: 1px solid var(--line);
+  background: var(--panel); overflow-y: auto; padding: 14px 16px 30px;
+}
+.studio-right { flex: 1; min-width: 0; overflow-y: auto; padding: 14px 18px 40px; }
+.studio-h {
+  font-family: var(--font-mono); font-size: 9.5px; font-weight: 500;
+  letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint);
+  margin: 14px 0 8px; border-bottom: 1px solid var(--line); padding-bottom: 4px;
+}
+.studio-left .studio-h:first-child, .studio-right .studio-h:first-child { margin-top: 0; }
+.el-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; }
+.el-row input[type="range"] { flex: 1; accent-color: var(--accent-deep); min-width: 0; }
+.el-sym { width: 22px; color: var(--accent); font-size: 11.5px; flex: none; }
+.el-num {
+  width: 64px; flex: none; background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 4px; color: var(--ink); font-size: 11.5px; padding: 4px 6px;
+  outline: none; text-align: right; font-variant-numeric: tabular-nums;
+}
+.el-num:focus { border-color: var(--accent-deep); }
+.el-row.bal { color: var(--muted); border-top: 1px dashed var(--line); margin-top: 4px; padding-top: 7px; }
+.el-balnote { flex: 1; font-size: 10.5px; color: var(--faint); font-style: italic; }
+.el-add { margin-top: 8px; }
+.price-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 6px; }
+.price-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.price-item .el-num { width: 100%; }
+.cost-line { margin-top: 10px; font-size: 12px; color: var(--ink); }
+.match-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.match {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 9px 12px; min-width: 150px;
+}
+.match.best { border-color: var(--accent-deep); background: var(--accent-wash); }
+.match-name { font-weight: 650; font-size: 13px; }
+.match-dist { font-size: 10.5px; color: var(--muted); margin-top: 2px; }
+.match-deltas { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; font-size: 10.5px; color: var(--straw); }
+.calc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.calc-card {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 10px 12px;
+}
+.calc-card.out { opacity: 0.45; }
+.calc-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.calc-label { font-size: 12px; font-weight: 650; }
+.calc-value { font-family: var(--font-mono); font-size: 17px; color: var(--straw); font-variant-numeric: tabular-nums; }
+.calc-formula { font-size: 10px; color: var(--accent); margin-top: 5px; }
+.calc-src { font-size: 10px; color: var(--faint); margin-top: 3px; line-height: 1.45; }
+.calc-warn { font-size: 10.5px; color: var(--warn); margin-top: 4px; }
+.wrc-and-lmp { display: grid; grid-template-columns: minmax(300px, 420px) minmax(240px, 1fr); gap: 10px; margin-top: 10px; }
+.wrc-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
+.wrc-wrap.out svg { opacity: 0.4; }
+.wrc-frame { fill: none; stroke: var(--line-strong); }
+.wrc-grid { stroke: var(--line); stroke-width: 0.5; }
+.wrc-tick { fill: var(--faint); font-family: var(--font-mono); font-size: 8px; }
+.wrc-axis { fill: var(--muted); font-family: var(--font-mono); font-size: 8.5px; letter-spacing: 0.05em; }
+.wrc-point { fill: var(--straw); }
+.wrc-halo { fill: none; stroke: var(--straw); stroke-width: 1; opacity: 0.45; }
+.wrc-note { font-size: 10px; color: var(--faint); margin-top: 6px; line-height: 1.45; }
+.lmp-card .calc-value small { font-size: 10px; color: var(--muted); }
+.lmp-inputs { display: flex; gap: 10px; margin-top: 8px; }
+.lmp-inputs label { display: flex; flex-direction: column; gap: 3px; font-size: 10px; color: var(--muted); }
+.lmp-inputs .el-num { width: 76px; }
+
+@media (max-width: 900px) {
+  .wrc-and-lmp { grid-template-columns: 1fr; }
+}
+
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: var(--panel-3); border-radius: 5px; border: 2px solid var(--bg); }
 ::-webkit-scrollbar-track { background: transparent; }

@@ -8,7 +8,7 @@ const items: { href: string; label: string; phase?: string }[] = [
   { href: "/profiles", label: "Duty profiles" },
   { href: "/comparisons", label: "Comparisons" },
   { href: "/rules", label: "Failure rules" },
-  { href: "/studio", label: "Composition studio", phase: "M2" },
+  { href: "/studio", label: "Composition studio" },
 ];
 
 export function Rail() {
