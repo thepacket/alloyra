@@ -16,12 +16,30 @@ import os
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 import pycalphad
 from pycalphad import Database, equilibrium, variables as v
 
 app = FastAPI(title="alloyra-calphad")
+
+# The workbench is served as static files and calls this bridge directly
+# from the browser. Allow the dev origin by default; add your deployed
+# origin via CALPHAD_CORS_ORIGINS (comma-separated).
+_origins = [
+    o.strip()
+    for o in os.environ.get(
+        "CALPHAD_CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000"
+    ).split(",")
+    if o.strip()
+]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["content-type"],
+)
 
 DB_DIR = os.path.join(os.path.dirname(__file__), "databases")
 

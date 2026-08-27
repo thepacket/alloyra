@@ -1,5 +1,13 @@
-import { redirect } from "next/navigation";
+"use client";
 
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+/** Client-side redirect — server redirects don't exist in a static export. */
 export default function Home() {
-  redirect("/database");
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/database");
+  }, [router]);
+  return null;
 }
