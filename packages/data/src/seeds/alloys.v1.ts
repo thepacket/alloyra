@@ -165,6 +165,7 @@ export const alloys: Alloy[] = [
     standards: ["ASTM A36/A36M"],
     composition: [
       { element: "C", max: 0.26 },
+      { element: "Mn", min: 0.8, max: 1.2, note: "regulated for plate over ~20 mm; thinner product may be unregulated" },
       { element: "Si", max: 0.4 },
       { element: "P", max: 0.04 },
       { element: "S", max: 0.05 },

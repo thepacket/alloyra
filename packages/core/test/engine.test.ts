@@ -9,19 +9,21 @@ import {
   type FailureRule,
 } from "../src/index.ts";
 
+// All-known baseline: numerics stated, flags "no" — unknowns are opted
+// into per test, since unknown now means indeterminate, not clear.
 const baseDuty: DutyInput = {
   tempMaxC: null,
   loadType: "static",
-  designStressMPa: null,
+  designStressMPa: 0,
   cycles: null,
   medium: "atmospheric",
   chloridePpm: null,
   pH: null,
   h2sKpa: null,
-  ammonia: false,
-  crevices: false,
-  welded: false,
-  cathodicProtection: false,
+  ammonia: "no",
+  crevices: "no",
+  welded: "no",
+  cathodicProtection: "no",
   galvanicCouple: "",
   lmeContact: "none",
 };
@@ -70,18 +72,36 @@ describe("rule engine mechanics", () => {
     expect(a?.status).toBe("clear");
   });
 
-  it("unspecified duty fields never flag, but are reported as unchecked", () => {
+  it("unspecified duty fields are INDETERMINATE, never a silent clear", () => {
     const [a] = evaluateRules(facts, baseDuty, [tempRule]);
-    expect(a?.status).toBe("clear");
+    expect(a?.status).toBe("indeterminate");
     expect(a?.unchecked).toContain("tempMaxC");
   });
 
-  it("welding counts as tensile stress (residual)", () => {
+  it("a definite miss clears even when other inputs are unknown", () => {
+    const rule: FailureRule = {
+      ...tempRule,
+      when: [
+        { kind: "family", path: ["Al"] }, // definite miss for 304
+        { kind: "duty", field: "tempMaxC", op: ">=", value: 60 },
+      ],
+    };
+    const [a] = evaluateRules(facts, baseDuty, [rule]);
+    expect(a?.status).toBe("clear");
+  });
+
+  it("welding counts as tensile stress (residual); unknown weld state is indeterminate", () => {
     const rule: FailureRule = { ...tempRule, when: [{ kind: "tensileStress" }] };
     expect(evaluateRules(facts, baseDuty, [rule])[0]?.status).toBe("clear");
     expect(
-      evaluateRules(facts, { ...baseDuty, welded: true }, [rule])[0]?.status,
+      evaluateRules(facts, { ...baseDuty, welded: "yes" }, [rule])[0]?.status,
     ).toBe("hit");
+    expect(
+      evaluateRules(facts, { ...baseDuty, welded: "unknown" }, [rule])[0]?.status,
+    ).toBe("indeterminate");
+    expect(
+      evaluateRules(facts, { ...baseDuty, designStressMPa: null }, [rule])[0]?.status,
+    ).toBe("indeterminate");
   });
 
   it("homologous temperature clause enters the creep regime", () => {
@@ -128,16 +148,29 @@ describe("ranking", () => {
     expect(r.eliminationReasons[0]).toMatch(/temp rule/);
   });
 
-  it("itemizes contributions and weights transparently (R-3.1)", () => {
+  it("itemizes contributions; audit criterion is N/A with zero rules run", () => {
     const r = rankCandidate(facts, { ...baseDuty, designStressMPa: 100 }, [], DEFAULT_WEIGHTS);
     expect(r.eliminated).toBe(false);
     expect(r.contributions).toHaveLength(3);
     const strength = r.contributions.find((c) => c.criterion === "strength");
     // 1 − 100/205
     expect(strength?.raw).toBeCloseTo(1 - 100 / 205, 5);
-    const sum = r.contributions.reduce((s, c) => s + c.points, 0);
-    const wSum = r.contributions.reduce((s, c) => s + c.weight, 0);
+    const audit = r.contributions.find((c) => c.criterion === "auditCleanliness");
+    expect(audit?.included).toBe(false);
+    expect(Number.isNaN(audit?.raw)).toBe(true);
+    const included = r.contributions.filter((c) => c.included);
+    const sum = included.reduce((s, c) => s + c.points, 0);
+    const wSum = included.reduce((s, c) => s + c.weight, 0);
     expect(r.score).toBeCloseTo((sum / wSum) * 100, 5);
+  });
+
+  it("indeterminate audits deduct — missing data lowers the score", () => {
+    const audits = evaluateRules(facts, baseDuty, [tempRule]); // tempMaxC unknown
+    expect(audits[0]?.status).toBe("indeterminate");
+    const r = rankCandidate(facts, baseDuty, audits);
+    const clean = r.contributions.find((c) => c.criterion === "auditCleanliness");
+    expect(clean?.raw).toBeCloseTo(0.9, 5);
+    expect(clean?.note).toMatch(/indeterminate/);
   });
 
   it("audit hits deduct from cleanliness with an itemized note", () => {

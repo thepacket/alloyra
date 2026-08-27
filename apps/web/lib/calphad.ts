@@ -62,8 +62,8 @@ export const calphadProvider: ModelProvider = {
       phases: body.phases,
       provenance: "computed",
       source: {
-        citation: `pycalphad equilibrium over ${body.database_file}`,
-        note: "Cite the TDB's own publication in any report.",
+        citation: `pycalphad ${body.pycalphad_version ?? ""} · ${body.database_file} (sha256 ${String(body.database_sha256 ?? "").slice(0, 12)}…) · T=${body.temp_c} °C, P=${body.pressure_pa ?? 101325} Pa, N=1`,
+        note: `Phases considered: ${(body.phases_considered ?? []).join(", ")}.`,
       },
       note: body.note,
     };

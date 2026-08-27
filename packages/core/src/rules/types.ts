@@ -76,6 +76,11 @@ export interface FailureRule {
   mitigations: string[];
   reviewStatus: ReviewStatus;
   reviewedBy: string;
+  /**
+   * What the numeric thresholds are and are NOT: screening landmarks vs
+   * safe-operating boundaries, and the variables the rule ignores.
+   */
+  thresholdBasis?: string;
   /** Required (validated structurally) when reviewStatus is beyond draft. */
   review?: ReviewRecord;
 }
@@ -94,7 +99,11 @@ export interface CandidateFacts {
   solidusK?: number;
 }
 
-export type AuditStatus = "hit" | "near" | "clear";
+/**
+ * "indeterminate" = one or more inputs the rule needs are unknown and no
+ * clause definitely missed — the rule MIGHT apply; supply the data.
+ */
+export type AuditStatus = "hit" | "near" | "clear" | "indeterminate";
 
 export interface RuleAudit {
   rule: FailureRule;

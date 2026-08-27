@@ -17,8 +17,22 @@ export interface CompositionRange {
   note?: string;
 }
 
-/** A resolved single-point composition (wt%), e.g. mid-range or user-entered. */
+/**
+ * A resolved single-point composition (wt%).
+ * ABSENT means UNKNOWN — never zero. A known-zero content must be an
+ * explicit 0. Calculators declare which elements they require and return
+ * indeterminate results when a required element is unknown (missingness
+ * propagates; it is never silently treated as 0).
+ */
 export type Composition = Partial<Record<ElementSymbol, number>>;
+
+/** Elements of `req` that the composition does not specify. */
+export function missingElements(
+  c: Composition,
+  req: readonly ElementSymbol[],
+): ElementSymbol[] {
+  return req.filter((el) => c[el] === undefined);
+}
 
 /**
  * Resolve a spec range to a point composition using range midpoints.

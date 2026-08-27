@@ -24,7 +24,7 @@ export function larsonMiller(
     formula: "LMP = T[K]·(C + log₁₀ t) / 1000",
     source: {
       citation: "Larson & Miller (1952), Trans. ASME 74",
-      note: "Interpolate within tested data only; extrapolation beyond the rupture dataset is not supported.",
+      note: "A time-temperature CORRELATION, not a life prediction: it needs material- and stress-specific rupture data and a C calibrated to that dataset. Interpolate within tested data only.",
     },
     inWindow,
     warnings,

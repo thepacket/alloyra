@@ -1,3 +1,4 @@
+import type { ElementSymbol } from "../composition.ts";
 import type { SourceRef } from "../provenance.ts";
 
 /**
@@ -7,10 +8,33 @@ import type { SourceRef } from "../provenance.ts";
  * extrapolating silently.
  */
 export interface CalcResult {
+  /** NaN when the result is indeterminate (see `missing`). */
   value: number;
   unit: string;
   formula: string;
   source: SourceRef;
   inWindow: boolean;
   warnings: string[];
+  /**
+   * Required elements the composition did not specify. Non-empty means
+   * the result is UNKNOWN — the UI must say "unknown", never show a
+   * number computed with silent zeros.
+   */
+  missing?: ElementSymbol[];
+}
+
+/** Standard indeterminate result for missing required chemistry. */
+export function indeterminate(
+  missing: ElementSymbol[],
+  base: Omit<CalcResult, "value" | "inWindow" | "warnings" | "missing">,
+): CalcResult {
+  return {
+    ...base,
+    value: Number.NaN,
+    inWindow: false,
+    missing,
+    warnings: [
+      `Cannot compute — composition does not specify: ${missing.join(", ")}. Missing chemistry propagates as unknown, never as zero.`,
+    ],
+  };
 }

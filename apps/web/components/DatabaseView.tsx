@@ -5,11 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { alloys, type Alloy } from "@alloyra/data";
 import {
   ceIIW,
-  midpointComposition,
   msAndrews,
   pren,
-  wrc1992,
-  type CalcResult,
+  specRange,
+  type SpecRangeResult,
 } from "@alloyra/core";
 import { ProvenanceChip } from "./ProvenanceChip";
 
@@ -32,26 +31,38 @@ function isPlainSteel(a: Alloy) {
   return a.family[0] === "Fe" && !isStainless(a);
 }
 
-function prenFor(a: Alloy): CalcResult | undefined {
+function prenRangeFor(a: Alloy): SpecRangeResult | undefined {
   if (!isStainless(a)) return undefined;
-  return pren(midpointComposition(a.composition));
+  return specRange(pren, a.composition);
+}
+
+function fmtRange(r: SpecRangeResult): string {
+  if (r.missing.length > 0) return "unknown";
+  return `${r.lo.toFixed(1)} – ${r.hi.toFixed(1)}`;
 }
 
 function fmt(v: number | undefined, digits = 0): string {
   return v === undefined ? "—" : v.toFixed(digits);
 }
 
-function CalcLine({ label, r }: { label: string; r: CalcResult }) {
+function RangeLine({ label, r }: { label: string; r: SpecRangeResult }) {
   return (
     <div className={`calc-line ${r.inWindow ? "" : "out"}`} title={r.warnings.join(" ")}>
       <div>
         <div>
-          {label} <ProvenanceChip p="computed" title={r.source.citation} />
+          {label} <ProvenanceChip p="computed" title="Interval permitted by the specification's composition ranges" />
         </div>
         <div className="formula">{r.formula}</div>
+        {r.missing.length > 0 && (
+          <div className="calc-warn">
+            Unknown — spec does not regulate: {r.missing.join(", ")}
+          </div>
+        )}
       </div>
       <span className="val">
-        {r.inWindow ? `${r.value.toFixed(1)}${r.unit ? ` ${r.unit}` : ""}` : "n/a"}
+        {r.missing.length > 0
+          ? "unknown"
+          : `${r.lo.toFixed(1)} – ${r.hi.toFixed(1)}${r.unit ? ` ${r.unit}` : ""}`}
       </span>
     </div>
   );
@@ -73,17 +84,15 @@ function DetailPanel({
       </aside>
     );
   }
-  const mid = midpointComposition(alloy.composition);
-  const calcs: { label: string; r: CalcResult }[] = [];
+  // Specification-derived INTERVALS — what the spec permits, not a
+  // fabricated nominal point. Actual heat chemistry goes in the studio.
+  const calcs: { label: string; r: SpecRangeResult }[] = [];
   if (isStainless(alloy)) {
-    calcs.push({ label: "PREN (mid-spec)", r: pren(mid) });
-    const w = wrc1992(mid);
-    calcs.push({ label: "WRC-1992 Creq", r: w.creq });
-    calcs.push({ label: "WRC-1992 Nieq", r: w.nieq });
+    calcs.push({ label: "PREN (spec range)", r: specRange(pren, alloy.composition) });
   }
   if (isPlainSteel(alloy)) {
-    calcs.push({ label: "CE(IIW) (mid-spec)", r: ceIIW(mid) });
-    calcs.push({ label: "Ms, Andrews (mid-spec)", r: msAndrews(mid) });
+    calcs.push({ label: "CE(IIW) (spec range)", r: specRange(ceIIW, alloy.composition) });
+    calcs.push({ label: "Ms, Andrews (spec range)", r: specRange(msAndrews, alloy.composition) });
   }
 
   return (
@@ -152,10 +161,15 @@ function DetailPanel({
 
       {calcs.length > 0 && (
         <section>
-          <h3>Computed (hover for source)</h3>
+          <h3>Computed — spec-permitted intervals</h3>
           {calcs.map((c) => (
-            <CalcLine key={c.label} label={c.label} r={c.r} />
+            <RangeLine key={c.label} label={c.label} r={c.r} />
           ))}
+          <div className="note-text">
+            Ranges span the specification's composition limits; a real heat
+            sits at one point inside them. Enter heat chemistry in the
+            Composition studio for point values.
+          </div>
         </section>
       )}
 
@@ -238,14 +252,14 @@ export function DatabaseView() {
                 <th>Family</th>
                 <th className="num">σy min (MPa)</th>
                 <th className="num">UTS min (MPa)</th>
-                <th className="num" title="Pitting resistance equivalent, computed at mid-spec composition">
-                  PREN (mid-spec) <span className="prov computed">COMPUTED</span>
+                <th className="num" title="Interval permitted by the specification's composition ranges — a real heat sits at one point inside it">
+                  PREN (spec range) <span className="prov computed">COMPUTED</span>
                 </th>
               </tr>
             </thead>
             <tbody>
               {rows.map((a) => {
-                const p = prenFor(a);
+                const p = prenRangeFor(a);
                 return (
                   <tr
                     key={a.uns}
@@ -266,7 +280,7 @@ export function DatabaseView() {
                     <td className="dim">{a.family.slice(1).join(" / ") || a.family[0]}</td>
                     <td className="num mono">{fmt(specMin(a, "yield_strength"))}</td>
                     <td className="num mono">{fmt(specMin(a, "tensile_strength"))}</td>
-                    <td className="num mono">{p ? p.value.toFixed(1) : "—"}</td>
+                    <td className="num mono">{p ? fmtRange(p) : "—"}</td>
                   </tr>
                 );
               })}

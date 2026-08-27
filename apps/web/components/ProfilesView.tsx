@@ -6,8 +6,28 @@ import {
   blankProfile as blank,
   loadProfiles as load,
   saveProfiles,
+  validateProfile,
   type DutyProfile,
 } from "../lib/profiles";
+
+/** Yes / No / Unknown select — unknown is a legitimate, first-class answer. */
+function TriSelect({
+  id,
+  value,
+  onChange,
+}: {
+  id: string;
+  value: "yes" | "no" | "unknown";
+  onChange: (v: "yes" | "no" | "unknown") => void;
+}) {
+  return (
+    <select id={id} value={value} onChange={(e) => onChange(e.target.value as "yes" | "no" | "unknown")}>
+      <option value="unknown">Unknown</option>
+      <option value="no">No</option>
+      <option value="yes">Yes</option>
+    </select>
+  );
+}
 
 function num(v: string): number | null {
   if (v.trim() === "") return null;
@@ -58,8 +78,10 @@ export function ProfilesView() {
     saveProfiles(next);
   };
 
+  const errors = validateProfile(draft);
+
   const save = () => {
-    if (!draft.name.trim()) return;
+    if (!draft.name.trim() || errors.length > 0) return;
     const existing = profiles.find((p) => p.id === draft.id);
     const record: DutyProfile = {
       ...draft,
@@ -112,17 +134,25 @@ export function ProfilesView() {
           type="button"
           className="btn"
           onClick={save}
-          disabled={!draft.name.trim()}
+          disabled={!draft.name.trim() || errors.length > 0}
           aria-describedby={!draft.name.trim() ? "save-hint" : undefined}
         >
           Save {profiles.some((p) => p.id === draft.id) ? `(v${draft.version + 1})` : ""}
         </button>
       </div>
+      {errors.length > 0 && (
+        <div className="profile-errors" role="alert">
+          {errors.map((e) => (
+            <div key={e}>{e}</div>
+          ))}
+        </div>
+      )}
       <div className="split">
         <div className="side-list" aria-label="Saved profiles">
           <div className="storage-note">
             Profiles are saved in this browser only — use Export to back up
-            or move them.
+            or move them. Fields left Unknown make the affected rules report
+            "insufficient information" instead of silently passing.
           </div>
           {loaded && profiles.length === 0 && (
             <div className="item" style={{ cursor: "default" }}>
@@ -186,6 +216,7 @@ export function ProfilesView() {
                 <label htmlFor="m-load">Load type</label>
                 <select id="m-load" value={draft.mechanical.loadType}
                   onChange={(e) => set("mechanical", { ...draft.mechanical, loadType: e.target.value as DutyProfile["mechanical"]["loadType"] })}>
+                  <option value="unknown">Unknown</option>
                   <option value="static">Static</option>
                   <option value="cyclic">Cyclic (fatigue)</option>
                   <option value="impact">Impact</option>
@@ -217,6 +248,7 @@ export function ProfilesView() {
                 <label htmlFor="c-med">Medium</label>
                 <select id="c-med" value={draft.chemistry.medium}
                   onChange={(e) => set("chemistry", { ...draft.chemistry, medium: e.target.value as DutyProfile["chemistry"]["medium"] })}>
+                  <option value="unknown">Unknown</option>
                   <option value="atmospheric">Atmospheric</option>
                   <option value="immersion">Immersion</option>
                   <option value="soil">Soil / buried</option>
@@ -240,11 +272,8 @@ export function ProfilesView() {
               </div>
               <div className="field">
                 <label htmlFor="c-nh3">Ammonia / amines present</label>
-                <select id="c-nh3" value={String(draft.chemistry.ammonia)}
-                  onChange={(e) => set("chemistry", { ...draft.chemistry, ammonia: e.target.value === "true" })}>
-                  <option value="false">No</option>
-                  <option value="true">Yes</option>
-                </select>
+                <TriSelect id="c-nh3" value={draft.chemistry.ammonia}
+                  onChange={(v) => set("chemistry", { ...draft.chemistry, ammonia: v })} />
               </div>
             </div>
           </fieldset>
@@ -259,32 +288,24 @@ export function ProfilesView() {
               </div>
               <div className="field">
                 <label htmlFor="x-crev">Crevices / deposits</label>
-                <select id="x-crev" value={String(draft.context.crevices)}
-                  onChange={(e) => set("context", { ...draft.context, crevices: e.target.value === "true" })}>
-                  <option value="false">No</option>
-                  <option value="true">Yes</option>
-                </select>
+                <TriSelect id="x-crev" value={draft.context.crevices}
+                  onChange={(v) => set("context", { ...draft.context, crevices: v })} />
               </div>
               <div className="field">
                 <label htmlFor="x-weld">Welded construction</label>
-                <select id="x-weld" value={String(draft.context.welded)}
-                  onChange={(e) => set("context", { ...draft.context, welded: e.target.value === "true" })}>
-                  <option value="false">No</option>
-                  <option value="true">Yes</option>
-                </select>
+                <TriSelect id="x-weld" value={draft.context.welded}
+                  onChange={(v) => set("context", { ...draft.context, welded: v })} />
               </div>
               <div className="field">
                 <label htmlFor="x-cp">Cathodic protection</label>
-                <select id="x-cp" value={String(draft.context.cathodicProtection)}
-                  onChange={(e) => set("context", { ...draft.context, cathodicProtection: e.target.value === "true" })}>
-                  <option value="false">No</option>
-                  <option value="true">Yes</option>
-                </select>
+                <TriSelect id="x-cp" value={draft.context.cathodicProtection}
+                  onChange={(v) => set("context", { ...draft.context, cathodicProtection: v })} />
               </div>
               <div className="field">
                 <label htmlFor="x-lme">Molten-metal contact (LME)</label>
                 <select id="x-lme" value={draft.context.lmeContact}
                   onChange={(e) => set("context", { ...draft.context, lmeContact: e.target.value as DutyProfile["context"]["lmeContact"] })}>
+                  <option value="unknown">Unknown</option>
                   <option value="none">None</option>
                   <option value="zinc">Zinc (galvanizing / weld-through)</option>
                   <option value="copper">Copper</option>
@@ -305,6 +326,7 @@ export function ProfilesView() {
                 <label htmlFor="k-route">Fabrication route</label>
                 <select id="k-route" value={draft.constraints.route}
                   onChange={(e) => set("constraints", { ...draft.constraints, route: e.target.value as DutyProfile["constraints"]["route"] })}>
+                  <option value="unknown">Unknown</option>
                   <option value="wrought">Wrought</option>
                   <option value="cast">Cast</option>
                   <option value="am">Additive</option>

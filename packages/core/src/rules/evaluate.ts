@@ -126,32 +126,43 @@ function evalClause(
       if (v === null) return { r: "unknown", field: c.field };
       return numericGate(v, c.op, c.value, c.nearBand, c.field);
     }
-    case "dutyFlag":
-      return d[c.field] === c.value
-        ? { r: "hit", because: `${c.field} = ${c.value}` }
+    case "dutyFlag": {
+      const v = d[c.field];
+      if (v === "unknown") return { r: "unknown", field: c.field };
+      const asBool = v === "yes";
+      return asBool === c.value
+        ? { r: "hit", because: `${c.field} = ${v}` }
         : { r: "miss" };
+    }
     case "mediumIn":
+      if (d.medium === "unknown") return { r: "unknown", field: "medium" };
       return c.anyOf.includes(d.medium)
         ? { r: "hit", because: `medium is ${d.medium}` }
         : { r: "miss" };
     case "loadIn":
+      if (d.loadType === "unknown") return { r: "unknown", field: "load type" };
       return c.anyOf.includes(d.loadType)
         ? { r: "hit", because: `load type is ${d.loadType}` }
         : { r: "miss" };
-    case "tensileStress":
-      return tensileStressPresent(d)
+    case "tensileStress": {
+      const t = tensileStressPresent(d);
+      if (t === "unknown") return { r: "unknown", field: "design stress / weld state" };
+      return t === "yes"
         ? {
             r: "hit",
-            because: d.welded
-              ? "tensile stress present (welded — residual stress counts)"
-              : "sustained tensile design stress present",
+            because:
+              d.welded === "yes"
+                ? "tensile stress present (welded — residual stress counts)"
+                : "sustained tensile design stress present",
           }
         : { r: "miss" };
+    }
     case "galvanicCouplePresent":
       return d.galvanicCouple.trim() !== ""
         ? { r: "hit", because: `galvanic couple with ${d.galvanicCouple.trim()}` }
         : { r: "miss" };
     case "lmeContact":
+      if (d.lmeContact === "unknown") return { r: "unknown", field: "molten-metal contact" };
       return c.anyOf.includes(d.lmeContact as never)
         ? { r: "hit", because: `molten-metal contact: ${d.lmeContact}` }
         : { r: "miss" };
@@ -190,27 +201,34 @@ export function evaluateRules(
     const because: string[] = [];
     const unchecked: string[] = [];
     let sawNear = false;
-    let miss = false;
+    let definiteMiss = false;
     for (const clause of rule.when) {
       const res = evalClause(clause, facts, duty);
       if (res.r === "miss") {
-        miss = true;
+        definiteMiss = true;
         break;
       }
       if (res.r === "unknown") {
         unchecked.push(res.field);
-        miss = true; // cannot confirm — do not flag, but do report the gap
         continue;
       }
       if (res.r === "near") sawNear = true;
       because.push(res.because);
     }
-    const status: AuditStatus = miss ? "clear" : sawNear ? "near" : "hit";
+    // A definite miss clears the rule. Unknown inputs make it
+    // INDETERMINATE — "insufficient information", never "did not fire".
+    const status: AuditStatus = definiteMiss
+      ? "clear"
+      : unchecked.length > 0
+        ? "indeterminate"
+        : sawNear
+          ? "near"
+          : "hit";
     return {
       rule,
       status,
       because: status === "clear" ? [] : because,
-      unchecked,
+      unchecked: status === "clear" ? [] : unchecked,
     };
   });
 }

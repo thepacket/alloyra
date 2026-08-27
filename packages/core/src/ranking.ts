@@ -23,12 +23,14 @@ export const DEFAULT_WEIGHTS: Weights = {
 export interface Contribution {
   criterion: keyof Weights;
   label: string;
-  /** Normalized 0–1. */
+  /** Normalized 0–1; NaN when the criterion is N/A. */
   raw: number;
   weight: number;
   /** raw × weight — what actually moves the score. */
   points: number;
   note: string;
+  /** False = N/A: excluded from the weighted mean entirely. */
+  included: boolean;
 }
 
 export interface RankResult {
@@ -96,9 +98,12 @@ export function rankCandidate(
       "No corrosion index available for this family — neutral 0.5; apply expert judgment.";
   }
 
-  // Audit cleanliness. With no rules run there is nothing to be clean
-  // against — score neutral, never perfect.
-  let auditRaw = audits.length === 0 ? 0.5 : 1;
+  // Audit cleanliness — meaningful ONLY when rules actually ran. With
+  // zero rules the criterion is N/A and drops out of the weighted mean
+  // (never neutral, never perfect). Indeterminate results (missing duty
+  // data) deduct: missing information lowers the score, it never helps.
+  const auditIncluded = audits.length > 0;
+  let auditRaw = 1;
   const hits: string[] = [];
   for (const a of audits) {
     if (a.status === "hit") {
@@ -107,6 +112,9 @@ export function rankCandidate(
     } else if (a.status === "near") {
       auditRaw -= 0.05;
       hits.push(`${a.rule.name} (near-miss)`);
+    } else if (a.status === "indeterminate") {
+      auditRaw -= 0.1;
+      hits.push(`${a.rule.name} (indeterminate — insufficient duty data)`);
     }
   }
   auditRaw = clamp01(auditRaw);
@@ -119,6 +127,7 @@ export function rankCandidate(
       weight: weights.strength,
       points: strengthRaw * weights.strength,
       note: strengthNote,
+      included: true,
     },
     {
       criterion: "corrosion",
@@ -127,26 +136,29 @@ export function rankCandidate(
       weight: weights.corrosion,
       points: corrosionRaw * weights.corrosion,
       note: corrosionNote,
+      included: true,
     },
     {
       criterion: "auditCleanliness",
       label: "Failure-audit cleanliness",
-      raw: auditRaw,
+      raw: auditIncluded ? auditRaw : Number.NaN,
       weight: weights.auditCleanliness,
-      points: auditRaw * weights.auditCleanliness,
-      note:
-        audits.length === 0
-          ? "No rules were run — neutral 0.5, not a clean bill."
-          : hits.length
-            ? `Deductions: ${hits.join("; ")}.`
-            : "No rule hits.",
+      points: auditIncluded ? auditRaw * weights.auditCleanliness : 0,
+      note: auditIncluded
+        ? hits.length
+          ? `Deductions: ${hits.join("; ")}.`
+          : "No rule hits."
+        : "N/A — no rules ran; this criterion is excluded from the score.",
+      included: auditIncluded,
     },
   ];
 
-  const wSum = contributions.reduce((s, c) => s + c.weight, 0);
+  // score = Σ(weightᵢ · rawᵢ) / Σ weightᵢ × 100, over included criteria.
+  const included = contributions.filter((c) => c.included);
+  const wSum = included.reduce((s, c) => s + c.weight, 0);
   const score =
     wSum > 0
-      ? (contributions.reduce((s, c) => s + c.points, 0) / wSum) * 100
+      ? (included.reduce((s, c) => s + c.points, 0) / wSum) * 100
       : Number.NaN;
 
   return {

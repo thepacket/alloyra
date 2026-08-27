@@ -9,7 +9,7 @@ import type { FailureRule } from "@alloyra/core";
  * (R-5.4). reviewedBy is honest: none of these have expert sign-off yet —
  * that review is open question 2 in the blueprint.
  */
-export const RULESET_VERSION = "2026.08.0";
+export const RULESET_VERSION = "2026.08.1";
 
 const SEED = "seed — awaiting expert review";
 
@@ -32,13 +32,35 @@ export const failureRules: FailureRule[] = [
       "Stress-relieve to reduce residual tensile stress",
       "Lower metal temperature below ~60 °C or shield from chloride concentration",
     ],
+    thresholdBasis:
+      "50 ppm / 60 °C are screening landmarks from the SCC literature, not safe-operating boundaries; stress level, oxygen, and concentration by evaporation all shift them.",
+    reviewStatus: "draft",
+    reviewedBy: SEED,
+  },
+  {
+    id: "iso15156-sour-service",
+    name: "Sour service — mandatory ISO 15156 qualification check",
+    severity: "serious",
+    when: [
+      { kind: "family", path: ["Fe"] },
+      { kind: "duty", field: "h2sKpa", op: ">=", value: 0.3, nearBand: 0.5 },
+    ],
+    mechanism:
+      "H₂S at this partial pressure places steel selection under ANSI/NACE MR0175 / ISO 15156. This flag mandates a traceable qualification against the standard's tables — material class, hardness, heat treatment, environmental region (pH, H₂S, chloride, temperature), and application scope. Alloyra does NOT evaluate those tables and issues no pass or disqualification; the standard supplements, not replaces, the applicable design codes.",
+    citation: "ANSI/NACE MR0175 / ISO 15156-2:2020",
+    mitigations: [
+      "Perform the ISO 15156 code-table evaluation for the specific material class and environmental region",
+      "Obtain certified hardness surveys for base metal, weld, and HAZ",
+    ],
+    thresholdBasis:
+      "0.3 kPa is the conventional scoping landmark for sour service; applicability of the standard is what triggers, not a fitness verdict.",
     reviewStatus: "draft",
     reviewedBy: SEED,
   },
   {
     id: "scc-sulfide-hsla",
-    name: "Sulfide SCC / HE — high-strength steel in sour service",
-    severity: "disqualifying",
+    name: "Sulfide SCC susceptibility — high-strength steel in sour service",
+    severity: "serious",
     when: [
       { kind: "family", path: ["Fe"] },
       { kind: "notFamily", path: ["Fe", "stainless"] },
@@ -46,12 +68,14 @@ export const failureRules: FailureRule[] = [
       { kind: "duty", field: "h2sKpa", op: ">=", value: 0.3, nearBand: 0.5 },
     ],
     mechanism:
-      "Hydrogen from H₂S corrosion embrittles high-strength steel. ISO 15156 / NACE MR0175 caps hardness (~22 HRC for carbon steels); yield ≥ ~1000 MPa is used here as a proxy for exceeding it — a spec exclusion, hence disqualifying under the current rule set.",
-    citation: "ANSI/NACE MR0175 / ISO 15156",
+      "Hydrogen from H₂S corrosion embrittles high-strength steel; susceptibility rises steeply with strength/hardness. Yield ≥ ~1000 MPa is a COARSE PROXY for exceeding ISO 15156 hardness caps — it flags elevated susceptibility for the qualification check above, it does not disqualify.",
+    citation: "ANSI/NACE MR0175 / ISO 15156; ASM Handbook Vol. 13A",
     mitigations: [
       "Select a sour-service-qualified grade and temper within the hardness cap",
-      "Requalify the joint/part to ISO 15156 with certified hardness surveys",
+      "Qualify to ISO 15156 with certified hardness surveys before use",
     ],
+    thresholdBasis:
+      "Strength is a proxy — the standard's actual limits are hardness- and class-based; hardness data would replace this proxy.",
     reviewStatus: "draft",
     reviewedBy: SEED,
   },
@@ -163,11 +187,13 @@ export const failureRules: FailureRule[] = [
     ],
     mechanism:
       "Chloride pitting initiates where PREN is inadequate for the chloride level and temperature; 300-series grades (PREN ≲ 30) pit in strong chloride, seawater-class service generally wants PREN ≥ 40.",
-    citation: "PREN screening relation; ASTM G48 test context",
+    citation: "PREN comparative screening relation",
     mitigations: [
       "Step up in PREN (316L → 317L → duplex → 6-Mo)",
       "Control temperature and chloride concentration/evaporation",
     ],
+    thresholdBasis:
+      "Comparative PREN screening only — ignores temperature, pH, oxidizing potential, surface condition, deposits, and evaporative concentration. G48 testing ranks alloys under accelerated ferric-chloride conditions and does not predict service.",
     reviewStatus: "draft",
     reviewedBy: SEED,
   },
@@ -187,6 +213,8 @@ export const failureRules: FailureRule[] = [
       "Design out crevices (full-penetration welds, no backing strips, gasket choice)",
       "Higher-PREN grade sized to crevice (not open-surface) resistance",
     ],
+    thresholdBasis:
+      "100 ppm is a scoping landmark; real crevice initiation depends on temperature, crevice geometry, gasket material, and time.",
     reviewStatus: "draft",
     reviewedBy: SEED,
   },
@@ -205,6 +233,8 @@ export const failureRules: FailureRule[] = [
       "Isolate electrically (sleeves, washers, coatings on the CATHODE)",
       "Keep the anode large relative to the cathode",
     ],
+    thresholdBasis:
+      "Fires on any declared couple — it does not weigh galvanic-series separation, area ratio, electrolyte conductivity, or polarization. Treat as a prompt to run that assessment.",
     reviewStatus: "draft",
     reviewedBy: SEED,
   },
@@ -218,7 +248,7 @@ export const failureRules: FailureRule[] = [
     citation: "Standard homologous-temperature criterion; Larson & Miller (1952)",
     mitigations: [
       "Design to creep-rupture data at life and temperature, not room-temperature yield",
-      "Consider creep-resistant grades (e.g. 625, Grade 91) for sustained hot service",
+      "Consider creep-resistant grades in the qualified condition (e.g. Alloy 625 as B443 Grade 2 solution-annealed — NOT the Grade 1 annealed database entry — or Grade 91) for sustained hot service",
     ],
     reviewStatus: "draft",
     reviewedBy: SEED,
@@ -238,6 +268,8 @@ export const failureRules: FailureRule[] = [
       "Use environment-specific S-N data or apply corrosion-fatigue knockdowns",
       "Surface protection + compressive residual stress (peening)",
     ],
+    thresholdBasis:
+      "Any chloride flags the phenomenon; actual life depends on frequency, waveform, potential, stress amplitude, and surface condition — none of which this rule sees.",
     reviewStatus: "draft",
     reviewedBy: SEED,
   },
@@ -255,6 +287,8 @@ export const failureRules: FailureRule[] = [
       "Dried chloride salt deposits on stressed titanium above ~250 °C can drive hot-salt SCC — niche, but severe when the geometry traps deposits.",
     citation: "ASM Handbook Vol. 13B",
     mitigations: ["Prevent salt deposition/drying on hot stressed surfaces", "Wash-down provisions in design"],
+    thresholdBasis:
+      "Bulk chloride is a weak proxy for deposited-salt chemistry and wet/dry history on hot surfaces.",
     reviewStatus: "draft",
     reviewedBy: SEED,
   },

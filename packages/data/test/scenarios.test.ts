@@ -13,19 +13,20 @@ import { alloys, candidateFacts, failureRules } from "../src/index.ts";
  */
 
 function duty(over: Partial<DutyInput>): DutyInput {
+  // All-known baseline for scenario clarity; unknowns are per-test.
   return {
     tempMaxC: null,
     loadType: "static",
-    designStressMPa: null,
+    designStressMPa: 0,
     cycles: null,
     medium: "atmospheric",
     chloridePpm: null,
     pH: null,
     h2sKpa: null,
-    ammonia: false,
-    crevices: false,
-    welded: false,
-    cathodicProtection: false,
+    ammonia: "no",
+    crevices: "no",
+    welded: "no",
+    cathodicProtection: "no",
     galvanicCouple: "",
     lmeContact: "none",
     ...over,
@@ -50,7 +51,7 @@ const hotSeawaterWelded = duty({
   tempMaxC: 80,
   chloridePpm: 19000,
   medium: "immersion",
-  welded: true,
+  welded: "yes",
 });
 
 describe("chloride SCC (the seed conversation's phenomenon)", () => {
@@ -77,16 +78,30 @@ describe("sensitization", () => {
 
 describe("sour service (ISO 15156)", () => {
   const sour = duty({ h2sKpa: 10, medium: "process-fluid", designStressMPa: 400 });
-  it("4340 Q&T (σy ≈ 1420 MPa): sulfide SCC hits and is disqualifying", () => {
+  it("any steel in sour service: mandatory ISO 15156 qualification check fires", () => {
+    expect(statusOf(facts("K02600"), sour, "iso15156-sour-service")).toBe("hit");
+    expect(statusOf(facts("G43400"), sour, "iso15156-sour-service")).toBe("hit");
+  });
+  it("4340 Q&T (σy ≈ 1420 MPa): susceptibility flag fires but does NOT disqualify — qualification is the standard's call", () => {
     const f = facts("G43400");
     const audits = evaluateRules(f, sour, failureRules);
     expect(audits.find((a) => a.rule.id === "scc-sulfide-hsla")?.status).toBe("hit");
     const rank = rankCandidate(f, sour, audits);
-    expect(rank.eliminated).toBe(true);
-    expect(rank.eliminationReasons.join(" ")).toMatch(/MR0175/);
+    expect(rank.eliminated).toBe(false);
   });
-  it("A36 (σy 250 MPa) in the same sour duty: clear of sulfide SCC", () => {
+  it("A36 (σy 250 MPa): susceptibility flag clear (definite miss on yield)", () => {
     expect(statusOf(facts("K02600"), sour, "scc-sulfide-hsla")).toBe("clear");
+  });
+});
+
+describe("unknowns are indeterminate, not clear", () => {
+  it("chloride SCC with unknown weld state and no stated stress: INDETERMINATE", () => {
+    const d = duty({ tempMaxC: 80, chloridePpm: 19000, welded: "unknown", designStressMPa: null });
+    expect(statusOf(facts("S30400"), d, "scc-chloride-austenitic")).toBe("indeterminate");
+  });
+  it("a blank-ish duty leaves season cracking indeterminate for brass", () => {
+    const d = duty({ ammonia: "unknown", designStressMPa: 50 });
+    expect(statusOf(facts("C26000"), d, "scc-season-cracking-brass")).toBe("indeterminate");
   });
 });
 
@@ -103,7 +118,7 @@ describe("7xxx aluminum: the T6 vs T73 decision", () => {
 
 describe("season cracking", () => {
   it("cartridge brass + ammonia + tensile stress: hits", () => {
-    const d = duty({ ammonia: true, designStressMPa: 50 });
+    const d = duty({ ammonia: "yes", designStressMPa: 50 });
     expect(statusOf(facts("C26000"), d, "scc-season-cracking-brass")).toBe("hit");
   });
   it("no ammonia: clear", () => {

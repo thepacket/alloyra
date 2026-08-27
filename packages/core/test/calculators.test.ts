@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ceIIW,
+  specRange,
   larsonMiller,
   midpointComposition,
   msAndrews,
@@ -89,6 +90,52 @@ describe("Larson-Miller", () => {
   it("600 °C, 100 000 h, C = 20 → 21.83", () => {
     const r = larsonMiller(600, 100_000);
     expect(r.value).toBeCloseTo((873.15 * 25) / 1000, 2);
+  });
+});
+
+describe("missingness propagation", () => {
+  it("CE with unspecified Mn is unknown — never a pure-iron number", () => {
+    const r = ceIIW({ C: 0.2 });
+    expect(Number.isNaN(r.value)).toBe(true);
+    expect(r.missing).toContain("Mn");
+    expect(r.inWindow).toBe(false);
+  });
+
+  it("Ms with unspecified C is unknown — 539 °C is pure iron, not a steel", () => {
+    const r = msAndrews({ Mn: 1.0 });
+    expect(Number.isNaN(r.value)).toBe(true);
+    expect(r.missing).toContain("C");
+  });
+
+  it("absent optional elements are disclosed, not silent", () => {
+    const r = pren({ Cr: 17, Mo: 2.5 }); // N, W unspecified
+    expect(r.warnings.join(" ")).toMatch(/taken as 0/);
+    expect(r.warnings.join(" ")).toMatch(/N/);
+  });
+});
+
+describe("specRange — specification-derived intervals", () => {
+  it("316L spec permits PREN ≈ 22.6–29.5", () => {
+    const r = specRange(pren, [
+      { element: "Cr", min: 16, max: 18 },
+      { element: "Ni", min: 10, max: 14 },
+      { element: "Mo", min: 2, max: 3 },
+      { element: "N", max: 0.1 },
+      { element: "C", max: 0.03 },
+      { element: "Fe", balance: true },
+    ]);
+    expect(r.lo).toBeCloseTo(22.6, 1);
+    expect(r.hi).toBeCloseTo(29.5, 1);
+    expect(r.inWindow).toBe(true);
+  });
+
+  it("a spec that never regulates Mn yields an indeterminate CE range", () => {
+    const r = specRange(ceIIW, [
+      { element: "C", max: 0.26 },
+      { element: "Fe", balance: true },
+    ]);
+    expect(r.missing).toContain("Mn");
+    expect(r.inWindow).toBe(false);
   });
 });
 

@@ -12,6 +12,7 @@ Run:  uvicorn main:app --port 8791
 from __future__ import annotations
 
 import glob
+import hashlib
 import os
 from typing import Optional
 
@@ -60,6 +61,8 @@ class LoadedDb:
         self.id = db_id
         self.path = path
         self.db = db
+        with open(path, "rb") as fh:
+            self.sha256 = hashlib.sha256(fh.read()).hexdigest()
         self.elements = sorted(
             e for e in (str(x).upper() for x in db.elements) if e not in ("VA", "/-")
         )
@@ -160,14 +163,24 @@ def run_equilibrium(req: EquilibriumRequest) -> dict:
     return {
         "database_id": loaded.id,
         "database_file": os.path.basename(loaded.path),
+        "database_sha256": loaded.sha256,
+        "pycalphad_version": pycalphad.__version__,
         "temp_c": req.temp_c,
+        "pressure_pa": req.pressure_pa,
+        "moles": 1.0,
+        "phases_considered": loaded.phases,
         "mole_fractions": x,
         "phases": [
             {"phase": name, "fraction": frac}
             for name, frac in sorted(fractions.items(), key=lambda kv: -kv[1])
         ],
         "note": (
-            "Equilibrium (lever-rule) phase fractions in moles from the named "
-            "TDB. Metastable/as-quenched microstructures will differ."
+            "EQUILIBRIUM assumption: lever-rule phase fractions in moles over "
+            "all phases in the named TDB. The manufactured microstructure "
+            "depends on kinetics and process history and WILL differ from "
+            "equilibrium. Reliability is bounded by the TDB's underlying "
+            "assessed data; convergence/mass-balance diagnostics are not "
+            "exposed by this bridge version. Verify the database licence "
+            "and cite its publication in any report."
         ),
     }

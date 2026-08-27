@@ -102,7 +102,11 @@ function CalcCard({ label, r }: { label: string; r: CalcResult }) {
           {label} <span className="prov computed">COMPUTED</span>
         </span>
         <span className="calc-value">
-          {r.inWindow ? `${r.value.toFixed(1)}${r.unit ? ` ${r.unit}` : ""}` : "n/a"}
+          {r.missing?.length
+            ? "unknown"
+            : r.inWindow
+              ? `${r.value.toFixed(1)}${r.unit ? ` ${r.unit}` : ""}`
+              : "n/a"}
         </span>
       </div>
       <div className="calc-formula mono">{r.formula}</div>
@@ -239,7 +243,7 @@ export function StudioView() {
       .map(([el, v]) => `<tr><td>${el}</td><td>${el === bal ? `${v} (balance)` : v}</td></tr>`)
       .join("");
     const calcRow = (label: string, r: CalcResult) =>
-      `<tr><td>${label}</td><td>${r.inWindow ? `${r.value.toFixed(1)} ${r.unit}` : "n/a (out of validity window)"}</td><td><code>${r.formula}</code></td><td>${r.source.citation}</td><td>${r.warnings.join("; ") || "—"}</td></tr>`;
+      `<tr><td>${label}</td><td>${r.missing?.length ? `unknown (missing: ${r.missing.join(", ")})` : r.inWindow ? `${r.value.toFixed(1)} ${r.unit}` : "n/a (out of validity window)"}</td><td><code>${r.formula}</code></td><td>${r.source.citation}</td><td>${r.warnings.join("; ") || "—"}</td></tr>`;
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>Alloyra composition study</title>
 <style>body{font-family:Georgia,serif;max-width:60rem;margin:2rem auto;color:#1b2129;line-height:1.5}
 h1{font-family:Arial;letter-spacing:.02em}table{border-collapse:collapse;width:100%;margin:.75rem 0}
@@ -254,9 +258,9 @@ All derived values are COMPUTED from the stated composition via the cited empiri
 ${calcRow("PREN", results.pren)}${calcRow("WRC-1992 Creq", results.wrc.creq)}${calcRow("WRC-1992 Nieq", results.wrc.nieq)}
 ${calcRow("CE(IIW)", results.ce)}${calcRow("Ms (Andrews)", results.ms)}${calcRow("Md30 (Nohara)", results.md30)}
 ${calcRow(`LMP @ ${state.lmp.tempC} °C / ${state.lmp.hours} h (C=${state.lmp.C})`, results.lmp)}</table>
-<h2>Nearest standard grades</h2>
-<table><tr><th>Grade</th><th>Σ|Δwt%|</th><th>Largest deltas (user − grade)</th></tr>
-${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.distance.toFixed(2)}</td><td>${m.deltas.slice(0, 5).map((d) => `${d.element} ${d.delta > 0 ? "+" : ""}${d.delta.toFixed(2)}`).join(", ") || "—"}</td></tr>`).join("")}</table>
+<h2>Nearest standard grades (composition conformance only — not product qualification)</h2>
+<table><tr><th>Grade</th><th>Conforms to ranges?</th><th>Violations (normalized distance)</th></tr>
+${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms ? "yes" : `no (Σ ${m.distance.toFixed(2)})`}</td><td>${m.violations.slice(0, 5).map((v) => `${v.element}: ${v.detail}`).join("; ") || "—"}</td></tr>`).join("")}</table>
 <h2>Element cost roll-up</h2>
 <p>≈ ${results.cost.perKg.toFixed(2)} per kg on the user's price table (raw-element basis; excludes melt/processing).${results.cost.unpriced.length ? ` <span class="warn">Unpriced: ${results.cost.unpriced.join(", ")}.</span>` : ""}</p>
 </body></html>`;
@@ -406,24 +410,30 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.distance.
         </div>
 
         <div className="studio-right">
-          <h3 className="studio-h">Nearest standard grades — Σ|Δwt%|, transparent by design (R-4.4)</h3>
+          <h3 className="studio-h">Nearest standard grades — spec conformance first (R-4.4)</h3>
           <div className="match-row">
             {results.matches.map((m, i) => (
               <div className={`match ${i === 0 ? "best" : ""}`} key={m.uns}>
                 <div className="match-name">{m.name} <span className="mono dim">{m.uns}</span></div>
-                <div className="match-dist mono">Σ|Δ| = {m.distance.toFixed(2)}</div>
-                {i === 0 && (
+                {m.conforms ? (
+                  <div className="match-conforms">WITHIN SPEC RANGES</div>
+                ) : (
+                  <div className="match-dist mono">outside spec · Σ norm. dist {m.distance.toFixed(2)}</div>
+                )}
+                {i === 0 && !m.conforms && (
                   <div className="match-deltas mono">
-                    {m.deltas.slice(0, 4).map((d) => (
-                      <span key={d.element}>
-                        δ{d.element} {d.delta > 0 ? "+" : ""}{d.delta.toFixed(2)}
-                      </span>
+                    {m.violations.slice(0, 3).map((v) => (
+                      <span key={v.element}>{v.element}: {v.detail}</span>
                     ))}
-                    {m.deltas.length === 0 && <span>exact mid-spec match</span>}
                   </div>
                 )}
               </div>
             ))}
+          </div>
+          <div className="calc-src">
+            Composition conformance only — meeting the ranges is NOT product
+            qualification (melt practice, condition, testing, certification
+            all remain).
           </div>
 
           <h3 className="studio-h">Derived quantities — greyed means outside the model's validated window (R-4.3)</h3>

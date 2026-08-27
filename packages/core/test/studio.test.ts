@@ -53,17 +53,28 @@ describe("nearestGrades", () => {
     },
   ];
 
-  it("mid-spec 316L matches 316L at ~zero distance", () => {
+  it("mid-spec 316L CONFORMS to 316L's ranges", () => {
     const [best] = nearestGrades({ Cr: 17, Ni: 12, Mo: 2.5 }, grades);
     expect(best?.uns).toBe("S31603");
-    expect(best?.distance).toBeCloseTo(0, 5);
+    expect(best?.conforms).toBe(true);
+    expect(best?.distance).toBe(0);
   });
 
-  it("pushing Mo up walks the match toward 317L, with the delta itemized", () => {
-    const [best] = nearestGrades({ Cr: 18.5, Ni: 13, Mo: 3.6 }, grades);
+  it("pushing Mo past 316L's max walks the match to conforming 317L, violation itemized", () => {
+    const matches = nearestGrades({ Cr: 18.5, Ni: 13, Mo: 3.6 }, grades);
+    const best = matches[0];
     expect(best?.uns).toBe("S31703");
-    const moDelta = best?.deltas.find((d) => d.element === "Mo");
-    expect(moDelta?.delta).toBeCloseTo(3.6 - 3.5, 5);
+    expect(best?.conforms).toBe(true);
+    const m316 = matches.find((m) => m.uns === "S31603");
+    expect(m316?.conforms).toBe(false);
+    const v = m316?.violations.find((x) => x.element === "Mo");
+    expect(v?.normalized).toBeCloseTo(0.6 / 1.0, 5); // 0.6 over a 1.0-wide window
+  });
+
+  it("unknown content of a required-minimum element blocks conformance", () => {
+    const [best] = nearestGrades({ Cr: 17, Ni: 12 }, grades); // Mo unknown
+    expect(best?.conforms).toBe(false);
+    expect(best?.violations.some((v) => v.element === "Mo")).toBe(true);
   });
 });
 

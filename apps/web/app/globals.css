@@ -701,6 +701,16 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
 .history-panel li { font-size: 10.5px; color: var(--muted); padding: 2px 0; border-bottom: 1px dotted var(--line); }
 .detail-close { display: none; margin-bottom: 10px; }
 
+.match-conforms {
+  font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.06em;
+  color: var(--good); margin-top: 3px;
+}
+.score-eq { font-size: 10px; color: var(--faint); margin-left: auto; }
+.profile-errors {
+  background: #2a1c1a; border-bottom: 1px solid #55302c; color: var(--crit);
+  font-size: 12px; padding: 7px 14px; display: flex; flex-direction: column; gap: 3px;
+}
+
 /* ---- Mobile (drawer navigation, stacked panels) ---- */
 @media (max-width: 768px) {
   .shell {

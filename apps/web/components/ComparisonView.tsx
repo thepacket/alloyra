@@ -73,11 +73,13 @@ function AuditList({ audits, rulesRan }: { audits: RuleAudit[]; rulesRan: number
       </div>
     );
   }
+  const statusRank = { hit: 0, near: 1, indeterminate: 2 } as const;
   const flagged = audits
     .filter((a) => a.status !== "clear")
     .sort(
       (a, b) =>
-        (a.status === "near" ? 1 : 0) - (b.status === "near" ? 1 : 0) ||
+        statusRank[a.status as keyof typeof statusRank] -
+          statusRank[b.status as keyof typeof statusRank] ||
         sevRank[a.rule.severity] - sevRank[b.rule.severity],
     );
   const unchecked = [...new Set(audits.flatMap((a) => a.unchecked))];
@@ -89,11 +91,15 @@ function AuditList({ audits, rulesRan }: { audits: RuleAudit[]; rulesRan: number
       {flagged.map((a) => (
         <div
           key={a.rule.id}
-          className={`audit-hit ${a.status === "near" ? "near" : a.rule.severity}`}
-          title={`${a.rule.mechanism}\n\nBecause: ${a.because.join("; ")}\n\nMitigations: ${a.rule.mitigations.join("; ")}\n\nSource: ${a.rule.citation}`}
+          className={`audit-hit ${a.status === "near" || a.status === "indeterminate" ? "near" : a.rule.severity}`}
+          title={`${a.rule.mechanism}${a.rule.thresholdBasis ? `\n\nThreshold basis: ${a.rule.thresholdBasis}` : ""}\n\nBecause: ${a.because.join("; ")}${a.unchecked.length ? `\n\nInsufficient information: ${a.unchecked.join("; ")}` : ""}\n\nMitigations: ${a.rule.mitigations.join("; ")}\n\nSource: ${a.rule.citation}`}
         >
           <span className="sev-tag">
-            {a.status === "near" ? "NEAR" : a.rule.severity.toUpperCase()}
+            {a.status === "near"
+              ? "NEAR"
+              : a.status === "indeterminate"
+                ? "INSUFFICIENT INFO"
+                : a.rule.severity.toUpperCase()}
           </span>
           {a.rule.name}
         </div>
@@ -278,6 +284,9 @@ export function ComparisonView() {
             <span className="mono">{stored.weights[k].toFixed(2)}</span>
           </label>
         ))}
+        <span className="score-eq mono">
+          score = Σ(wᵢ·rawᵢ)/Σwᵢ × 100 over available criteria
+        </span>
       </div>
 
       <div className="rule-status-bar" role="status">
@@ -376,7 +385,9 @@ export function ComparisonView() {
                         {rank.contributions.map((c) => (
                           <tr key={c.criterion} title={c.note}>
                             <td>{c.label}</td>
-                            <td className="mono">{c.raw.toFixed(2)} × {c.weight.toFixed(2)}</td>
+                            <td className="mono">
+                              {c.included ? `${c.raw.toFixed(2)} × ${c.weight.toFixed(2)}` : "N/A"}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
@@ -427,7 +438,7 @@ export function ComparisonView() {
               </div>
             ))}
 
-            <div className="cmp-rowlabel">Failure audit</div>
+            <div className="cmp-rowlabel">Failure audit &amp; evidence gaps</div>
             {ordered.map(({ condition, audits }) => (
               <div key={condition.id} className="cmp-cell">
                 <AuditList audits={audits} rulesRan={rules.length} />
