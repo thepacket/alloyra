@@ -1,0 +1,15 @@
+node_modules
+**/node_modules
+**/.next
+**/out
+.git
+.gitignore
+.claude
+.DS_Store
+Dockerfile
+.dockerignore
+fly.toml
+*.md
+**/*.md
+# Workstation-side companion — never ships in the web image
+services
