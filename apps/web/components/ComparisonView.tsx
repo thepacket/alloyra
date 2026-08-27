@@ -438,7 +438,8 @@ export function ComparisonView() {
           <div className="cmp-foot">
             Flags inform expert judgment — Alloyra never claims a part is safe
             or will fail (R-5.4). Hover any flag for mechanism, evidence, and
-            mitigations. Overrides are logged ({stored.overrideLog.length} so far).
+            mitigations. Overrides are logged ({stored.overrideLog.length} so far). This comparison
+            is saved in this browser only.
           </div>
         </div>
       )}

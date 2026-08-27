@@ -321,7 +321,7 @@ table.kv td.num { text-align: right; font-family: var(--font-mono); font-size: 1
 .calc-line { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 3px 0; }
 .calc-line.out { opacity: 0.42; }
 .calc-line .val { font-family: var(--font-mono); font-size: 11.5px; color: var(--straw); }
-.formula { font-family: var(--font-mono); font-size: 10px; color: var(--faint); margin-top: 2px; }
+.formula { font-family: var(--font-mono); font-size: 11px; color: var(--faint); margin-top: 2px; }
 .note-text { font-size: 12px; color: var(--muted); line-height: 1.5; }
 .empty-detail {
   color: var(--faint); font-size: 12px; text-align: center; margin-top: 40vh;
@@ -489,7 +489,7 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
 .audit-hit.near .sev-tag { color: var(--warn); }
 .audit-clear { font-size: 11px; color: var(--good); }
 .audit-unchecked { font-size: 10px; color: var(--faint); font-style: italic; }
-.cmp-foot { font-size: 11px; color: var(--faint); padding: 10px 2px; max-width: 80ch; }
+.cmp-foot { font-size: 12px; color: var(--muted); padding: 10px 2px; max-width: 80ch; }
 
 /* ---- Rules browser ---- */
 .rules-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 20px 40px; }
@@ -509,17 +509,17 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
 .sev-chip.serious { background: #2a1c1a; color: var(--crit); border: 1px solid #55302c; }
 .sev-chip.disqualifying { background: var(--crit); color: var(--bg); border: 1px solid var(--crit); }
 .rule-when, .rule-mit { margin-top: 8px; }
-.wlbl { font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
+.wlbl { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--faint); }
 .rule-when ul, .rule-mit ul { margin: 4px 0 0; padding-left: 18px; font-size: 12px; color: var(--ink); }
-.rule-when li { font-family: var(--font-mono); font-size: 11px; color: var(--accent); padding: 1px 0; }
+.rule-when li { font-family: var(--font-mono); font-size: 12px; color: var(--accent); padding: 1px 0; }
 .rule-mit li { color: var(--muted); padding: 1px 0; }
 .rule-mech { font-size: 12px; color: var(--muted); line-height: 1.55; margin: 8px 0 0; max-width: 76ch; }
 .rule-card footer {
   display: flex; justify-content: space-between; gap: 12px; margin-top: 10px;
   padding-top: 8px; border-top: 1px solid var(--line);
-  font-size: 10px; color: var(--faint);
+  font-size: 11px; color: var(--muted);
 }
-.review-flag { color: var(--straw); font-family: var(--font-mono); font-size: 9.5px; }
+.review-flag { color: var(--straw); font-family: var(--font-mono); font-size: 10.5px; }
 
 /* ---- Composition studio ---- */
 .studio-left {
@@ -567,8 +567,8 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
 .calc-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .calc-label { font-size: 12px; font-weight: 650; }
 .calc-value { font-family: var(--font-mono); font-size: 17px; color: var(--straw); font-variant-numeric: tabular-nums; }
-.calc-formula { font-size: 10.5px; color: var(--accent); margin-top: 5px; }
-.calc-src { font-size: 11px; color: var(--faint); margin-top: 3px; line-height: 1.45; }
+.calc-formula { font-size: 11.5px; color: var(--accent); margin-top: 5px; }
+.calc-src { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
 .calc-warn { font-size: 10.5px; color: var(--warn); margin-top: 4px; }
 .wrc-and-lmp { display: grid; grid-template-columns: minmax(300px, 420px) minmax(240px, 1fr); gap: 10px; margin-top: 10px; }
 .wrc-wrap { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; }
@@ -579,7 +579,7 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
 .wrc-axis { fill: var(--muted); font-family: var(--font-mono); font-size: 8.5px; letter-spacing: 0.05em; }
 .wrc-point { fill: var(--straw); }
 .wrc-halo { fill: none; stroke: var(--straw); stroke-width: 1; opacity: 0.45; }
-.wrc-note { font-size: 11px; color: var(--faint); margin-top: 6px; line-height: 1.45; }
+.wrc-note { font-size: 11.5px; color: var(--muted); margin-top: 6px; line-height: 1.45; }
 .lmp-card .calc-value small { font-size: 10px; color: var(--muted); }
 .lmp-inputs { display: flex; gap: 10px; margin-top: 8px; }
 .lmp-inputs label { display: flex; flex-direction: column; gap: 3px; font-size: 10px; color: var(--muted); }
@@ -680,6 +680,27 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
 .cov-l { font-size: 11.5px; color: var(--muted); line-height: 1.45; }
 .coverage-note { font-size: 12px; color: var(--muted); max-width: 70ch; line-height: 1.55; }
 
+/* ---- Storage notes, sign-off, history ---- */
+.storage-note {
+  font-size: 11px; color: var(--muted); font-style: italic;
+  padding: 6px 10px; line-height: 1.45;
+  border-bottom: 1px dashed var(--line); margin-bottom: 4px;
+}
+.studio-left .storage-note { border-bottom: none; padding: 8px 0 0; }
+.signoff {
+  margin-top: 8px; font-size: 11.5px; color: var(--good);
+  background: #1c2b1e; border: 1px solid #2e4a33; border-radius: 4px;
+  padding: 5px 9px; line-height: 1.5;
+}
+.history-panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+  padding: 8px 12px; margin-bottom: 12px; max-width: 860px;
+}
+.history-panel summary { font-size: 11.5px; color: var(--muted); cursor: pointer; }
+.history-panel ul { margin: 8px 0 2px; padding: 0; list-style: none; }
+.history-panel li { font-size: 10.5px; color: var(--muted); padding: 2px 0; border-bottom: 1px dotted var(--line); }
+.detail-close { display: none; margin-bottom: 10px; }
+
 /* ---- Mobile (drawer navigation, stacked panels) ---- */
 @media (max-width: 768px) {
   .shell {
@@ -709,10 +730,13 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
 
   .pane-header { flex-wrap: wrap; row-gap: 6px; }
   .grid-wrap { flex-direction: column; }
-  .detail {
-    width: 100%; border-left: none; border-top: 1px solid var(--line);
-    max-height: 50%; flex: none;
+  /* Empty detail pane never eats the screen; a selection opens a sheet. */
+  .detail { display: none; }
+  .detail.open {
+    display: block; position: fixed; inset: 42px 0 0 0; width: 100%;
+    z-index: 70; border-left: none; overflow-y: auto;
   }
+  .detail-close { display: inline-block; }
   .split { flex-direction: column; }
   .side-list, .studio-left {
     width: 100%; border-right: none; border-bottom: 1px solid var(--line);

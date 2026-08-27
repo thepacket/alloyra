@@ -7,6 +7,15 @@ import { failureRules, RULESET_VERSION } from "@alloyra/data";
  * rules without a deploy. The seed is never mutated, so any change can be
  * reverted and the audit can always state which ruleset produced it.
  */
+export interface HistoryEntry {
+  /** ISO timestamp. */
+  at: string;
+  ruleId: string;
+  action: "edited" | "added" | "disabled" | "enabled" | "reverted" | "deleted" | "imported";
+  /** One-line human summary, e.g. status transitions. */
+  summary: string;
+}
+
 export interface RuleOverlay {
   /** Seed rules replaced by an edited copy, keyed by rule id. */
   edits: Record<string, FailureRule>;
@@ -14,12 +23,28 @@ export interface RuleOverlay {
   added: FailureRule[];
   /** Rule ids (seed or added) switched off. */
   disabled: string[];
+  /**
+   * Append-only change log, exported with the overlay. Code only ever
+   * appends; the honest caveat is that localStorage itself is
+   * user-writable — server-side history arrives with the backend.
+   */
+  history: HistoryEntry[];
 }
 
 const STORE = "alloyra.rulesOverlay.v1";
 
 export function emptyOverlay(): RuleOverlay {
-  return { edits: {}, added: [], disabled: [] };
+  return { edits: {}, added: [], disabled: [], history: [] };
+}
+
+export function logChange(
+  o: RuleOverlay,
+  entry: Omit<HistoryEntry, "at">,
+): RuleOverlay {
+  return {
+    ...o,
+    history: [...o.history, { at: new Date().toISOString(), ...entry }],
+  };
 }
 
 export function loadOverlay(): RuleOverlay {

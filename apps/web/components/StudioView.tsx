@@ -393,6 +393,10 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.distance.
               </label>
             ))}
           </div>
+          <div className="storage-note">
+            Studio session and prices are saved in this browser only — Export
+            study produces the shareable record.
+          </div>
           <div className="cost-line">
             ≈ <span className="mono">{results.cost.perKg.toFixed(2)}</span> /kg raw-element basis
             {results.cost.unpriced.length > 0 && (
@@ -466,7 +470,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.distance.
             </div>
           </div>
 
-          <h3 className="studio-h">Phase equilibrium — via ModelProvider (M3)</h3>
+          <h3 className="studio-h">Phase equilibrium — optional local calculation service</h3>
           <EquilibriumPanel comp={comp} />
         </div>
       </div>

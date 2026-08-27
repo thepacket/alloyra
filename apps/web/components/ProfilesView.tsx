@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   blankProfile as blank,
@@ -22,11 +22,36 @@ export function ProfilesView() {
   const [profiles, setProfiles] = useState<DutyProfile[]>([]);
   const [draft, setDraft] = useState<DutyProfile>(blank());
   const [loaded, setLoaded] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setProfiles(load());
     setLoaded(true);
   }, []);
+
+  const exportProfiles = () => {
+    const blob = new Blob([JSON.stringify(profiles, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `alloyra-duty-profiles-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importProfiles = (file: File) => {
+    file.text().then((text) => {
+      try {
+        const incoming = JSON.parse(text) as DutyProfile[];
+        if (!Array.isArray(incoming)) return;
+        const byId = new Map(profiles.map((p) => [p.id, p]));
+        for (const p of incoming) if (p?.id && p?.name) byId.set(p.id, p);
+        persist([...byId.values()]);
+      } catch {
+        /* leave state unchanged on a bad file */
+      }
+    });
+  };
 
   const persist = (next: DutyProfile[]) => {
     setProfiles(next);
@@ -63,6 +88,23 @@ export function ProfilesView() {
             Name the profile to enable Save
           </span>
         )}
+        <button type="button" className="btn ghost" onClick={exportProfiles} disabled={profiles.length === 0}>
+          Export
+        </button>
+        <button type="button" className="btn ghost" onClick={() => fileRef.current?.click()}>
+          Import
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json"
+          style={{ display: "none" }}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) importProfiles(f);
+            e.target.value = "";
+          }}
+        />
         <button type="button" className="btn ghost" onClick={() => setDraft(blank())}>
           New profile
         </button>
@@ -78,6 +120,10 @@ export function ProfilesView() {
       </div>
       <div className="split">
         <div className="side-list" aria-label="Saved profiles">
+          <div className="storage-note">
+            Profiles are saved in this browser only — use Export to back up
+            or move them.
+          </div>
           {loaded && profiles.length === 0 && (
             <div className="item" style={{ cursor: "default" }}>
               No profiles yet — capture the duty on the right.

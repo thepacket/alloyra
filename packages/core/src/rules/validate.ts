@@ -119,6 +119,21 @@ export function validateRule(rule: unknown): string[] {
   if (!REVIEW_STATUSES.has(r.reviewStatus as string)) {
     errs.push(`reviewStatus: must be one of ${[...REVIEW_STATUSES].join(", ")}`);
   }
+  if (r.reviewStatus === "expert-reviewed" || r.reviewStatus === "validated") {
+    const rev = r.review as Record<string, unknown> | undefined;
+    if (typeof rev !== "object" || rev === null) {
+      errs.push(
+        `review: a ${String(r.reviewStatus)} rule requires a review record ({ reviewer, date, … }) — promotion must cost a name and a date`,
+      );
+    } else {
+      if (typeof rev.reviewer !== "string" || rev.reviewer.trim().length === 0) {
+        errs.push("review.reviewer: required — who signed this off?");
+      }
+      if (typeof rev.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(rev.date)) {
+        errs.push("review.date: required, ISO format YYYY-MM-DD");
+      }
+    }
+  }
   if (!Array.isArray(r.when) || r.when.length === 0) {
     errs.push("when: at least one clause required");
   } else {

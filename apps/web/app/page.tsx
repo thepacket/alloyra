@@ -92,7 +92,9 @@ export default function Home() {
             Property values are standards&apos; published minimums or clearly
             flagged typicals; nothing is reproduced from licensed databases.
             All seed failure rules are drafts awaiting expert review and do not
-            run in comparisons unless explicitly included there.
+            run in comparisons unless explicitly included there. Everything you
+            create — duty profiles, comparisons, rule edits — is stored in
+            this browser only; each page offers a JSON export for backup.
           </p>
         </section>
       </div>

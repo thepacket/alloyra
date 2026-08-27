@@ -57,7 +57,13 @@ function CalcLine({ label, r }: { label: string; r: CalcResult }) {
   );
 }
 
-function DetailPanel({ alloy }: { alloy: Alloy | undefined }) {
+function DetailPanel({
+  alloy,
+  onClose,
+}: {
+  alloy: Alloy | undefined;
+  onClose: () => void;
+}) {
   if (!alloy) {
     return (
       <aside className="detail">
@@ -81,7 +87,10 @@ function DetailPanel({ alloy }: { alloy: Alloy | undefined }) {
   }
 
   return (
-    <aside className="detail" aria-label="Alloy detail">
+    <aside className="detail open" aria-label="Alloy detail">
+      <button type="button" className="detail-close mini" onClick={onClose}>
+        ← Back to list
+      </button>
       <div className="uns">{alloy.uns}</div>
       <h2>{alloy.names[0]}</h2>
       <div className="fam">
@@ -164,15 +173,9 @@ export function DatabaseView() {
   const router = useRouter();
   const params = useSearchParams();
   const [filter, setFilter] = useState<(typeof familyRoots)[number]>("All");
-  const [sel, setSel] = useState<string | undefined>(
-    params.get("sel") ?? undefined,
-  );
-
-  // ⌘K deep-links land here as ?sel=UNS — adopt it, then own selection locally.
-  useEffect(() => {
-    const p = params.get("sel");
-    if (p) setSel(p);
-  }, [params]);
+  // The URL is the single source of truth for selection — ⌘K deep-links,
+  // row clicks, and the mobile sheet's close all go through it.
+  const sel = params.get("sel") ?? undefined;
 
   const rows = useMemo(
     () => (filter === "All" ? alloys : alloys.filter((a) => a.family[0] === filter)),
@@ -181,7 +184,6 @@ export function DatabaseView() {
   const selected = alloys.find((a) => a.uns === sel);
 
   const select = (uns: string) => {
-    setSel(uns);
     router.replace(`/database?sel=${uns}`, { scroll: false });
   };
 
@@ -271,7 +273,10 @@ export function DatabaseView() {
             </tbody>
           </table>
         </div>
-        <DetailPanel alloy={selected} />
+        <DetailPanel
+          alloy={selected}
+          onClose={() => router.replace("/database", { scroll: false })}
+        />
       </div>
     </>
   );

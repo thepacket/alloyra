@@ -19,6 +19,7 @@ export type {
   CandidateFacts,
   Clause,
   FailureRule,
+  ReviewRecord,
   ReviewStatus,
   RuleAudit,
   Severity,

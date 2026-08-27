@@ -67,7 +67,14 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     <div className="calc-card eq-card">
       <div className="calc-top">
         <span className="calc-label">
-          Phase equilibrium <span className="prov computed">COMPUTED</span>
+          Phase equilibrium{" "}
+          {caps === null ? (
+            <span className="prov estimated">CHECKING…</span>
+          ) : caps.available ? (
+            <span className="prov computed">COMPUTED</span>
+          ) : (
+            <span className="prov estimated">BRIDGE OFFLINE</span>
+          )}
         </span>
         <button type="button" className="mini" onClick={refresh}>
           {caps === null ? "Checking…" : "Retry"}

@@ -57,6 +57,36 @@ describe("validateRule", () => {
     expect(errs.join(" ")).toMatch(/reviewStatus/);
   });
 
+  it("promotion beyond draft requires a review record", () => {
+    const errs = validateRule({ ...good, reviewStatus: "expert-reviewed" });
+    expect(errs.join(" ")).toMatch(/review record/);
+  });
+
+  it("review record needs reviewer and an ISO date", () => {
+    const errs = validateRule({
+      ...good,
+      reviewStatus: "validated",
+      review: { reviewer: "", date: "yesterday" },
+    });
+    expect(errs.join(" ")).toMatch(/review\.reviewer/);
+    expect(errs.join(" ")).toMatch(/review\.date/);
+  });
+
+  it("accepts a properly signed-off promotion", () => {
+    const errs = validateRule({
+      ...good,
+      reviewStatus: "expert-reviewed",
+      review: {
+        reviewer: "J. Metallurgist",
+        organization: "Example Labs",
+        date: "2026-08-27",
+        reviewedAgainst: "ruleset 2026.08.0",
+        notes: "Threshold checked against ASM 13A.",
+      },
+    });
+    expect(errs).toEqual([]);
+  });
+
   it("rejects non-kebab ids", () => {
     const errs = validateRule({ ...good, id: "Bad ID!" });
     expect(errs.join(" ")).toMatch(/kebab/);

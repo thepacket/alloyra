@@ -6,6 +6,7 @@ import {
   effectiveRuleList,
   emptyOverlay,
   loadOverlay,
+  logChange,
   rulesetLabel,
   saveOverlay,
   type RuleOverlay,
@@ -89,34 +90,52 @@ export function RulesView() {
       setDraftErrors(errs);
       return;
     }
+    const before = rules.find((r) => r.rule.id === editingId)?.rule;
+    const statusNote =
+      before && before.reviewStatus !== rule.reviewStatus
+        ? ` — status ${before.reviewStatus} → ${rule.reviewStatus}${rule.review ? ` (signed off by ${rule.review.reviewer}, ${rule.review.date})` : ""}`
+        : "";
     update((o) => {
+      let next: RuleOverlay;
       if (editingId === "__new__") {
-        return { ...o, added: [...o.added.filter((r) => r.id !== rule.id), rule] };
+        next = { ...o, added: [...o.added.filter((r) => r.id !== rule.id), rule] };
+        return logChange(next, { ruleId: rule.id, action: "added", summary: `added "${rule.name}"` });
       }
       if (o.added.some((r) => r.id === editingId)) {
-        return {
-          ...o,
-          added: o.added.map((r) => (r.id === editingId ? rule : r)),
-        };
+        next = { ...o, added: o.added.map((r) => (r.id === editingId ? rule : r)) };
+      } else {
+        next = { ...o, edits: { ...o.edits, [editingId as string]: rule } };
       }
-      return { ...o, edits: { ...o.edits, [editingId as string]: rule } };
+      return logChange(next, { ruleId: rule.id, action: "edited", summary: `edited "${rule.name}"${statusNote}` });
     });
     setEditingId(null);
   };
 
   const toggleDisabled = (id: string) =>
-    update((o) => ({
-      ...o,
-      disabled: o.disabled.includes(id)
-        ? o.disabled.filter((x) => x !== id)
-        : [...o.disabled, id],
-    }));
+    update((o) => {
+      const enabling = o.disabled.includes(id);
+      const next = {
+        ...o,
+        disabled: enabling ? o.disabled.filter((x) => x !== id) : [...o.disabled, id],
+      };
+      return logChange(next, {
+        ruleId: id,
+        action: enabling ? "enabled" : "disabled",
+        summary: enabling ? "re-enabled" : "disabled",
+      });
+    });
 
   const revert = (id: string) =>
     update((o) => {
+      const wasLocal = o.added.some((r) => r.id === id);
       const edits = { ...o.edits };
       delete edits[id];
-      return { ...o, edits, added: o.added.filter((r) => r.id !== id) };
+      const next = { ...o, edits, added: o.added.filter((r) => r.id !== id) };
+      return logChange(next, {
+        ruleId: id,
+        action: wasLocal ? "deleted" : "reverted",
+        summary: wasLocal ? "deleted local rule" : "reverted to seed",
+      });
     });
 
   const exportOverlay = () => {
@@ -133,7 +152,13 @@ export function RulesView() {
     file.text().then((text) => {
       try {
         const o = { ...emptyOverlay(), ...(JSON.parse(text) as RuleOverlay) };
-        update(() => o);
+        update(() =>
+          logChange(o, {
+            ruleId: "*",
+            action: "imported",
+            summary: `imported overlay (${Object.keys(o.edits).length} edits, ${o.added.length} added, ${o.disabled.length} disabled)`,
+          }),
+        );
       } catch {
         /* surfaced by the unchanged view */
       }
@@ -175,8 +200,25 @@ export function RulesView() {
           the engine runs; saving validates structure and requires a citation.
           Draft rules do not run in comparisons unless explicitly included
           there — promote a rule to expert-reviewed by editing its
-          reviewStatus once a domain expert has signed off.
+          reviewStatus once a domain expert has signed off — promotion requires a
+          named, dated review record. The overlay lives in this browser only;
+          Export overlay is your backup and your way to share it.
         </div>
+
+        {overlay.history.length > 0 && (
+          <details className="history-panel">
+            <summary>
+              Change history — {overlay.history.length} entr{overlay.history.length === 1 ? "y" : "ies"} (append-only, exported with the overlay)
+            </summary>
+            <ul>
+              {[...overlay.history].reverse().map((h, i) => (
+                <li key={overlay.history.length - i} className="mono">
+                  {h.at.slice(0, 16).replace("T", " ")} · {h.ruleId} · {h.action} — {h.summary}
+                </li>
+              ))}
+            </ul>
+          </details>
+        )}
 
         {editingId !== null && (
           <div className="rule-editor">
@@ -230,6 +272,14 @@ export function RulesView() {
                 ))}
               </ul>
             </div>
+            {r.review && (
+              <div className="signoff" title={r.review.notes ?? ""}>
+                Signed off: {r.review.reviewer}
+                {r.review.organization ? ` (${r.review.organization})` : ""} · {r.review.date}
+                {r.review.reviewedAgainst ? ` · against ${r.review.reviewedAgainst}` : ""}
+                {r.review.notes ? ` — ${r.review.notes}` : ""}
+              </div>
+            )}
             <footer>
               <span className="mono">{r.citation}</span>
               <span className="rule-actions">

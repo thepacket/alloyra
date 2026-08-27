@@ -11,6 +11,21 @@ export type Severity = "caution" | "serious" | "disqualifying";
 export type ReviewStatus = "draft" | "expert-reviewed" | "validated" | "superseded";
 
 /**
+ * Sign-off provenance. Mandatory the moment a rule claims any status
+ * beyond draft — promoting a rule must cost a name, a date, and a basis.
+ */
+export interface ReviewRecord {
+  reviewer: string;
+  organization?: string;
+  /** ISO date (YYYY-MM-DD) of the sign-off. */
+  date: string;
+  /** Ruleset/dataset revision the review was performed against. */
+  reviewedAgainst?: string;
+  /** What was checked, sources consulted, limits of the validation. */
+  notes?: string;
+}
+
+/**
  * The declarative predicate DSL (R-5.3: rules are data, not code).
  * A rule fires when ALL of its clauses match. Numeric clauses may carry a
  * `nearBand` (fraction): a value inside the band but short of the
@@ -61,6 +76,8 @@ export interface FailureRule {
   mitigations: string[];
   reviewStatus: ReviewStatus;
   reviewedBy: string;
+  /** Required (validated structurally) when reviewStatus is beyond draft. */
+  review?: ReviewRecord;
 }
 
 /** What the engine knows about one candidate: an alloy IN a condition. */
