@@ -1,0 +1,39 @@
+# fly.io configuration for the Alloyra CALPHAD service (second app,
+# separate from the static web host). Stateless: databases bake into the
+# image, so machines can suspend/replace freely.
+
+app = 'alloyra-calphad'
+primary_region = 'yyz'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  CALPHAD_CORS_ORIGINS = 'https://alloyra.fly.dev,http://localhost:3000,http://127.0.0.1:3000'
+
+[http_service]
+  internal_port = 8791
+  force_https = true
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+  # Equilibrium calls are CPU-bound; keep concurrency low.
+  [http_service.concurrency]
+    type = 'requests'
+    soft_limit = 4
+    hard_limit = 8
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '10s'
+    grace_period = '30s'
+    method = 'GET'
+    path = '/health'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1

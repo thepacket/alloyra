@@ -7,21 +7,34 @@ import type {
 
 /**
  * HTTP implementation of the ModelProvider equilibrium contract. The
- * browser calls the bridge DIRECTLY — there is no server-side proxy, so
- * the deployed app stays pure static files and the bridge runs wherever
- * the engineer runs it (default: their own machine). Override with
- * NEXT_PUBLIC_CALPHAD_URL at build time for a shared bridge.
+ * browser calls the calculation service directly — no server-side proxy,
+ * so the web app stays pure static files. Visitors install NOTHING: the
+ * deployed site uses the hosted service (its own Fly app). Local dev
+ * against localhost automatically prefers a local bridge; both are
+ * overridable with NEXT_PUBLIC_CALPHAD_URL at build time.
  * The UI consumes ONLY the ModelProvider interface — swapping backends
  * never touches it.
  */
-const BRIDGE = process.env.NEXT_PUBLIC_CALPHAD_URL ?? "http://127.0.0.1:8791";
+const HOSTED = "https://alloyra-calphad.fly.dev";
+
+function bridgeUrl(): string {
+  if (process.env.NEXT_PUBLIC_CALPHAD_URL) return process.env.NEXT_PUBLIC_CALPHAD_URL;
+  if (
+    typeof window !== "undefined" &&
+    (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")
+  ) {
+    return "http://127.0.0.1:8791";
+  }
+  return HOSTED;
+}
 
 export const calphadProvider: ModelProvider = {
   id: "pycalphad-bridge",
 
   async capabilities(): Promise<ProviderCapabilities> {
     try {
-      const res = await fetch(`${BRIDGE}/health`, { signal: AbortSignal.timeout(5000) });
+      // 10 s: a suspended hosted machine may need a moment to wake.
+      const res = await fetch(`${bridgeUrl()}/health`, { signal: AbortSignal.timeout(10000) });
       const body = await res.json();
       if (!res.ok) {
         return { available: false, reason: body.detail ?? "service error", systems: [] };
@@ -42,7 +55,7 @@ export const calphadProvider: ModelProvider = {
   },
 
   async equilibrium(q: EquilibriumQuery): Promise<EquilibriumResult> {
-    const res = await fetch(`${BRIDGE}/equilibrium`, {
+    const res = await fetch(`${bridgeUrl()}/equilibrium`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({

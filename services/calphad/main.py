@@ -16,8 +16,12 @@ import hashlib
 import os
 from typing import Optional
 
-from fastapi import FastAPI, HTTPException
+import time
+from collections import defaultdict, deque
+
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
 import pycalphad
@@ -41,6 +45,30 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["content-type"],
 )
+
+# Hosted endpoint: equilibrium is CPU-bound, so cap per-client rate.
+RATE_LIMIT_PER_MIN = int(os.environ.get("CALPHAD_RATE_LIMIT_PER_MIN", "12"))
+_hits: dict[str, deque] = defaultdict(deque)
+
+
+@app.middleware("http")
+async def rate_limit(request: Request, call_next):
+    if request.url.path == "/equilibrium" and request.method == "POST":
+        ip = request.headers.get("fly-client-ip") or (
+            request.client.host if request.client else "unknown"
+        )
+        now = time.time()
+        q = _hits[ip]
+        while q and now - q[0] > 60:
+            q.popleft()
+        if len(q) >= RATE_LIMIT_PER_MIN:
+            return JSONResponse(
+                {"detail": f"Rate limit: {RATE_LIMIT_PER_MIN} equilibrium calls per minute. Try again shortly."},
+                status_code=429,
+            )
+        q.append(now)
+    return await call_next(request)
+
 
 DB_DIR = os.path.join(os.path.dirname(__file__), "databases")
 

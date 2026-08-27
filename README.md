@@ -63,20 +63,26 @@ Outputs are screening guidance for expert judgment, never design approval.
 
 ## Deployment (fly.io)
 
-Production is static files only: `pnpm build` emits `apps/web/out/`
-(~1.5 MB), which nginx serves from a single `shared-cpu-1x` / 256 MB
-machine that suspends when idle — no server-side code, no secrets, no
-database. All state lives in the visitor's browser; the CALPHAD bridge
-runs on the engineer's workstation and is never deployed.
+Two Fly apps; visitors install nothing:
+
+- **`alloyra`** — the workbench. `pnpm build` emits `apps/web/out/`
+  (~1.5 MB), served by nginx from a `shared-cpu-1x` / 256 MB machine
+  that suspends when idle. No server-side code; all user state lives in
+  the visitor's browser.
+- **`alloyra-calphad`** — the hosted calculation service
+  (`services/calphad`): FastAPI + pycalphad on a `shared-cpu-1x` / 1 GB
+  machine, suspend-when-idle, rate-limited, CORS-restricted to the
+  workbench origin. Openly redistributable thermodynamic databases bake
+  into the image. The browser calls it directly over HTTPS; when the app
+  runs on localhost it prefers a local bridge at `127.0.0.1:8791`.
 
 ```bash
-fly launch --no-deploy    # first time — answer no to overwriting fly.toml
-fly deploy --ha=false --strategy bluegreen
+fly deploy --ha=false --strategy bluegreen                    # workbench
+fly deploy --ha=false --config services/calphad/fly.toml      # calphad service
 ```
 
-Blue-green keeps redeploys zero-downtime on the single machine. Full
-details — files, assumptions, CSP/bridge configuration, local smoke
-test — are in [DEPLOY.md](DEPLOY.md).
+Full details — files, assumptions, CSP configuration, local smoke
+tests — are in [DEPLOY.md](DEPLOY.md).
 
 ## License and contributions
 

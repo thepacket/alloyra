@@ -480,7 +480,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             </div>
           </div>
 
-          <h3 className="studio-h">Phase equilibrium — optional local calculation service</h3>
+          <h3 className="studio-h">Phase equilibrium — hosted calculation service</h3>
           <EquilibriumPanel comp={comp} />
         </div>
       </div>

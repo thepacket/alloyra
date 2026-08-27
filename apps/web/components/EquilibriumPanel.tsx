@@ -73,7 +73,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
           ) : caps.available ? (
             <span className="prov computed">COMPUTED</span>
           ) : (
-            <span className="prov estimated">BRIDGE OFFLINE</span>
+            <span className="prov estimated">SERVICE OFFLINE</span>
           )}
         </span>
         <button type="button" className="mini" onClick={refresh}>
@@ -88,19 +88,18 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
           <div className="eq-offline-title">Phase calculation unavailable</div>
           <div className="calc-src">
             {caps.reason === "request failed"
-              ? "No CALPHAD bridge is connected. Equilibrium phase fractions need a local companion service running pycalphad on your own machine — everything else in the studio works without it."
+              ? "The calculation service isn't reachable right now — it may be waking up. Hit Retry in a few seconds. Everything else in the studio works without it."
               : caps.reason}
           </div>
           <details className="eq-howto">
-            <summary>For engineers: connect a local bridge</summary>
+            <summary>Developers: run a local service instead</summary>
             <div className="calc-src mono">
               cd services/calphad && .venv/bin/uvicorn main:app --port 8791
             </div>
             <div className="calc-src">
-              From the Alloyra repository. Thermodynamic databases (.tdb) are
-              user-supplied — see services/calphad/databases/README.md for
-              openly available options; licensing is yours to clear. Then hit
-              Retry.
+              When the app runs on localhost it prefers a local bridge at
+              127.0.0.1:8791; deployed visitors use the hosted service
+              automatically and install nothing.
             </div>
           </details>
         </div>

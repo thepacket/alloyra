@@ -1,14 +1,20 @@
 # Deploying to fly.io
 
-Alloyra has no server component in production. The Docker image is the Next
-static export (`apps/web/out/`, ~1.5 MB) served by nginx, so a deployment is
-static files behind Fly's TLS terminator — no secrets, no environment
-variables, no volumes, no database. The machine spec matches the constraint
-the app was architected for: `shared-cpu-1x`, 256 MB, suspended when idle.
+Alloyra deploys as TWO Fly apps, so visitors install nothing:
 
-The CALPHAD bridge (`services/calphad`) is **not** deployed. It runs on the
-engineer's own workstation (pycalphad wants ~300–500 MB RSS, far beyond the
-web host), and the browser calls it directly at `http://127.0.0.1:8791`.
+1. **`alloyra`** — the workbench: the Next static export (`apps/web/out/`,
+   ~1.5 MB) served by nginx. No secrets, no volumes, no database; user
+   state lives in the browser. `shared-cpu-1x`, 256 MB, suspended when
+   idle.
+2. **`alloyra-calphad`** — the hosted calculation service
+   (`services/calphad/fly.toml`): FastAPI + pycalphad, `shared-cpu-1x`,
+   **1 GB** (pycalphad wants ~300–500 MB RSS), suspended when idle.
+   Stateless — openly redistributable `.tdb` databases bake into the
+   image at build time; per-IP rate limiting on `/equilibrium`;
+   `CALPHAD_CORS_ORIGINS` restricts browsers to the workbench origin.
+   The deployed site calls `https://alloyra-calphad.fly.dev` directly;
+   on localhost the app prefers a local bridge at `127.0.0.1:8791`
+   (override either with `NEXT_PUBLIC_CALPHAD_URL` at build time).
 
 ## Files
 
@@ -42,10 +48,11 @@ Deployed at **[alloyra.fly.dev](https://alloyra.fly.dev/)** (single machine,
 ## Redeploying
 
 ```bash
-fly deploy --ha=false --strategy bluegreen
+fly deploy --ha=false --strategy bluegreen                 # workbench
+fly deploy --ha=false --config services/calphad/fly.toml   # calphad service
 ```
 
-Blue-green keeps updates zero-downtime on a single machine: Fly boots one
+Blue-green keeps workbench updates zero-downtime on a single machine: Fly boots one
 extra machine on the new version, waits for its `/healthz` check, switches
 traffic, and destroys the old one — the second machine exists only for the
 seconds the deploy takes. Plain `fly deploy --ha=false` (rolling) also
@@ -59,14 +66,12 @@ Fly's proxy holds most requests rather than failing them.
   Machines can suspend, restart, or move regions with zero data impact —
   which is exactly why `auto_stop_machines = 'suspend'` and
   `min_machines_running = 0` are safe.
-- **The CALPHAD bridge is per-engineer.** The CSP's `connect-src` allows
-  `http://127.0.0.1:8791` / `http://localhost:8791` so the https page can
-  reach a loopback bridge (browsers exempt loopback from mixed-content
-  blocking; Safari can be stricter). To point at a shared remote bridge
-  instead: give it TLS, add its origin to `connect-src` in
-  `deploy/security-headers.conf`, set `NEXT_PUBLIC_CALPHAD_URL` at build
-  time, and widen `CALPHAD_CORS_ORIGINS` on the bridge to the deployed
-  origin.
+- **The calculation service is hosted.** The CSP's `connect-src` allows
+  `https://alloyra-calphad.fly.dev` plus the loopback addresses used in
+  development. A different service origin must be added to `connect-src`
+  in `deploy/security-headers.conf`, baked in via
+  `NEXT_PUBLIC_CALPHAD_URL`, and allowed in the service's
+  `CALPHAD_CORS_ORIGINS`.
 - **CSP allows `'unsafe-inline'`** for scripts and styles: Next's static
   export bootstraps with inline scripts, and React inline style attributes
   drive the score/phase bars. Tightening to hashes is possible but not worth
