@@ -10,7 +10,7 @@ const steps = [
   {
     href: "/database",
     name: "Alloy database",
-    desc: "Browse the seed dataset — spec-min properties with provenance and citations on every value.",
+    desc: "Browse the seed dataset — spec-min properties with provenance labels and record-level source citations.",
     cta: "Search alloys",
   },
   {

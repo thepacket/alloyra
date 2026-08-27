@@ -1,8 +1,9 @@
-import { midpointComposition, wt } from "../composition.ts";
+import { wt } from "../composition.ts";
 import type { CompositionRange, ElementSymbol } from "../composition.ts";
 import { tensileStressPresent } from "../duty.ts";
 import type { DutyInput } from "../duty.ts";
 import { pren } from "../calculators/pren.ts";
+import { specRange } from "../calculators/specRange.ts";
 import type {
   AuditStatus,
   CandidateFacts,
@@ -103,11 +104,19 @@ function evalClause(
         ? { r: "miss" }
         : { r: "hit", because: `condition "${f.conditionName}" is not ${c.text}` };
     case "prenBelow": {
-      const p = pren(midpointComposition([...f.composition]));
+      // Interval logic over the spec-permitted PREN range: entirely below
+      // the threshold → hit; entirely above → miss; crossing → the heat
+      // chemistry decides, so the result is indeterminate.
+      const p = specRange(pren, f.composition);
+      if (p.missing.length > 0) return { r: "unknown", field: `PREN inputs (${p.missing.join(", ")})` };
       if (!p.inWindow) return { r: "miss" };
-      return p.value < c.value
-        ? { r: "hit", because: `PREN ≈ ${p.value.toFixed(1)} (mid-spec) < ${c.value}` }
-        : { r: "miss" };
+      if (p.hi < c.value) {
+        return { r: "hit", because: `spec-permitted PREN ${p.lo.toFixed(1)}–${p.hi.toFixed(1)} entirely below ${c.value}` };
+      }
+      if (p.lo < c.value) {
+        return { r: "unknown", field: `heat chemistry (PREN interval ${p.lo.toFixed(1)}–${p.hi.toFixed(1)} crosses ${c.value})` };
+      }
+      return { r: "miss" };
     }
     case "homologousTempAbove": {
       if (f.solidusK === undefined) return { r: "unknown", field: "solidus temperature" };
@@ -179,7 +188,7 @@ export function describeClause(c: Clause): string {
     case "yieldAtLeast": return `yield strength ≥ ${c.mpa} MPa${c.nearBand ? ` (±${Math.round(c.nearBand * 100)} % near-band)` : ""}`;
     case "conditionIncludes": return `condition includes "${c.text}"`;
     case "conditionExcludes": return `condition does not include "${c.text}"`;
-    case "prenBelow": return `PREN (mid-spec) < ${c.value}`;
+    case "prenBelow": return `spec-permitted PREN interval below ${c.value} (interval crossing the threshold → indeterminate)`;
     case "homologousTempAbove": return `T_service > ${c.fraction} × T_solidus${c.nearBand ? ` (±${Math.round(c.nearBand * 100)} % near-band)` : ""}`;
     case "duty": return `${c.field} ${c.op} ${c.value}${c.nearBand ? ` (±${Math.round(c.nearBand * 100)} % near-band)` : ""}`;
     case "dutyFlag": return `${c.field} is ${c.value ? "yes" : "no"}`;

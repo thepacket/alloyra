@@ -19,7 +19,7 @@ export function msAndrews(c: Composition): CalcResult {
     formula: "Ms = 539 − 423·C − 30.4·Mn − 17.7·Ni − 12.1·Cr − 7.5·Mo",
     source: {
       citation: "Andrews (1965), JISI 203, 721–727",
-      note: "Empirical regression; no error bands published — treat as ±~25 °C class guidance, not a setpoint.",
+      note: "Empirical regression with unquantified model uncertainty (no published error assessment, not benchmarked here) — class guidance, not a setpoint.",
     },
   };
   const missing = missingElements(c, REQUIRED);

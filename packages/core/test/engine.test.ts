@@ -181,3 +181,47 @@ describe("ranking", () => {
     expect(clean?.note).toMatch(/temp rule/);
   });
 });
+
+describe("scoring invariants (release-gate checks)", () => {
+  const dutyKnown: DutyInput = { ...baseDuty, designStressMPa: 100, tempMaxC: 80 };
+
+  it("a serious hit strictly lowers the score vs an otherwise identical candidate", () => {
+    const audits = evaluateRules(facts, dutyKnown, [tempRule]); // hit at 80 °C
+    const withHit = rankCandidate(facts, dutyKnown, audits);
+    const withoutHit = rankCandidate(facts, dutyKnown, [
+      { rule: tempRule, status: "clear", because: [], unchecked: [] },
+    ]);
+    expect(withHit.score).toBeLessThan(withoutHit.score);
+  });
+
+  it("missing yield data cannot improve the score", () => {
+    const { yieldMPa: _drop, ...rest } = facts;
+    const noYield = rest as CandidateFacts;
+    const a = rankCandidate(facts, dutyKnown, []);
+    const b = rankCandidate(noYield, dutyKnown, []);
+    expect(b.score).toBeLessThanOrEqual(a.score);
+  });
+
+  it("an indeterminate audit scores below a clear one", () => {
+    const indet = evaluateRules(facts, { ...baseDuty, tempMaxC: null }, [tempRule]);
+    expect(indet[0]?.status).toBe("indeterminate");
+    const withIndet = rankCandidate(facts, dutyKnown, indet);
+    const withClear = rankCandidate(facts, dutyKnown, [
+      { rule: tempRule, status: "clear", because: [], unchecked: [] },
+    ]);
+    expect(withIndet.score).toBeLessThan(withClear.score);
+  });
+
+  it("elimination is absolute — no weighting can rescue a disqualifying hit", () => {
+    const disq: FailureRule = { ...tempRule, severity: "disqualifying" };
+    const audits = evaluateRules(facts, dutyKnown, [disq]);
+    for (const w of [0, 0.25, 2]) {
+      const r = rankCandidate(facts, dutyKnown, audits, {
+        strength: 2,
+        corrosion: 2,
+        auditCleanliness: w,
+      });
+      expect(r.eliminated).toBe(true);
+    }
+  });
+});

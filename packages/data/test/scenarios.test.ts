@@ -150,3 +150,19 @@ describe("ranking sanity on the marine duty", () => {
     expect(duplex.score).toBeGreaterThan(austenitic.score);
   });
 });
+
+describe("ranking stability under perturbation (release-gate check)", () => {
+  it("2205 > 304 ordering survives ±10 % design stress and weight changes", () => {
+    const rank = (uns: string, stress: number, w: number) => {
+      const f = facts(uns);
+      const d = { ...hotSeawaterWelded, designStressMPa: stress };
+      const audits = evaluateRules(f, d, failureRules);
+      return rankCandidate(f, d, audits, { strength: w, corrosion: 1, auditCleanliness: 1 });
+    };
+    for (const stress of [135, 150, 165]) {
+      for (const w of [0.75, 1, 1.25]) {
+        expect(rank("S32205", stress, w).score).toBeGreaterThan(rank("S30400", stress, w).score);
+      }
+    }
+  });
+});

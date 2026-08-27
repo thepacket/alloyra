@@ -38,7 +38,9 @@ function prenRangeFor(a: Alloy): SpecRangeResult | undefined {
 
 function fmtRange(r: SpecRangeResult): string {
   if (r.missing.length > 0) return "unknown";
-  return `${r.lo.toFixed(1)} – ${r.hi.toFixed(1)}`;
+  // "+" marks an open interval: an element has a spec minimum with no
+  // maximum, so hi is a floor of the upper bound, not a bound.
+  return `${r.lo.toFixed(1)} – ${r.hi.toFixed(1)}${r.openEnded.length > 0 ? "+" : ""}`;
 }
 
 function fmt(v: number | undefined, digits = 0): string {
@@ -62,7 +64,7 @@ function RangeLine({ label, r }: { label: string; r: SpecRangeResult }) {
       <span className="val">
         {r.missing.length > 0
           ? "unknown"
-          : `${r.lo.toFixed(1)} – ${r.hi.toFixed(1)}${r.unit ? ` ${r.unit}` : ""}`}
+          : `${r.lo.toFixed(1)} – ${r.hi.toFixed(1)}${r.openEnded.length > 0 ? "+" : ""}${r.unit ? ` ${r.unit}` : ""}`}
       </span>
     </div>
   );
