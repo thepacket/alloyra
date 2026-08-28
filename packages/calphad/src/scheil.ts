@@ -28,7 +28,29 @@ export interface ScheilResult {
   /** Temperature at which fLiquid crossed the cutoff (Scheil solidus). */
   solidusK?: number;
   solidTotals: Record<string, number>;
+  /**
+   * Kou hot-cracking index: max |dT/d√fs| over √fs ∈ [0.9, 0.99]
+   * (Kou, Acta Mater. 88 (2015) 366). Steeper terminal solidification =
+   * more crack-susceptible. A COMPARATIVE index between candidates, not
+   * an absolute verdict.
+   */
+  kouIndexK?: number;
   terminated: "solidified" | "floor" | "no-liquid-phase";
+}
+
+/** Kou (2015) criterion from the fs(T) curve. */
+function kouIndex(steps: ScheilStep[]): number | undefined {
+  const pts = steps
+    .map((s) => ({ sqrtFs: Math.sqrt(1 - s.fLiquid), tK: s.tK }))
+    .filter((p) => p.sqrtFs >= 0.9 && p.sqrtFs <= 0.99);
+  let max = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const dSqrt = pts[i]!.sqrtFs - pts[i - 1]!.sqrtFs;
+    if (dSqrt <= 1e-6) continue;
+    const slope = Math.abs(pts[i]!.tK - pts[i - 1]!.tK) / dSqrt;
+    if (slope > max) max = slope;
+  }
+  return max > 0 ? max : undefined;
 }
 
 export function scheilSolidify(
@@ -163,5 +185,7 @@ export function scheilSolidify(
   const out: ScheilResult = { steps, solidTotals, terminated };
   if (liquidusK !== undefined) out.liquidusK = liquidusK;
   if (solidusK !== undefined) out.solidusK = solidusK;
+  const kou = kouIndex(steps);
+  if (kou !== undefined) out.kouIndexK = kou;
   return out;
 }

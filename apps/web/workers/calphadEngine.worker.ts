@@ -77,7 +77,7 @@ export type EngineResponse =
   | {
       id: number;
       kind: "scheil-progress";
-      point: { tC: number; fractionSolid: number };
+      point: { tC: number; fractionSolid: number; liquidX: Record<string, number> };
     }
   | {
       id: number;
@@ -88,6 +88,7 @@ export type EngineResponse =
         liquidusC?: number;
         solidusC?: number;
         solidTotals: Record<string, number>;
+        kouIndexK?: number;
         terminated: string;
         ms: number;
       };
@@ -156,7 +157,11 @@ self.onmessage = async (ev: MessageEvent<EngineRequest>) => {
           self.postMessage({
             id: msg.id,
             kind: "scheil-progress",
-            point: { tC: step.tK - 273.15, fractionSolid: 1 - step.fLiquid },
+            point: {
+              tC: step.tK - 273.15,
+              fractionSolid: 1 - step.fLiquid,
+              liquidX: step.liquidX,
+            },
           } satisfies EngineResponse);
         },
       });
@@ -167,6 +172,7 @@ self.onmessage = async (ev: MessageEvent<EngineRequest>) => {
         result: {
           ...(r.liquidusK !== undefined ? { liquidusC: r.liquidusK - 273.15 } : {}),
           ...(r.solidusK !== undefined ? { solidusC: r.solidusK - 273.15 } : {}),
+          ...(r.kouIndexK !== undefined ? { kouIndexK: r.kouIndexK } : {}),
           solidTotals: r.solidTotals,
           terminated: r.terminated,
           ms: Math.round(performance.now() - t0),

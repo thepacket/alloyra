@@ -69,11 +69,14 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
   const [scheilStart, setScheilStart] = useState(1550);
   const [scheilDT, setScheilDT] = useState(5);
   const [scheilRunning, setScheilRunning] = useState(false);
-  const [scheilPoints, setScheilPoints] = useState<{ tC: number; fractionSolid: number }[]>([]);
+  const [scheilPoints, setScheilPoints] = useState<
+    { tC: number; fractionSolid: number; liquidX: Record<string, number> }[]
+  >([]);
   const [scheilResult, setScheilResult] = useState<{
     liquidusC?: number;
     solidusC?: number;
     solidTotals: Record<string, number>;
+    kouIndexK?: number;
     terminated: string;
     ms: number;
   } | null>(null);
@@ -271,6 +274,31 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
       tempsC,
     });
   };
+
+  // Microsegregation (B-504 follow-through): solute enrichment in the
+  // remaining liquid, x_L/x_0 per element vs fraction solid — the Scheil
+  // segregation signature. The first streamed point's liquid IS the
+  // nominal composition, so enrichment is self-referenced.
+  const segregationSeries = useMemo(() => {
+    const withSolid = scheilPoints.filter((p) => p.fractionSolid > 1e-6);
+    if (withSolid.length < 2 || scheilPoints.length === 0) return [];
+    const x0 = scheilPoints[0]!.liquidX;
+    const PALETTE = [
+      "var(--fam-cu)", "var(--fam-ni)", "var(--viol)", "var(--fam-al)",
+      "var(--accent)", "var(--crit)", "var(--good)", "var(--warn)",
+    ];
+    const base = Object.entries(x0).reduce((a, b) => (b[1] > a[1] ? b : a))[0];
+    return Object.keys(x0)
+      .filter((el) => el !== base && (x0[el] ?? 0) > 5e-4)
+      .map((el, i) => ({
+        name: el,
+        color: PALETTE[i % PALETTE.length]!,
+        points: withSolid.map((p) => ({
+          x: p.fractionSolid,
+          y: (p.liquidX[el] ?? 0) / (x0[el] || 1),
+        })),
+      }));
+  }, [scheilPoints]);
 
   const runScheil = () => {
     if (typeof Worker === "undefined") {
@@ -662,7 +690,10 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                     {scheilResult.liquidusC !== undefined ? `liquidus ≈ ${scheilResult.liquidusC.toFixed(0)} °C` : "no solid formed above the floor"}
                     {scheilResult.solidusC !== undefined ? ` · Scheil solidus ≈ ${scheilResult.solidusC.toFixed(0)} °C` : ""}
                     {scheilResult.liquidusC !== undefined && scheilResult.solidusC !== undefined
-                      ? ` · freezing range ≈ ${(scheilResult.liquidusC - scheilResult.solidusC).toFixed(0)} K (wide ranges correlate with hot-cracking susceptibility)`
+                      ? ` · freezing range ≈ ${(scheilResult.liquidusC - scheilResult.solidusC).toFixed(0)} K`
+                      : ""}
+                    {scheilResult.kouIndexK !== undefined
+                      ? ` · Kou hot-cracking index ≈ ${scheilResult.kouIndexK.toFixed(0)} K`
                       : ""}
                     {` · ${scheilResult.ms} ms`}
                   </div>
@@ -675,7 +706,24 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                         <span className="mono eq-frac">{(fraction * 100).toFixed(1)} %</span>
                       </div>
                     ))}
+                  {scheilResult.kouIndexK !== undefined && (
+                    <div className="calc-src">
+                      Kou index = max |dT/d√fs| over √fs 0.90–0.99 (Kou, Acta
+                      Mater. 88 (2015) 366): steeper terminal solidification is
+                      more hot-cracking-susceptible. Compare candidates with
+                      it — it is not an absolute pass/fail.
+                    </div>
+                  )}
                 </div>
+              )}
+              {segregationSeries.length > 0 && (
+                <LineChart
+                  series={segregationSeries}
+                  xLabel="fraction solid"
+                  yLabel="liquid enrichment x_L / x_0"
+                  height={240}
+                  footnote="Scheil microsegregation: solute enrichment of the remaining liquid as solidification proceeds. Ratios > 1 mean the element piles up in the last liquid (interdendritic regions, weld centerlines) — where Laves, sigma, and low-melting films nucleate. No back-diffusion assumed."
+                />
               )}
             </div>
           </div>

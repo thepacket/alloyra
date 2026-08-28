@@ -285,3 +285,18 @@ describe("Scheil solidification (B-504) matches the pycalphad `scheil` package",
     });
   }
 });
+
+describe("Kou hot-cracking index (B-504 follow-through)", () => {
+  it("is computed and finite for a solidified Al-Zn run", { timeout: 60000 }, async () => {
+    const { scheilSolidify } = await import("../src/index.ts");
+    const r = scheilSolidify(db, { AL: 0.8, ZN: 0.2 }, { tStartK: 950, dT: 2, cutoff: 0.001 });
+    expect(r.terminated).toBe("solidified");
+    expect(r.kouIndexK).toBeDefined();
+    expect(r.kouIndexK!).toBeGreaterThan(0);
+    expect(Number.isFinite(r.kouIndexK!)).toBe(true);
+    // Liquid enrichment trace: Zn piles up in the last liquid.
+    const first = r.steps.find((s2) => 1 - s2.fLiquid > 0.05)!;
+    const late = [...r.steps].reverse().find((s2) => s2.fLiquid > 0.01)!;
+    expect(late.liquidX.ZN!).toBeGreaterThan(first.liquidX.ZN!);
+  });
+});
