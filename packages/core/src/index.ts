@@ -10,6 +10,14 @@ export { ceIIW } from "./calculators/carbonEquivalent.ts";
 export { msAndrews } from "./calculators/msAndrews.ts";
 export { larsonMiller } from "./calculators/larsonMiller.ts";
 export { md30Nohara } from "./calculators/md30.ts";
+export {
+  MATRIX_CONSTANTS,
+  ashbyOrowan,
+  astmToMicrons,
+  hallPetch,
+  hollomon,
+  micronsToAstm,
+} from "./calculators/strengthening.ts";
 export type { GradeMatch, GradeRef, Violation } from "./analysis/nearestGrades.ts";
 export { nearestGrades } from "./analysis/nearestGrades.ts";
 export type { CostResult } from "./analysis/cost.ts";

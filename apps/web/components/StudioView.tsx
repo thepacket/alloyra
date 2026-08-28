@@ -5,8 +5,13 @@ import { alloys, DATASET_VERSION } from "@alloyra/data";
 import { EquilibriumPanel } from "./EquilibriumPanel";
 import { SweepSpark, type SweepPoint } from "./charts/SweepSpark";
 import {
+  MATRIX_CONSTANTS,
+  ashbyOrowan,
+  astmToMicrons,
   ceIIW,
   elementCost,
+  hallPetch,
+  hollomon,
   larsonMiller,
   md30Nohara,
   midpointComposition,
@@ -18,6 +23,7 @@ import {
   type Composition,
   type ElementSymbol,
 } from "@alloyra/core";
+import type { SweepPoint as SP } from "./charts/SweepSpark";
 
 /**
  * Composition studio (blueprint § 4.3 / § 5, milestone M2).
@@ -42,6 +48,27 @@ interface StudioState {
   comp: Partial<Record<ElementSymbol, number>>;
   prices: Partial<Record<ElementSymbol, number>>;
   lmp: { tempC: number; hours: number; C: number };
+  /** Strengthening-model inputs (B-105/B-107) — user-owned, cited seeds. */
+  strength: {
+    /** ASTM E112 grain-size number; null = unknown (honesty default). */
+    grainAstm: number | null;
+    hp: { sigma0: number; ky: number };
+    holl: { K: number; n: number };
+    orowan: { fPct: number; dNm: number; matrix: string; G: number; b: number };
+  };
+}
+
+function defaultStrength(): StudioState["strength"] {
+  const al = MATRIX_CONSTANTS.Al!;
+  return {
+    grainAstm: null,
+    // Literature-typical ferritic-steel seeds (Hall 1951/Petch 1953 lineage) —
+    // user-owned, verify for your alloy class.
+    hp: { sigma0: 70, ky: 600 },
+    // Annealed-austenitic-like fit seeds (Dieter ch. 8 order of magnitude).
+    holl: { K: 1400, n: 0.45 },
+    orowan: { fPct: 2, dNm: 10, matrix: "Al", G: al.shearModulusGPa, b: al.burgersNm },
+  };
 }
 
 function seedFromBase(uns: string): Partial<Record<ElementSymbol, number>> {
@@ -63,6 +90,7 @@ function defaultState(): StudioState {
     comp: seedFromBase("S31603"),
     prices: {},
     lmp: { tempC: 600, hours: 100_000, C: 20 },
+    strength: defaultStrength(),
   };
 }
 
@@ -70,7 +98,12 @@ function loadState(): StudioState {
   try {
     const raw = localStorage.getItem(STORE);
     if (!raw) return defaultState();
-    return { ...defaultState(), ...(JSON.parse(raw) as StudioState) };
+    const parsed = JSON.parse(raw) as StudioState;
+    return {
+      ...defaultState(),
+      ...parsed,
+      strength: { ...defaultStrength(), ...(parsed.strength ?? {}) },
+    };
   } catch {
     return defaultState();
   }
@@ -219,7 +252,12 @@ export function StudioView() {
       wrc: w,
       ce: ceIIW(comp),
       ms: msAndrews(comp),
-      md30: md30Nohara(comp),
+      md30: md30Nohara(
+        comp,
+        state.strength.grainAstm != null
+          ? { grainSizeAstm: state.strength.grainAstm }
+          : undefined,
+      ),
       lmp: larsonMiller(state.lmp.tempC, state.lmp.hours, state.lmp.C),
       matches: nearestGrades(
         Object.fromEntries(
@@ -231,7 +269,55 @@ export function StudioView() {
       ),
       cost: elementCost(comp, state.prices),
     };
-  }, [comp, bal, state.lmp, state.prices]);
+  }, [comp, bal, state.lmp, state.prices, state.strength.grainAstm]);
+
+  // Strengthening models (B-105): user-owned parameters, cited seeds; each
+  // card sweeps its own governing variable so no value stands naked.
+  const st = state.strength;
+  const dUm = st.grainAstm != null ? astmToMicrons(st.grainAstm) : undefined;
+  const hpRes =
+    dUm !== undefined
+      ? hallPetch({ dUm, sigma0MPa: st.hp.sigma0, kyMPaSqrtUm: st.hp.ky })
+      : undefined;
+  const hpSweep: SP[] = [];
+  for (let i = 0; i <= 40; i++) {
+    const d = 1 + (i / 40) * 119; // 1–120 µm
+    const r = hallPetch({ dUm: d, sigma0MPa: st.hp.sigma0, kyMPaSqrtUm: st.hp.ky });
+    hpSweep.push({ x: d, value: r.value, inWindow: r.inWindow });
+  }
+  const hol = hollomon({ kMPa: st.holl.K, n: st.holl.n });
+  const holSweep: SP[] = [];
+  {
+    const eMax = Math.min(0.7, Math.max(0.1, st.holl.n * 1.6));
+    for (let i = 1; i <= 40; i++) {
+      const e = (i / 40) * eMax;
+      holSweep.push({
+        x: e,
+        value: hol.flowStress(e),
+        // Beyond ε_u = n the specimen necks — the curve is extrapolation.
+        inWindow: e <= st.holl.n,
+      });
+    }
+  }
+  const orRes = ashbyOrowan({
+    volumeFraction: st.orowan.fPct / 100,
+    particleDiameterNm: st.orowan.dNm,
+    shearModulusGPa: st.orowan.G,
+    burgersNm: st.orowan.b,
+  });
+  const orSweep: SP[] = [];
+  for (let i = 0; i <= 40; i++) {
+    const x = 2 + (i / 40) * 58; // 2–60 nm
+    const r = ashbyOrowan({
+      volumeFraction: st.orowan.fPct / 100,
+      particleDiameterNm: x,
+      shearModulusGPa: st.orowan.G,
+      burgersNm: st.orowan.b,
+    });
+    orSweep.push({ x, value: r.value, inWindow: r.inWindow });
+  }
+  const setStrength = (mut: (s: StudioState["strength"]) => StudioState["strength"]) =>
+    update((s) => ({ ...s, strength: mut(s.strength) }));
 
   const setElement = (el: ElementSymbol, v: number) =>
     update((s) => ({ ...s, comp: { ...s.comp, [el]: v } }));
@@ -262,7 +348,10 @@ All derived values are COMPUTED from the stated composition via the cited empiri
 <table><tr><th>Quantity</th><th>Value</th><th>Formula</th><th>Source</th><th>Warnings</th></tr>
 ${calcRow("PREN", results.pren)}${calcRow("WRC-1992 Creq", results.wrc.creq)}${calcRow("WRC-1992 Nieq", results.wrc.nieq)}
 ${calcRow("CE(IIW)", results.ce)}${calcRow("Ms (Andrews)", results.ms)}${calcRow("Md30 (Nohara)", results.md30)}
-${calcRow(`LMP @ ${state.lmp.tempC} °C / ${state.lmp.hours} h (C=${state.lmp.C})`, results.lmp)}</table>
+${calcRow(`LMP @ ${state.lmp.tempC} °C / ${state.lmp.hours} h (C=${state.lmp.C})`, results.lmp)}
+${hpRes ? calcRow(`Hall-Petch σy (ν=${st.grainAstm}, σ0=${st.hp.sigma0}, k_y=${st.hp.ky})`, hpRes) : ""}
+${calcRow(`Hollomon UTS (K=${st.holl.K} MPa, n=${st.holl.n})`, hol.utsEng)}
+${calcRow(`Ashby-Orowan Δσ (f=${st.orowan.fPct} vol%, X=${st.orowan.dNm} nm, ${st.orowan.matrix})`, orRes)}</table>
 <h2>Nearest standard grades (composition conformance only — not product qualification)</h2>
 <table><tr><th>Grade</th><th>Conforms to ranges?</th><th>Violations (normalized distance)</th></tr>
 ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms ? "yes" : `no (Σ ${m.distance.toFixed(2)})`}</td><td>${m.violations.slice(0, 5).map((v) => `${v.element}: ${v.detail}`).join("; ") || "—"}</td></tr>`).join("")}</table>
@@ -541,6 +630,123 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
               r={results.md30}
               spark={sweeps && sweepEl && <SweepSpark points={sweeps.md30} currentX={currentSweepX} element={sweepEl} />}
             />
+          </div>
+
+          <h2 className="studio-h">
+            Strengthening models — mechanism calculators with user-owned parameters (B-105)
+          </h2>
+          <div className="strength-inputs">
+            <label className="sweep-pick">
+              grain size ν (ASTM E112)
+              <input
+                className="el-num mono"
+                inputMode="decimal"
+                value={st.grainAstm ?? ""}
+                placeholder="—"
+                aria-label="Grain size, ASTM E112 number"
+                onChange={(e) => {
+                  const n = Number(e.target.value);
+                  setStrength((x) => ({
+                    ...x,
+                    grainAstm: e.target.value === "" || !Number.isFinite(n) ? null : n,
+                  }));
+                }}
+              />
+            </label>
+            <span className="calc-src">
+              {dUm !== undefined
+                ? `≈ ${dUm.toFixed(1)} µm mean diameter — feeds Hall-Petch and the Md30 grain-size term.`
+                : "Unknown until you enter it (never assumed) — feeds Hall-Petch and the Md30 grain-size term."}
+            </span>
+          </div>
+          <div className="calc-grid">
+            {hpRes ? (
+              <CalcCard
+                label="Hall-Petch σy"
+                r={hpRes}
+                spark={<SweepSpark points={hpSweep} currentX={dUm ?? 0} element="d" unit="µm" />}
+              />
+            ) : (
+              <div className="calc-card out">
+                <div className="calc-top">
+                  <span className="calc-label">
+                    Hall-Petch σy <span className="prov computed">COMPUTED</span>
+                  </span>
+                  <span className="calc-value">unknown</span>
+                </div>
+                <div className="calc-formula mono">σy = σ0 + k_y·d^(−1/2)</div>
+                <div className="calc-warn">Enter a grain size (ν) above to compute.</div>
+              </div>
+            )}
+            <CalcCard
+              label="Hollomon UTS + Considère"
+              r={hol.utsEng}
+              spark={<SweepSpark points={holSweep} currentX={st.holl.n} element="ε true" unit="(εu = n)" />}
+            />
+            <CalcCard
+              label="Ashby-Orowan Δσ"
+              r={orRes}
+              spark={<SweepSpark points={orSweep} currentX={st.orowan.dNm} element="X" unit="nm" />}
+            />
+          </div>
+          <div className="strength-params">
+            <div className="lmp-inputs">
+              <label>σ0 (MPa)
+                <input className="el-num mono" inputMode="decimal" value={st.hp.sigma0} aria-label="Hall-Petch friction stress, MPa"
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, hp: { ...x.hp, sigma0: n } })); }} />
+              </label>
+              <label>k_y (MPa·√µm)
+                <input className="el-num mono" inputMode="decimal" value={st.hp.ky} aria-label="Hall-Petch locking parameter"
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, hp: { ...x.hp, ky: n } })); }} />
+              </label>
+              <label>K (MPa)
+                <input className="el-num mono" inputMode="decimal" value={st.holl.K} aria-label="Hollomon strength coefficient K, MPa"
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, holl: { ...x.holl, K: n } })); }} />
+              </label>
+              <label>n
+                <input className="el-num mono" inputMode="decimal" value={st.holl.n} aria-label="Hollomon strain-hardening exponent n"
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, holl: { ...x.holl, n } })); }} />
+              </label>
+              <label>matrix
+                <select className="hdr-select" value={st.orowan.matrix} aria-label="Orowan matrix (sets G and b seeds)"
+                  onChange={(e) => {
+                    const m = e.target.value;
+                    const c = MATRIX_CONSTANTS[m];
+                    setStrength((x) => ({
+                      ...x,
+                      orowan: c ? { ...x.orowan, matrix: m, G: c.shearModulusGPa, b: c.burgersNm } : { ...x.orowan, matrix: m },
+                    }));
+                  }}>
+                  {Object.keys(MATRIX_CONSTANTS).map((m) => (
+                    <option key={m} value={m}>{m}</option>
+                  ))}
+                </select>
+              </label>
+              <label>f (vol %)
+                <input className="el-num mono" inputMode="decimal" value={st.orowan.fPct} aria-label="Precipitate volume fraction, percent"
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, orowan: { ...x.orowan, fPct: n } })); }} />
+              </label>
+              <label>X (nm)
+                <input className="el-num mono" inputMode="decimal" value={st.orowan.dNm} aria-label="Mean particle diameter, nanometres"
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, orowan: { ...x.orowan, dNm: n } })); }} />
+              </label>
+              <label>G (GPa)
+                <input className="el-num mono" inputMode="decimal" value={st.orowan.G} aria-label="Shear modulus, GPa"
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, orowan: { ...x.orowan, G: n } })); }} />
+              </label>
+              <label>b (nm)
+                <input className="el-num mono" inputMode="decimal" value={st.orowan.b} aria-label="Burgers vector, nanometres"
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, orowan: { ...x.orowan, b: n } })); }} />
+              </label>
+            </div>
+            <div className="calc-src">
+              Parameters are yours: σ0/k_y are material-class fits, K/n come
+              from a fit to your tensile data (uniform elongation ≈{" "}
+              {Number.isFinite(hol.uniformElongationPct) ? hol.uniformElongationPct.toFixed(0) : "—"}{" "}
+              % engineering at the current n), and G/b seeds are
+              literature-typical for the chosen matrix. Increments do not add
+              linearly — superposition is mechanism-dependent.
+            </div>
           </div>
 
           <div className="wrc-and-lmp">

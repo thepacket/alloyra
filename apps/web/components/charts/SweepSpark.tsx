@@ -17,10 +17,12 @@ export function SweepSpark({
   points,
   currentX,
   element,
+  unit = "wt%",
 }: {
   points: SweepPoint[];
   currentX: number;
   element: string;
+  unit?: string;
 }) {
   const W = 280;
   const H = 56;
@@ -88,7 +90,7 @@ export function SweepSpark({
         {Number(x0.toPrecision(2))}
       </text>
       <text x={W - M.r} y={H - 3} className="spark-tick" textAnchor="end">
-        {element} {Number(x1.toPrecision(2))} wt%
+        {element} {Number(x1.toPrecision(2))} {unit}
       </text>
       {runs.map((r, i) => (
         <polyline
