@@ -31,7 +31,9 @@ const alloyCmds: Cmd[] = alloys.map((a) => {
     id: `alloy-${a.uns}`,
     label: `${a.names[0]} · ${a.uns}`,
     kind: a.family.slice(0, 2).join(" / "),
-    keywords: `${a.uns} ${a.names.join(" ")} ${a.family.join(" ")} ${mechs}`.toLowerCase(),
+    keywords: `${a.uns} ${a.names.join(" ")} ${a.family.join(" ")} ${mechs} ${(a.designations ?? [])
+      .map((d) => d.code)
+      .join(" ")}`.toLowerCase(),
     run: (r) => r.push(`/database?sel=${a.uns}`),
   };
 });

@@ -22,6 +22,12 @@ export type { GradeMatch, GradeRef, Violation } from "./analysis/nearestGrades.t
 export { nearestGrades } from "./analysis/nearestGrades.ts";
 export type { CostResult } from "./analysis/cost.ts";
 export { elementCost } from "./analysis/cost.ts";
+export type {
+  ElementDelta,
+  SimilarGradeInput,
+  SimilarGradeMatch,
+} from "./analysis/similarGrades.ts";
+export { similarGrades } from "./analysis/similarGrades.ts";
 export type { DutyInput, LoadType, Medium, LmeContact, TriState } from "./duty.ts";
 export { tensileStressPresent } from "./duty.ts";
 export type {

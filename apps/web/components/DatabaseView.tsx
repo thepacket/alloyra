@@ -11,6 +11,7 @@ import {
   microstructureHaystack,
   msAndrews,
   pren,
+  similarGrades,
   specRange,
   type MechanismId,
   type MechanismTag,
@@ -233,9 +234,11 @@ function ConceptCard({ c, matches }: { c: MicroConcept; matches: number }) {
 function DetailPanel({
   alloy,
   onClose,
+  onSelect,
 }: {
   alloy: Alloy | undefined;
   onClose: () => void;
+  onSelect: (uns: string) => void;
 }) {
   if (!alloy) {
     return (
@@ -258,6 +261,18 @@ function DetailPanel({
   }
   const famColor = FAMILY_COLOR[alloy.family[0] ?? ""] ?? "var(--accent)";
 
+  const toSimilarInput = (a: Alloy) => {
+    const y = specMin(a, "yield_strength");
+    return {
+      uns: a.uns,
+      name: a.names[0] ?? a.uns,
+      familyRoot: a.family[0] ?? "",
+      composition: a.composition,
+      ...(y !== undefined ? { yieldMPa: y } : {}),
+    };
+  };
+  const similar = similarGrades(toSimilarInput(alloy), alloys.map(toSimilarInput), 4);
+
   return (
     <aside className="detail open" aria-label="Alloy detail">
       <button type="button" className="detail-close mini" onClick={onClose}>
@@ -276,6 +291,38 @@ function DetailPanel({
       <section>
         <h3>Standards</h3>
         <div className="note-text">{alloy.standards.join(" · ")}</div>
+      </section>
+
+      <section>
+        <h3>Designations &amp; equivalents</h3>
+        {alloy.designations && alloy.designations.length > 0 ? (
+          <>
+            <table className="kv">
+              <tbody>
+                {alloy.designations.map((d) => (
+                  <tr key={`${d.system}:${d.code}`} title={`${d.source}${d.note ? ` — ${d.note}` : ""}`}>
+                    <td>{d.system}</td>
+                    <td className="num mono">
+                      {d.code}
+                      {d.note ? <span className="desig-note"> *</span> : ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="note-text">
+              Equivalence is NOMINAL — each standard sets its own composition
+              and property limits; verify against the target standard's own
+              tables. * = see hover note (nearest-grade caveats). GB and GOST
+              counterparts are not yet on file — omitted rather than guessed.
+            </div>
+          </>
+        ) : (
+          <div className="note-text">
+            No cross-references on file for this grade yet — a dataset gap,
+            not evidence that no counterpart exists.
+          </div>
+        )}
       </section>
 
       <section>
@@ -341,6 +388,45 @@ function DetailPanel({
           </div>
         </section>
       )}
+
+      <section>
+        <h3>Similar grades in this dataset</h3>
+        {similar.length > 0 ? (
+          <>
+            {similar.map((m) => (
+              <button
+                key={m.uns}
+                type="button"
+                className="similar-row"
+                onClick={() => onSelect(m.uns)}
+                title={`Largest mid-spec differences: ${m.deltas
+                  .map((d) => `${d.element} ${d.b.toFixed(2)} vs ${d.a.toFixed(2)} wt%`)
+                  .join("; ")}${m.yieldNote ? ` · ${m.yieldNote}` : ""}`}
+              >
+                <span className="similar-name">
+                  {m.name} <span className="mono dim2">{m.uns}</span>
+                </span>
+                <span className="similar-deltas mono">
+                  {m.deltas
+                    .slice(0, 3)
+                    .map((d) => `Δ${d.element} ${Math.abs(d.a - d.b).toFixed(1)}`)
+                    .join(" · ")}
+                </span>
+              </button>
+            ))}
+            <div className="note-text">
+              Ranked by mid-spec composition closeness (itemized per element —
+              hover a row), same base metal only, plus a spec-min yield term
+              when both grades document one. Chemical closeness is not
+              interchangeability. <span className="prov computed">COMPUTED</span>
+            </div>
+          </>
+        ) : (
+          <div className="note-text">
+            No other {alloy.family[0]}-based grades in the current dataset.
+          </div>
+        )}
+      </section>
 
       {alloy.notes && (
         <section>
@@ -644,7 +730,11 @@ export function DatabaseView() {
             </table>
           )}
         </div>
-        <DetailPanel alloy={selected} onClose={() => setParams({ sel: "" })} />
+        <DetailPanel
+          alloy={selected}
+          onClose={() => setParams({ sel: "" })}
+          onSelect={(uns) => setParams({ sel: uns })}
+        />
       </div>
     </>
   );

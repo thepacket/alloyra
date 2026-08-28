@@ -34,6 +34,22 @@ export interface Condition {
   note?: string;
 }
 
+/**
+ * A cross-standard designation (B-302). Equivalence is NOMINAL: each
+ * standard sets its own composition and property limits, so a designation
+ * here names the counterpart grade, not an identical specification.
+ */
+export interface Designation {
+  /** Designation system: "EN number", "EN name", "JIS", "AISI/SAE",
+   *  "W.-Nr.", "EN AW", "ISO", "ASTM", "CEN CW"… */
+  system: string;
+  code: string;
+  /** Deviations worth knowing (e.g. "nearest by strength class — chemistry differs"). */
+  note?: string;
+  /** Citation for the cross-reference. */
+  source: string;
+}
+
 export interface Alloy {
   /** UNS number, the primary key (R-2.1). */
   uns: string;
@@ -48,5 +64,8 @@ export interface Alloy {
    * good enough only for the 0.4·T_solidus creep-regime flag).
    */
   solidusK?: number;
+  /** Cross-standard designations (B-302). Absent = none on file yet —
+   *  a dataset gap, never evidence that no counterpart exists. */
+  designations?: Designation[];
   notes?: string;
 }
