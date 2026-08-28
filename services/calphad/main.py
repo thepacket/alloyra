@@ -89,6 +89,17 @@ ATOMIC_MASS = {
 }
 
 
+# MatCalc auxiliary phases: GP-zone/cluster matrix duplicates (GP_*, CL_*)
+# and the dislocation-modified BCC variant deliberately duplicate parent-
+# phase energetics for MatCalc's kinetic coupling. Left active they tie
+# degenerately with the real matrix phase in plain equilibrium (verified:
+# mc_al Al-Zn returns GP_MAT in place of FCC_A1), so they are suspended by
+# default — reported in /health for transparency.
+import re as _re
+
+AUX_PHASE_RE = _re.compile(r"^(GP_|CL_)|^BCC_DISL$")
+
+
 class LoadedDb:
     def __init__(self, db_id: str, path: str, db: Database):
         self.id = db_id
@@ -99,7 +110,9 @@ class LoadedDb:
         self.elements = sorted(
             e for e in (str(x).upper() for x in db.elements) if e not in ("VA", "/-")
         )
-        self.phases = sorted(db.phases.keys())
+        all_phases = sorted(db.phases.keys())
+        self.suspended = [p for p in all_phases if AUX_PHASE_RE.match(p)]
+        self.phases = [p for p in all_phases if not AUX_PHASE_RE.match(p)]
 
 
 DATABASES: dict[str, LoadedDb] = {}
@@ -126,7 +139,8 @@ def compiled_system(loaded: "LoadedDb", comps: list[str]) -> tuple:
         # Build inside the lock: concurrent first calls for the same system
         # would otherwise compile twice and double peak memory.
         species = unpack_species(loaded.db, comps)
-        phases = filter_phases(loaded.db, species, sorted(loaded.db.phases.keys()))
+        # Candidate list is the curated one — auxiliary phases stay suspended.
+        phases = filter_phases(loaded.db, species, loaded.phases)
         models = instantiate_models(loaded.db, comps, phases)
         prf = PhaseRecordFactory(loaded.db, species, {v.N, v.P, v.T}, models)
         _model_cache[key] = (phases, models, prf)
@@ -178,7 +192,12 @@ def health() -> dict:
         "ok": True,
         "pycalphad": pycalphad.__version__,
         "databases": [
-            {"id": d.id, "elements": d.elements, "phases": d.phases}
+            {
+                "id": d.id,
+                "elements": d.elements,
+                "phases": d.phases,
+                "suspended_auxiliary_phases": d.suspended,
+            }
             for d in DATABASES.values()
         ],
     }

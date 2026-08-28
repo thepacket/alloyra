@@ -26,9 +26,13 @@ throughout the code).
 
 Backlog: `BACKLOG.md`. Competitive analysis and design v2:
 `docs/competitive-analysis.md`, `docs/design-v2.md`.
+- `packages/calphad` — experimental in-browser CALPHAD engine (backlog
+  B-501): TDB parser, compound-energy-formalism Gibbs energies, binary
+  point equilibrium — fixture-validated against pycalphad, not yet wired
+  into the UI.
 - `services/calphad` — Python microservice wrapping pycalphad behind the
-  `ModelProvider` seam (equilibrium phase fractions). Thermodynamic
-  databases are user-supplied; see `services/calphad/databases/README.md`.
+  `ModelProvider` seam (equilibrium phase fractions). Ships license-vetted
+  assessed databases; see `services/calphad/databases/SOURCES.md`.
 
 ## CALPHAD bridge
 

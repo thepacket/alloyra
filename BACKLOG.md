@@ -192,6 +192,14 @@ two hand-rolled visuals and no charting layer.
   convex-hull-seeded global minimization — validated point-by-point against
   the hosted pycalphad service, which is demoted to correctness oracle and
   fallback. (Pyodide-pycalphad documented as full-fidelity fallback path.)
+  *First slice shipped 2026-08-28 (`packages/calphad`): TDB parser (parses
+  production mc_al — 183 phases / 1980 parameters — completely in ~11 ms),
+  CEF Gibbs with R-K excess + IHJ magnetics matching pycalphad to
+  <0.001 J/mol-atom, binary point equilibrium by dense sampling + lower
+  convex hull matching pycalphad on Al-Zn (incl. the FCC miscibility gap),
+  Al-Mg (β-Al₃Mg₂), and Al-Si — 28 fixture-validated tests. Not yet wired
+  into the UI. Still open: multicomponent minimizer, local refinement,
+  ternary R-K-M terms, UI integration with hosted cross-check.*
 - **B-502 — Property diagrams.** One-axis stepping: equilibrium phase
   fraction vs temperature for a fixed composition (the CALPHAD category's
   bread-and-butter plot), replacing today's single-point bars.
