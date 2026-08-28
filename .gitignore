@@ -7,7 +7,12 @@ dist/
 .venv/
 __pycache__/
 *.egg-info/
-# User-supplied thermodynamic databases — licensing is the user's (N-5)
+# User-supplied thermodynamic databases — licensing is the user's (N-5).
+# Exceptions: the license-vetted redistributable set (see databases/SOURCES.md).
 services/calphad/databases/*.tdb
 services/calphad/databases/*.TDB
+!services/calphad/databases/mc_fe_v2.059.pycalphad.tdb
+!services/calphad/databases/mc_ni_v2.034.pycalphad.tdb
+!services/calphad/databases/mc_al_v2.032.pycalphad.tdb
+!services/calphad/databases/NIST-solder.tdb
 out/

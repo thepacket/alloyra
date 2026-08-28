@@ -8,7 +8,7 @@ import type { SourceRef } from "./provenance.ts";
  * HTTP without the UI knowing the difference.
  */
 export interface SystemInfo {
-  /** Database identifier, e.g. "alzn_mey". */
+  /** Database identifier, e.g. "mc_fe_v2.059.pycalphad". */
   id: string;
   /** Elements the database covers (uppercase symbols). */
   elements: string[];
