@@ -13,12 +13,19 @@ throughout the code).
 ## Layout
 
 - `packages/core` — pure TS domain library: composition handling, calculators
-  (PREN, WRC-1992, CE(IIW), Andrews Ms, Larson-Miller), provenance types.
-  Zero framework imports; validation cases in `test/`.
+  (PREN, WRC-1992, CE(IIW), Andrews Ms, Larson-Miller), microstructure
+  descriptor model + search (strengthening mechanisms, twinning,
+  grain-boundary character), provenance types. Zero framework imports;
+  validation cases in `test/`.
 - `packages/data` — versioned seed dataset (spec-min values with citations)
   and the Postgres-first Drizzle schema (not yet wired; M0 reads seeds).
 - `apps/web` — Next.js workbench UI. Fixed-viewport shell, ⌘K palette,
-  dense grids, provenance chips (blueprint § 8.1: an instrument, not a website).
+  dense grids, provenance chips, in-house SVG plot kit (property charts,
+  calculator sweep sparklines) — blueprint § 8.1: an instrument, not a
+  website.
+
+Backlog: `BACKLOG.md`. Competitive analysis and design v2:
+`docs/competitive-analysis.md`, `docs/design-v2.md`.
 - `services/calphad` — Python microservice wrapping pycalphad behind the
   `ModelProvider` seam (equilibrium phase fractions). Thermodynamic
   databases are user-supplied; see `services/calphad/databases/README.md`.
