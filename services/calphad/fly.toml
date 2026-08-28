@@ -5,6 +5,11 @@
 app = 'alloyra-calphad'
 primary_region = 'yyz'
 
+# Model compilation for a real assessed TDB (mc_fe: 53 active phases for a
+# stainless composition) peaks near 1 GB by itself; swap is the OOM
+# backstop, not the working set.
+swap_size_mb = 2048
+
 [build]
   dockerfile = 'Dockerfile'
 
@@ -19,11 +24,13 @@ primary_region = 'yyz'
   min_machines_running = 0
   processes = ['app']
 
-  # Equilibrium calls are CPU-bound; keep concurrency low.
+  # Equilibrium calls are CPU- and memory-bound (compiled-model cache in
+  # main.py keeps repeats cheap, but cold systems compile ~1 GB); keep
+  # concurrency tight.
   [http_service.concurrency]
     type = 'requests'
-    soft_limit = 4
-    hard_limit = 8
+    soft_limit = 2
+    hard_limit = 4
 
   [[http_service.checks]]
     interval = '30s'
@@ -32,8 +39,11 @@ primary_region = 'yyz'
     method = 'GET'
     path = '/health'
 
+# Sized for professional assessed databases (ground rule 4): the 1 GB /
+# 1-vCPU machine OOM-killed on the first mc_fe equilibrium. Suspend-on-idle
+# keeps the larger machine cheap and preserves the warm model cache.
 [[vm]]
-  size = 'shared-cpu-1x'
-  memory = '1gb'
+  size = 'shared-cpu-2x'
+  memory = '4gb'
   cpu_kind = 'shared'
-  cpus = 1
+  cpus = 2

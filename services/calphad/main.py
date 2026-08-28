@@ -24,8 +24,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+import threading
+from collections import OrderedDict
+
 import pycalphad
 from pycalphad import Database, equilibrium, variables as v
+from pycalphad.codegen.phase_record_factory import PhaseRecordFactory
+from pycalphad.core.utils import filter_phases, instantiate_models, unpack_species
 
 app = FastAPI(title="alloyra-calphad")
 
@@ -98,6 +103,36 @@ class LoadedDb:
 
 
 DATABASES: dict[str, LoadedDb] = {}
+
+# Compiled-model cache. Building Model objects and the PhaseRecordFactory
+# (symengine codegen) is the expensive, memory-hungry step — with a real
+# assessed database it dwarfs the equilibrium solve and must not repeat on
+# every request. Keyed by (database, active components); small LRU because
+# each entry holds compiled callables for dozens of phases. Fly's
+# suspend-on-idle snapshots RAM, so the warm cache survives idle periods.
+_MODEL_CACHE_MAX = int(os.environ.get("CALPHAD_MODEL_CACHE_MAX", "6"))
+_model_cache: OrderedDict[tuple, tuple] = OrderedDict()
+_model_cache_lock = threading.Lock()
+
+
+def compiled_system(loaded: "LoadedDb", comps: list[str]) -> tuple:
+    """(phases, models, phase_record_factory) for a db + component set."""
+    key = (loaded.id, tuple(comps))
+    with _model_cache_lock:
+        hit = _model_cache.get(key)
+        if hit is not None:
+            _model_cache.move_to_end(key)
+            return hit
+        # Build inside the lock: concurrent first calls for the same system
+        # would otherwise compile twice and double peak memory.
+        species = unpack_species(loaded.db, comps)
+        phases = filter_phases(loaded.db, species, sorted(loaded.db.phases.keys()))
+        models = instantiate_models(loaded.db, comps, phases)
+        prf = PhaseRecordFactory(loaded.db, species, {v.N, v.P, v.T}, models)
+        _model_cache[key] = (phases, models, prf)
+        while len(_model_cache) > _MODEL_CACHE_MAX:
+            _model_cache.popitem(last=False)
+        return _model_cache[key]
 
 
 def load_databases() -> None:
@@ -177,7 +212,12 @@ def run_equilibrium(req: EquilibriumRequest) -> dict:
             conditions[v.X(el)] = frac
 
     try:
-        eq = equilibrium(loaded.db, comps, loaded.phases, conditions)
+        phases, models, prf = compiled_system(loaded, comps)
+        eq = equilibrium(
+            loaded.db, comps, phases, conditions, model=models, phase_records=prf
+        )
+    except HTTPException:
+        raise
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(500, f"pycalphad equilibrium failed: {exc}") from exc
 
@@ -196,7 +236,9 @@ def run_equilibrium(req: EquilibriumRequest) -> dict:
         "temp_c": req.temp_c,
         "pressure_pa": req.pressure_pa,
         "moles": 1.0,
-        "phases_considered": loaded.phases,
+        # Phases with at least one active component for THIS composition —
+        # the set actually offered to the minimizer, not the whole TDB.
+        "phases_considered": phases,
         "mole_fractions": x,
         "phases": [
             {"phase": name, "fraction": frac}

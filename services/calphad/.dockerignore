@@ -1,5 +1,11 @@
 .venv
 __pycache__
 *.egg-info
-databases
 fly.toml
+# Databases: user-supplied files stay out of the image; only the
+# license-vetted committed set (databases/SOURCES.md) goes back in.
+databases/*
+!databases/mc_fe_v2.059.pycalphad.tdb
+!databases/mc_ni_v2.034.pycalphad.tdb
+!databases/mc_al_v2.032.pycalphad.tdb
+!databases/NIST-solder.tdb
