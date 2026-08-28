@@ -1,19 +1,58 @@
 import type { CompositionRange, Microstructure, Provenance } from "@alloyra/core";
+import type { PropertyId } from "./properties.ts";
 
-/** Property identifiers — extend deliberately, never ad hoc strings in seeds. */
-export type PropertyId =
-  | "yield_strength"      // 0.2 % offset unless noted
-  | "tensile_strength"
-  | "elongation"
-  | "hardness_hrc"
-  | "density";
+export type { PropertyId } from "./properties.ts";
+
+/**
+ * Test-condition metadata (B-301). A property without its test conditions
+ * is a number "from we don't know where" — records for temperature-,
+ * cycle-, or rate-dependent properties must say how they were measured.
+ */
+export interface TestConditions {
+  tempC?: number;
+  /** Stress ratio σmin/σmax for fatigue data. */
+  rRatio?: number;
+  cycles?: number;
+  strainRatePerS?: number;
+  /** e.g. "L-T", "transverse". */
+  orientation?: string;
+  /** Rupture life for creep data, hours. */
+  hours?: number;
+  note?: string;
+}
 
 export interface PropertyRecord {
   property: PropertyId;
+  /** Headline scalar (for interval records: the representative value). */
   value: number;
   unit: string;
   /** Test temperature, °C. Room temperature = 23. */
   testTempC: number;
+  /** Interval-valued records (B-301): the permitted/observed range. */
+  interval?: { lo: number; hi: number };
+  /** Test-condition metadata beyond temperature (B-301). */
+  conditions?: TestConditions;
+  provenance: Provenance;
+  source: string;
+  note?: string;
+}
+
+/** Curve x-axis quantities (B-301). */
+export type CurveXQuantity = "temperature" | "cycles" | "strain" | "time_h" | "lmp";
+
+/**
+ * A curve-valued property record (B-301): y(property) vs x, with the same
+ * per-record provenance discipline as scalars. Points are (x, y) pairs
+ * sorted by x.
+ */
+export interface CurveRecord {
+  id: string;
+  property: PropertyId;
+  x: { quantity: CurveXQuantity; unit: string; log?: boolean };
+  /** y unit — must match the vocabulary's canonical unit for `property`. */
+  unit: string;
+  points: readonly (readonly [number, number])[];
+  conditions?: TestConditions;
   provenance: Provenance;
   source: string;
   note?: string;
@@ -25,6 +64,8 @@ export interface Condition {
   name: string;
   form: string;
   properties: PropertyRecord[];
+  /** Curve-valued records for this condition (B-301). */
+  curves?: CurveRecord[];
   /**
    * Literature-typical microstructural descriptors for this condition
    * (backlog E1). Absent field = undocumented, never "none"; the block
