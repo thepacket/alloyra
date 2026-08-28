@@ -17,6 +17,15 @@ type EngineResult = NonNullable<EngineResponse["result"]>;
  * what is missing and how to fix it, and no number appears without its
  * database named.
  */
+/** Databases shipped to the browser at /tdb/ (hash-synced with the
+ *  hosted service's copies by test) — the engine's offline catalog. */
+const ENGINE_DBS = [
+  "mc_fe_v2.059.pycalphad",
+  "mc_ni_v2.034.pycalphad",
+  "mc_al_v2.032.pycalphad",
+  "NIST-solder",
+];
+
 /** Base-metal hint from a database id (mc_fe → FE). */
 function baseHint(id: string): string | undefined {
   const m = /(?:^|[_-])(fe|ni|al)(?:[_.-]|$)/i.exec(id);
@@ -44,6 +53,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
   const [engineError, setEngineError] = useState("");
   const [engineKey, setEngineKey] = useState("");
   const [hostedKey, setHostedKey] = useState("");
+  const [engineDbId, setEngineDbId] = useState(ENGINE_DBS[0]!);
 
   const refresh = () => {
     setCaps(null);
@@ -76,6 +86,16 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     }
     return best;
   }, [comp]);
+
+  // The engine runs with the hosted panel's database when the service is
+  // up (shared selection, shared coverage check); offline it stands alone
+  // with its own catalog, auto-picked by base metal.
+  const engineDb = caps?.available ? dbId : engineDbId;
+  useEffect(() => {
+    if (caps?.available) return;
+    const pick = ENGINE_DBS.find((id) => baseHint(id) === dominant);
+    if (pick) setEngineDbId(pick);
+  }, [caps, dominant]);
 
   // Database auto-selection: keep the user's choice while it covers the
   // composition; otherwise pick a covering database (base-metal match
@@ -153,7 +173,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     setEngineRunning(true);
     setEngineError("");
     setEngineResult(null);
-    const key = `${dbId}|${tempC}`;
+    const key = `${engineDb}|${tempC}`;
     const onMessage = (ev: MessageEvent<EngineResponse>) => {
       if (ev.data.id !== id) return;
       worker.removeEventListener("message", onMessage);
@@ -168,8 +188,8 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     worker.addEventListener("message", onMessage);
     worker.postMessage({
       id,
-      dbId,
-      tdbUrl: `/tdb/${dbId}.tdb`,
+      dbId: engineDb,
+      tdbUrl: `/tdb/${engineDb}.tdb`,
       compositionWt: comp,
       tempC,
     });
@@ -303,6 +323,9 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
             </div>
           )}
 
+        </>
+      )}
+
           <div className="engine-block">
             <div className="engine-head">
               <span className="calc-label">
@@ -312,22 +335,42 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                 type="button"
                 className="mini"
                 onClick={runEngine}
-                disabled={engineRunning || missing.length > 0}
+                disabled={engineRunning || (caps?.available === true && missing.length > 0)}
               >
                 {engineRunning ? `Computing… ${engineElapsed}s` : "Run in-browser"}
               </button>
             </div>
+            {!caps?.available && (
+              <div className="eq-controls">
+                <label>Database
+                  <select
+                    className="hdr-select"
+                    value={engineDbId}
+                    onChange={(e) => setEngineDbId(e.target.value)}
+                    aria-label="In-browser engine database"
+                  >
+                    {ENGINE_DBS.map((id) => (
+                      <option key={id} value={id}>{id}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>T (°C)
+                  <input className="el-num mono" inputMode="decimal" value={tempC} aria-label="Equilibrium temperature, °C"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setTempC(n); }} />
+                </label>
+              </div>
+            )}
             <div className="calc-src">
               Pure-TypeScript CALPHAD engine running in this tab (no server):
               same TDB, same phase suspensions. Validated against pycalphad on
               the shipped databases; still experimental — the hosted service
-              remains authoritative, and every run here can be cross-checked
-              against it.
+              remains authoritative when reachable — and this engine keeps
+              working when it is not.
             </div>
             {engineRunning && (
               <div className="calc-src" role="status">
                 Sampling constitutions and refining the tangent plane against{" "}
-                {dbId} — typically 1–10 s depending on the alloy system.
+                {engineDb} — typically 1–10 s depending on the alloy system.
               </div>
             )}
             {engineError && <div className="calc-warn">{engineError}</div>}
@@ -357,7 +400,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                 </details>
                 {crossCheck && (
                   <div className={crossCheck.samePhaseSet && crossCheck.maxDelta < 0.01 ? "engine-check ok" : "engine-check warn"}>
-                    Cross-check vs hosted pycalphad ({dbId} @ {tempC} °C):{" "}
+                    Cross-check vs hosted pycalphad ({engineDb} @ {tempC} °C):{" "}
                     {crossCheck.samePhaseSet
                       ? `same phase set, max phase-fraction difference ${(crossCheck.maxDelta * 100).toFixed(2)} %.`
                       : `PHASE SETS DIFFER — trust the hosted service and treat this engine result as a bug report.`}
@@ -372,8 +415,6 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
               </div>
             )}
           </div>
-        </>
-      )}
     </div>
   );
 }
