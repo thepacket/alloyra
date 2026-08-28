@@ -65,6 +65,20 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
   const [sweepPoints, setSweepPoints] = useState<SweepPointUi[]>([]);
   const [sweepError, setSweepError] = useState("");
   const [sweepDb, setSweepDb] = useState("");
+  // Scheil solidification (B-504).
+  const [scheilStart, setScheilStart] = useState(1550);
+  const [scheilDT, setScheilDT] = useState(5);
+  const [scheilRunning, setScheilRunning] = useState(false);
+  const [scheilPoints, setScheilPoints] = useState<{ tC: number; fractionSolid: number }[]>([]);
+  const [scheilResult, setScheilResult] = useState<{
+    liquidusC?: number;
+    solidusC?: number;
+    solidTotals: Record<string, number>;
+    terminated: string;
+    ms: number;
+  } | null>(null);
+  const [scheilError, setScheilError] = useState("");
+  const [scheilDb, setScheilDb] = useState("");
 
   const refresh = () => {
     setCaps(null);
@@ -255,6 +269,49 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
       tdbUrl: `/tdb/${engineDb}.tdb`,
       compositionWt: comp,
       tempsC,
+    });
+  };
+
+  const runScheil = () => {
+    if (typeof Worker === "undefined") {
+      setScheilError("This browser does not support Web Workers.");
+      return;
+    }
+    if (!workerRef.current) {
+      workerRef.current = new Worker(
+        new URL("../workers/calphadEngine.worker.ts", import.meta.url),
+      );
+    }
+    const worker = workerRef.current;
+    const id = ++reqIdRef.current;
+    setScheilRunning(true);
+    setScheilError("");
+    setScheilPoints([]);
+    setScheilResult(null);
+    setScheilDb(engineDb);
+    const onMessage = (ev: MessageEvent<EngineResponse>) => {
+      if (ev.data.id !== id) return;
+      if (ev.data.kind === "scheil-progress") {
+        const point = ev.data.point;
+        setScheilPoints((prev) => [...prev, point]);
+        return;
+      }
+      if (ev.data.kind === "scheil-done") {
+        worker.removeEventListener("message", onMessage);
+        setScheilRunning(false);
+        if (ev.data.ok && ev.data.result) setScheilResult(ev.data.result);
+        else setScheilError(ev.data.error ?? "Scheil simulation failed.");
+      }
+    };
+    worker.addEventListener("message", onMessage);
+    worker.postMessage({
+      id,
+      kind: "scheil",
+      dbId: engineDb,
+      tdbUrl: `/tdb/${engineDb}.tdb`,
+      compositionWt: comp,
+      tStartC: scheilStart,
+      dT: Math.max(1, scheilDT),
     });
   };
 
@@ -547,6 +604,78 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                     footnote={`EQUILIBRIUM fractions vs ${sweepDb} — each point is a full in-browser minimization${sweepRunning ? " (filling in live…)" : ""}. The manufactured microstructure depends on kinetics and process history: an equilibrium sigma field at low T does not mean sigma forms in service time. Phases under 0.5 % everywhere are omitted.`}
                   />
                 </>
+              )}
+            </div>
+
+            <div className="sweep-panel">
+              <div className="engine-head">
+                <span className="calc-label">Scheil solidification — fraction solid vs T</span>
+                <button
+                  type="button"
+                  className="mini"
+                  onClick={runScheil}
+                  disabled={scheilRunning || (caps?.available === true && missing.length > 0)}
+                >
+                  {scheilRunning ? "Solidifying…" : "Run Scheil"}
+                </button>
+              </div>
+              <div className="lmp-inputs">
+                <label>Start (°C)
+                  <input className="el-num mono" inputMode="decimal" value={scheilStart} aria-label="Scheil start temperature, °C"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setScheilStart(n); }} />
+                </label>
+                <label>ΔT (°C)
+                  <input className="el-num mono" inputMode="decimal" value={scheilDT} aria-label="Scheil temperature step, °C"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setScheilDT(n); }} />
+                </label>
+              </div>
+              {scheilError && <div className="calc-warn">{scheilError}</div>}
+              {scheilRunning && scheilPoints.length > 0 && (
+                <div className="calc-src mono" role="status">
+                  cooling… T = {scheilPoints[scheilPoints.length - 1]!.tC.toFixed(0)} °C ·
+                  fraction solid {(scheilPoints[scheilPoints.length - 1]!.fractionSolid * 100).toFixed(1)} %
+                </div>
+              )}
+              {scheilPoints.some((p) => p.fractionSolid > 0) && (
+                <LineChart
+                  series={[{
+                    name: "fraction solid",
+                    color: "var(--straw)",
+                    points: (() => {
+                      const liqTc = Math.max(...scheilPoints.filter((p) => p.fractionSolid > 0).map((p) => p.tC));
+                      return scheilPoints
+                        .filter((p) => p.tC <= liqTc + 25)
+                        .map((p) => ({ x: p.tC, y: p.fractionSolid }));
+                    })(),
+                  }]}
+                  xLabel="T (°C)"
+                  yLabel="fraction solid (Scheil)"
+                  yMin={0}
+                  yMax={1}
+                  height={260}
+                  footnote={`Scheil-Gulliver vs ${scheilDb}: complete liquid mixing, NO diffusion in the solid — the segregation-limited bound. Fast-diffusing interstitials (C, N) violate the no-back-diffusion assumption, so real alloys finish between this curve and lever-rule equilibrium.`}
+                />
+              )}
+              {scheilResult && (
+                <div className="eq-result">
+                  <div className="calc-src mono engine-meta">
+                    {scheilResult.liquidusC !== undefined ? `liquidus ≈ ${scheilResult.liquidusC.toFixed(0)} °C` : "no solid formed above the floor"}
+                    {scheilResult.solidusC !== undefined ? ` · Scheil solidus ≈ ${scheilResult.solidusC.toFixed(0)} °C` : ""}
+                    {scheilResult.liquidusC !== undefined && scheilResult.solidusC !== undefined
+                      ? ` · freezing range ≈ ${(scheilResult.liquidusC - scheilResult.solidusC).toFixed(0)} K (wide ranges correlate with hot-cracking susceptibility)`
+                      : ""}
+                    {` · ${scheilResult.ms} ms`}
+                  </div>
+                  {Object.entries(scheilResult.solidTotals)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([phase, fraction]) => (
+                      <div className="eq-phase" key={phase}>
+                        <span className="mono eq-phase-name">{phase}</span>
+                        <div className="eq-bar engine-bar"><span style={{ width: `${(fraction * 100).toFixed(1)}%` }} /></div>
+                        <span className="mono eq-frac">{(fraction * 100).toFixed(1)} %</span>
+                      </div>
+                    ))}
+                </div>
               )}
             </div>
           </div>

@@ -24,3 +24,4 @@ export {
   type MulticomponentResult,
 } from "./multicomponent.ts";
 export { stepTemperature, type StepPoint } from "./step.ts";
+export { scheilSolidify, type ScheilResult, type ScheilStep } from "./scheil.ts";

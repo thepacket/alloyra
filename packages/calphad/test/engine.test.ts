@@ -237,3 +237,51 @@ describe("temperature stepping (B-502) tracks the pycalphad sweep", () => {
     }
   });
 });
+
+describe("Scheil solidification (B-504) matches the pycalphad `scheil` package", () => {
+  const suspend = (name: string) => /^(GP_|CL_)/.test(name);
+  const scheilRef = JSON.parse(
+    readFileSync(join(here, "fixtures/scheil-reference.json"), "utf8"),
+  ) as {
+    name: string;
+    elB: string;
+    xB: number;
+    tStart: number;
+    temperatures: number[];
+    fractionSolid: number[];
+    liquidusK: number;
+    finalK: number;
+    phaseAmounts: Record<string, number>;
+  }[];
+
+  for (const c of scheilRef) {
+    it(`${c.name}: Al-${(c.xB * 100).toFixed(0)}${c.elB}`, { timeout: 60000 }, async () => {
+      const { scheilSolidify } = await import("../src/index.ts");
+      const db = parseTdb(
+        readFileSync(
+          c.name === "alzn"
+            ? join(here, "fixtures/alzn_mey.tdb")
+            : join(here, "../../../services/calphad/databases/mc_al_v2.032.pycalphad.tdb"),
+          "utf8",
+        ),
+      );
+      const comp: Record<string, number> = { AL: 1 - c.xB, [c.elB]: c.xB };
+      const r = scheilSolidify(db, comp, { tStartK: c.tStart, dT: 2, suspend, cutoff: 0.001 });
+      expect(r.terminated).toBe("solidified");
+      expect(Math.abs((r.liquidusK ?? 0) - c.liquidusK)).toBeLessThanOrEqual(2);
+      expect(Math.abs((r.solidusK ?? 0) - c.finalK)).toBeLessThanOrEqual(4);
+      for (const [phase, amount] of Object.entries(c.phaseAmounts)) {
+        expect(Math.abs((r.solidTotals[phase] ?? 0) - amount)).toBeLessThan(0.005);
+      }
+      // Fraction-solid curve at sampled reference temperatures.
+      for (let i = 0; i < c.temperatures.length; i += 5) {
+        const tRef = c.temperatures[i]!;
+        if (tRef > (r.liquidusK ?? 0) || tRef < (r.solidusK ?? 0)) continue;
+        const nearest = r.steps.reduce((b, s2) =>
+          Math.abs(s2.tK - tRef) < Math.abs(b.tK - tRef) ? s2 : b,
+        );
+        expect(Math.abs(1 - nearest.fLiquid - c.fractionSolid[i]!)).toBeLessThan(0.015);
+      }
+    });
+  }
+});

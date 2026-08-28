@@ -230,6 +230,16 @@ two hand-rolled visuals and no charting layer.
 - **B-504 — Scheil solidification.** Scheil-Gulliver fraction-solid curves,
   freezing range, and microsegregation profiles; flags hot-cracking-prone
   wide-freezing-range compositions for the failure engine.
+  *Shipped 2026-08-28, in-browser: `scheilSolidify` (classic assumptions
+  stated: full liquid mixing, no solid diffusion; coarse-stride liquid
+  descent + ΔT refinement at first solid; warm-started steps). Validated
+  against the pycalphad team's `scheil` package: Al-Zn and Al-Mg curves,
+  liquidus, solidus, and phase totals match to ≤2 K / 4 decimals. Studio
+  section streams the fs(T) curve live and reports liquidus / Scheil
+  solidus / freezing range with the hot-cracking correlation named.
+  Still open: microsegregation profile chart (liquid-composition trace is
+  already recorded), fast-diffuser back-diffusion variant, failure-rule
+  integration of freezing range.*
 - **B-505 — Steel transformation kinetics.** Empirical TTT/CCT C-curves,
   Jominy hardenability, and martensite-fraction (Koistinen-Marburger)
   models for steels — chartable, citation-backed, validity-windowed like

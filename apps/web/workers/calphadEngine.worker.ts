@@ -1,6 +1,7 @@
 import {
   parseTdb,
   pointEquilibrium,
+  scheilSolidify,
   wtToMoleFractions,
   type TdbDatabase,
 } from "@alloyra/calphad";
@@ -33,6 +34,15 @@ export type EngineRequest =
       tdbUrl: string;
       compositionWt: Record<string, number>;
       tempsC: number[];
+    }
+  | {
+      id: number;
+      kind: "scheil";
+      dbId: string;
+      tdbUrl: string;
+      compositionWt: Record<string, number>;
+      tStartC: number;
+      dT: number;
     };
 
 export interface EnginePhase {
@@ -63,7 +73,25 @@ export type EngineResponse =
       total: number;
       point: { tC: number; phases: { phase: string; fraction: number }[] };
     }
-  | { id: number; kind: "step-done"; ok: boolean; error?: string; ms?: number };
+  | { id: number; kind: "step-done"; ok: boolean; error?: string; ms?: number }
+  | {
+      id: number;
+      kind: "scheil-progress";
+      point: { tC: number; fractionSolid: number };
+    }
+  | {
+      id: number;
+      kind: "scheil-done";
+      ok: boolean;
+      error?: string;
+      result?: {
+        liquidusC?: number;
+        solidusC?: number;
+        solidTotals: Record<string, number>;
+        terminated: string;
+        ms: number;
+      };
+    };
 
 const dbCache = new Map<string, TdbDatabase>();
 
@@ -118,6 +146,35 @@ self.onmessage = async (ev: MessageEvent<EngineRequest>) => {
       return;
     }
 
+    if (msg.kind === "scheil") {
+      const t0 = performance.now();
+      const r = scheilSolidify(db, x, {
+        tStartK: msg.tStartC + 273.15,
+        dT: msg.dT,
+        suspend,
+        onProgress: (step) => {
+          self.postMessage({
+            id: msg.id,
+            kind: "scheil-progress",
+            point: { tC: step.tK - 273.15, fractionSolid: 1 - step.fLiquid },
+          } satisfies EngineResponse);
+        },
+      });
+      self.postMessage({
+        id: msg.id,
+        kind: "scheil-done",
+        ok: true,
+        result: {
+          ...(r.liquidusK !== undefined ? { liquidusC: r.liquidusK - 273.15 } : {}),
+          ...(r.solidusK !== undefined ? { solidusC: r.solidusK - 273.15 } : {}),
+          solidTotals: r.solidTotals,
+          terminated: r.terminated,
+          ms: Math.round(performance.now() - t0),
+        },
+      } satisfies EngineResponse);
+      return;
+    }
+
     // Temperature sweep: manual warm-started loop (mirrors stepTemperature)
     // so each point streams to the UI before the next one computes.
     const t0 = performance.now();
@@ -157,7 +214,9 @@ self.onmessage = async (ev: MessageEvent<EngineRequest>) => {
     self.postMessage(
       msg.kind === "point"
         ? ({ id: msg.id, kind: "point", ok: false, error } satisfies EngineResponse)
-        : ({ id: msg.id, kind: "step-done", ok: false, error } satisfies EngineResponse),
+        : msg.kind === "scheil"
+          ? ({ id: msg.id, kind: "scheil-done", ok: false, error } satisfies EngineResponse)
+          : ({ id: msg.id, kind: "step-done", ok: false, error } satisfies EngineResponse),
     );
   }
 };
