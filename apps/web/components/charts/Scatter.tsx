@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 
 /**
  * Plot kit — scatter (backlog B-201/B-202, design-v2 § 3).
@@ -25,6 +25,15 @@ export interface ScatterPoint {
 interface Axis {
   label: string;
   log?: boolean;
+}
+
+/** A data-space rectangle drawn on the chart (screening region, B-203). */
+export interface ChartRegion {
+  x0: number;
+  x1: number;
+  y0: number;
+  y1: number;
+  label?: string;
 }
 
 function niceTicks(min: number, max: number, target = 6): number[] {
@@ -70,6 +79,8 @@ export function ScatterChart({
   height = 420,
   compact = false,
   footnote,
+  regions,
+  onBrush,
 }: {
   points: ScatterPoint[];
   xAxis: Axis;
@@ -78,8 +89,14 @@ export function ScatterChart({
   height?: number;
   compact?: boolean;
   footnote?: string;
+  /** Data-space boxes rendered on the plot (screening stages, B-203). */
+  regions?: ChartRegion[];
+  /** Enables drag-to-draw: called with the data-space box on release. */
+  onBrush?: (r: ChartRegion) => void;
 }) {
   const [hover, setHover] = useState<string | undefined>();
+  const [drag, setDrag] = useState<{ x0: number; y0: number; x1: number; y1: number } | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
   const W = compact ? 480 : 680;
   const H = height;
@@ -104,9 +121,20 @@ export function ScatterChart({
       M.l + ((tx(v) - tx(x0)) / (tx(x1) - tx(x0) || 1)) * (W - M.l - M.r);
     const sy = (v: number) =>
       H - M.b - ((ty(v) - ty(y0)) / (ty(y1) - ty(y0) || 1)) * (H - M.t - M.b);
+    // Inverse transforms (viewBox px → data) for the brush.
+    const ix = (px: number) => {
+      const t = tx(x0) + ((px - M.l) / (W - M.l - M.r)) * (tx(x1) - tx(x0));
+      return xAxis.log ? 10 ** t : t;
+    };
+    const iy = (px: number) => {
+      const t = ty(y0) + ((H - M.b - px) / (H - M.t - M.b)) * (ty(y1) - ty(y0));
+      return yAxis.log ? 10 ** t : t;
+    };
     return {
       sx,
       sy,
+      ix,
+      iy,
       xt: xAxis.log ? logTicks(x0, x1) : niceTicks(x0, x1, compact ? 5 : 7),
       yt: yAxis.log ? logTicks(y0, y1) : niceTicks(y0, y1, compact ? 4 : 6),
     };
@@ -118,9 +146,47 @@ export function ScatterChart({
 
   const hovered = points.find((p) => p.id === hover);
 
+  // Client → viewBox coordinates, clamped to the plot area.
+  const toViewBox = (clientX: number, clientY: number) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect || rect.width === 0) return { x: M.l, y: M.t };
+    const x = ((clientX - rect.left) / rect.width) * W;
+    const y = ((clientY - rect.top) / rect.height) * H;
+    return {
+      x: Math.max(M.l, Math.min(W - M.r, x)),
+      y: Math.max(M.t, Math.min(H - M.b, y)),
+    };
+  };
+
+  const brushDown = (e: ReactPointerEvent<SVGRectElement>) => {
+    if (!onBrush) return;
+    const { x, y } = toViewBox(e.clientX, e.clientY);
+    e.currentTarget.setPointerCapture(e.pointerId);
+    setDrag({ x0: x, y0: y, x1: x, y1: y });
+  };
+  const brushMove = (e: ReactPointerEvent<SVGRectElement>) => {
+    if (!drag) return;
+    const { x, y } = toViewBox(e.clientX, e.clientY);
+    setDrag({ ...drag, x1: x, y1: y });
+  };
+  const brushUp = () => {
+    if (!drag) return;
+    const w = Math.abs(drag.x1 - drag.x0);
+    const h = Math.abs(drag.y1 - drag.y0);
+    setDrag(null);
+    // A real box, not a click: both dimensions must have been dragged.
+    if (w < 6 || h < 6) return;
+    const xa = plot.ix(Math.min(drag.x0, drag.x1));
+    const xb = plot.ix(Math.max(drag.x0, drag.x1));
+    const ya = plot.iy(Math.max(drag.y0, drag.y1)); // larger px = smaller value
+    const yb = plot.iy(Math.min(drag.y0, drag.y1));
+    onBrush?.({ x0: xa, x1: xb, y0: ya, y1: yb });
+  };
+
   return (
     <div className="chart-wrap">
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
         className="chart"
         role="img"
@@ -161,6 +227,47 @@ export function ScatterChart({
         >
           {yAxis.label}
         </text>
+
+        {onBrush && (
+          <rect
+            x={M.l}
+            y={M.t}
+            width={W - M.l - M.r}
+            height={H - M.t - M.b}
+            fill="transparent"
+            style={{ cursor: "crosshair", touchAction: "none" }}
+            onPointerDown={brushDown}
+            onPointerMove={brushMove}
+            onPointerUp={brushUp}
+            onPointerCancel={() => setDrag(null)}
+          />
+        )}
+        {regions?.map((r, i) => {
+          const rx = plot.sx(Math.max(Math.min(r.x0, r.x1), plot.ix(M.l)));
+          const rx1 = plot.sx(Math.min(Math.max(r.x0, r.x1), plot.ix(W - M.r)));
+          const ryTop = plot.sy(Math.min(Math.max(r.y0, r.y1), plot.iy(M.t)));
+          const ryBot = plot.sy(Math.max(Math.min(r.y0, r.y1), plot.iy(H - M.b)));
+          return (
+            <g key={`region-${i}`} className="chart-region" pointerEvents="none">
+              <rect x={rx} y={ryTop} width={Math.max(0, rx1 - rx)} height={Math.max(0, ryBot - ryTop)} />
+              {r.label && (
+                <text x={rx + 5} y={ryTop + 13} className="chart-region-label">
+                  {r.label}
+                </text>
+              )}
+            </g>
+          );
+        })}
+        {drag && (
+          <rect
+            className="chart-brush"
+            pointerEvents="none"
+            x={Math.min(drag.x0, drag.x1)}
+            y={Math.min(drag.y0, drag.y1)}
+            width={Math.abs(drag.x1 - drag.x0)}
+            height={Math.abs(drag.y1 - drag.y0)}
+          />
+        )}
 
         {/* muted sort first so live points draw on top */}
         {points

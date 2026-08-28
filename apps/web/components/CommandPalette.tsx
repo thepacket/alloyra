@@ -15,6 +15,7 @@ interface Cmd {
 
 const navCmds: Cmd[] = [
   { id: "nav-db", label: "Go to Alloy database", kind: "nav", keywords: "database alloys", run: (r) => r.push("/database") },
+  { id: "nav-screening", label: "Go to Staged screening", kind: "nav", keywords: "screening stages filter funnel report", run: (r) => r.push("/screening") },
   { id: "nav-profiles", label: "Go to Duty profiles", kind: "nav", keywords: "duty profile environment", run: (r) => r.push("/profiles") },
   { id: "nav-comparisons", label: "Go to Comparisons", kind: "nav", keywords: "compare ranking", run: (r) => r.push("/comparisons") },
   { id: "nav-rules", label: "Go to Failure rules", kind: "nav", keywords: "scc failure rules", run: (r) => r.push("/rules") },

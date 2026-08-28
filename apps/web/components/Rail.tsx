@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 
 const items: { href: string; label: string; phase?: string }[] = [
   { href: "/database", label: "Alloy database" },
+  { href: "/screening", label: "Staged screening" },
   { href: "/profiles", label: "Duty profiles" },
   { href: "/comparisons", label: "Comparisons" },
   { href: "/rules", label: "Failure rules" },

@@ -115,6 +115,18 @@ two hand-rolled visuals and no charting layer.
   (chart region + numeric limits + family tree) with progressive grey-out and
   an auto-generated report documenting why each candidate was eliminated —
   extends the existing hard-constraint elimination and audit transparency.
+  *Shipped 2026-08-28: new Staged screening pane (`/screening`).
+  Generic `screenCandidates` engine in core (family / numeric-limit /
+  chart-region stages, per-stage explicit unknown policy — a missing value
+  never silently passes or fails; every outcome carries a reason string
+  with the actual values; tested). Plot kit gained brush-to-draw and
+  region rendering; a drag on the chart becomes a region stage. Funnel
+  readout (27 → … → N), progressive grey-out in chart and table,
+  Markdown rationale report (stages, funnel, per-candidate eliminations,
+  unknown disclosures, value provenance; copy/download), and a
+  send-≤6-survivors-to-comparison handoff that logs itself in the
+  comparison's intervention log. Still open: saving/naming multiple
+  screening studies, curve-property stages (blocked on B-301).*
 - **B-204 — Curve viewers.** Interactive viewers for curve-valued data with
   test-condition metadata (temperature, strain rate, R-ratio): stress-strain,
   S-N fatigue, creep/stress-rupture and LMP master curves. Depends on B-301.

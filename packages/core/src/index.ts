@@ -45,6 +45,18 @@ export type {
   SystemInfo,
 } from "./provider.ts";
 export type { Contribution, ExtraCriterion, RankResult, Weights } from "./ranking.ts";
+export type {
+  CandidateScreen,
+  FamilyStage,
+  LimitStage,
+  PropertyMeta,
+  RegionStage,
+  ScreeningStage,
+  ScreenResult,
+  StageOutcome,
+  UnknownPolicy,
+} from "./screening.ts";
+export { describeStage, screenCandidates } from "./screening.ts";
 export { DEFAULT_WEIGHTS, rankCandidate } from "./ranking.ts";
 export type {
   Constituent,
