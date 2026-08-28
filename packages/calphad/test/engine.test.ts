@@ -2,7 +2,12 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { binaryPointEquilibrium, buildPhaseModel, parseTdb } from "../src/index.ts";
+import {
+  binaryPointEquilibrium,
+  buildPhaseModel,
+  parseTdb,
+  pointEquilibrium,
+} from "../src/index.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const db = parseTdb(readFileSync(join(here, "fixtures/alzn_mey.tdb"), "utf8"));
@@ -110,6 +115,50 @@ describe("production database (MatCalc mc_al, 183 phases)", () => {
         expect(got[i]!.phase).toBe(want[i]!.phase);
         expect(Math.abs(got[i]!.x - want[i]!.xB)).toBeLessThan(XTOL);
         expect(Math.abs(got[i]!.fraction - want[i]!.fraction)).toBeLessThan(FTOL);
+      }
+    });
+  }
+});
+
+describe("multicomponent equilibrium matches pycalphad (production databases)", () => {
+  const suspend = (name: string) => /^(GP_|CL_)|^BCC_DISL$/.test(name);
+  const mcRef = JSON.parse(
+    readFileSync(join(here, "fixtures/multicomponent-reference.json"), "utf8"),
+  ) as {
+    db: string;
+    T: number;
+    x: Record<string, number | null>;
+    dependent: string;
+    phases: { phase: string; fraction: number }[];
+  }[];
+
+  for (const c of mcRef) {
+    it(`${c.db.replace(/_v.*/, "")} ${Object.keys(c.x).join("-")} at ${c.T} K`, () => {
+      const db = parseTdb(
+        readFileSync(
+          join(here, `../../../services/calphad/databases/${c.db}.tdb`),
+          "utf8",
+        ),
+      );
+      const x: Record<string, number> = {};
+      let sum = 0;
+      for (const [e, v] of Object.entries(c.x)) {
+        if (v !== null) {
+          x[e] = v;
+          sum += v;
+        }
+      }
+      x[c.dependent] = 1 - sum;
+      const r = pointEquilibrium(db, x, c.T, { suspend });
+      expect(r.feasible).toBe(true);
+      expect(r.phases.length).toBe(c.phases.length);
+      // Match by phase name (multisets) with fraction tolerance.
+      const wantNames = c.phases.map((p) => p.phase).sort();
+      const gotNames = r.phases.map((p) => p.phase).sort();
+      expect(gotNames).toEqual(wantNames);
+      for (const want of c.phases) {
+        const mine = r.phases.find((p) => p.phase === want.phase)!;
+        expect(Math.abs(mine.fraction - want.fraction)).toBeLessThan(0.005);
       }
     });
   }

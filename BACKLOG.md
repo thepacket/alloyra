@@ -197,9 +197,17 @@ two hand-rolled visuals and no charting layer.
   CEF Gibbs with R-K excess + IHJ magnetics matching pycalphad to
   <0.001 J/mol-atom, binary point equilibrium by dense sampling + lower
   convex hull matching pycalphad on Al-Zn (incl. the FCC miscibility gap),
-  Al-Mg (β-Al₃Mg₂), and Al-Si — 28 fixture-validated tests. Not yet wired
-  into the UI. Still open: multicomponent minimizer, local refinement,
-  ternary R-K-M terms, UI integration with hosted cross-check.*
+  Al-Mg (β-Al₃Mg₂), and Al-Si — fixture-validated. **Multicomponent slice
+  shipped same day:** LP tangent-plane solver (revised simplex, Gibbs'
+  phase rule emerging as the ≤C-column basis) over dominant-mode +
+  Dirichlet constitution sampling, refined by reduced-cost-windowed zoom
+  and deterministic pattern-search polish; ternary R-K-Muggianu with the
+  Thermo-Calc lone-degree-0-is-symmetric convention; IHJ magnetics
+  exercised. Matches pycalphad on production databases: 8-component 316L
+  vs mc_fe (FCC+Laves+M23C6, G within 0.1 J/mol-atom, ~4 s), 625-like vs
+  mc_ni (FCC+δ), Fe-C (BCC+graphite) — 32 tests. Still open: UI
+  integration (worker + on-demand TDB download + hosted cross-check),
+  phase-diagram mapping, chemical-potential outputs.*
 - **B-502 — Property diagrams.** One-axis stepping: equilibrium phase
   fraction vs temperature for a fixed composition (the CALPHAD category's
   bread-and-butter plot), replacing today's single-point bars.

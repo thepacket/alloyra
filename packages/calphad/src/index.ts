@@ -16,3 +16,9 @@ export {
   type BinaryEquilibriumResult,
   type EquilibriumPhase,
 } from "./equilibrium.ts";
+export { solveTangentLp } from "./lp.ts";
+export {
+  pointEquilibrium,
+  type MulticomponentPhase,
+  type MulticomponentResult,
+} from "./multicomponent.ts";

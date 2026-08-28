@@ -60,7 +60,7 @@ export function buildPhaseModel(
   /** Product of site fractions selected by a parameter's constituent chain,
    *  including the Redlich-Kister (y_A − y_B)^order factor for the
    *  interacting sublattice. Returns 0 when inapplicable. */
-  function chainWeight(param: TdbParameter, y: number[][]): number {
+  function chainWeightOf(param: TdbParameter, y: number[][], loneTernary: boolean): number {
     let w = 1;
     let rk = 1;
     for (let s = 0; s < constituents.length; s++) {
@@ -79,12 +79,27 @@ export function buildPhaseModel(
         const yb = y[s]![ib]!;
         w *= ya * yb;
         rk *= (ya - yb) ** param.order;
-      } else {
-        // Ternary+ interactions: symmetric order-0 only (Muggianu
-        // asymmetric terms are out of scope for the binary engine).
-        if (param.order !== 0) {
-          return 0;
+      } else if (specs.length === 3) {
+        // Ternary Redlich-Kister-Muggianu (Hillert form): the order index
+        // names a species of the triple; v_i = y_i + (1 − yA − yB − yC)/3
+        // restores symmetry when the triple's fractions don't sum to 1.
+        const ys: number[] = [];
+        for (const sp of specs) {
+          const idx = constituents[s]!.indexOf(sp);
+          if (idx < 0) return 0;
+          ys.push(y[s]![idx]!);
         }
+        const [ya, yb, yc] = ys as [number, number, number];
+        w *= ya * yb * yc;
+        if (!loneTernary) {
+          if (param.order > 2) return 0;
+          const yi = ys[param.order]!;
+          rk *= yi + (1 - ya - yb - yc) / 3;
+        }
+      } else {
+        // Quaternary+ interactions: symmetric order-0 only (rare; higher
+        // orders are dropped, recorded via model warnings).
+        if (param.order !== 0) return 0;
         for (const sp of specs) {
           const idx = constituents[s]!.indexOf(sp);
           if (idx < 0) return 0;
@@ -98,6 +113,21 @@ export function buildPhaseModel(
   const gParams = params.filter((p) => p.kind === "G" || p.kind === "L");
   const tcParams = params.filter((p) => p.kind === "TC");
   const bmParams = params.filter((p) => p.kind === "BMAGN");
+
+  // Thermo-Calc ternary convention: a LONE degree-0 ternary parameter is
+  // symmetric (weight y_A·y_B·y_C, no Muggianu factor); the v_i =
+  // y_i + (1−Σy)/3 weights apply only when multiple degrees are assessed
+  // for the triple. Count parameters per (kind, constituent chain).
+  const ternaryGroupSize = new Map<string, number>();
+  for (const p of params) {
+    if (p.constituents.some((sub) => sub.length === 3)) {
+      const key = p.kind + "|" + p.constituents.map((c) => c.join(",")).join(":");
+      ternaryGroupSize.set(key, (ternaryGroupSize.get(key) ?? 0) + 1);
+    }
+  }
+  const isLoneSymmetricTernary = (p: TdbParameter): boolean =>
+    p.order === 0 &&
+    (ternaryGroupSize.get(p.kind + "|" + p.constituents.map((c) => c.join(",")).join(":")) ?? 0) === 1;
   for (const p of db.parameters) {
     if (p.phase === phase.name && p.constituents.some((sub) => sub.some((sp) => sp.length > 2 && !active.has(sp) && sp !== "*"))) {
       // parameter involving species outside the active set — correctly excluded
@@ -132,20 +162,24 @@ export function buildPhaseModel(
 
   const magnetic = phase.magnetic;
 
+  const gEntries = gParams.map((p) => ({ p, lone: isLoneSymmetricTernary(p) }));
+  const tcEntries = tcParams.map((p) => ({ p, lone: isLoneSymmetricTernary(p) }));
+  const bmEntries = bmParams.map((p) => ({ p, lone: isLoneSymmetricTernary(p) }));
+
   const gm = (y: number[][], t: number): number => {
     let g = 0;
     let tc = 0;
     let bmagn = 0;
-    for (const p of gParams) {
-      const w = chainWeight(p, y);
+    for (const { p, lone } of gEntries) {
+      const w = chainWeightOf(p, y, lone);
       if (w !== 0) g += w * evalPiecewise(p.segments, t);
     }
-    for (const p of tcParams) {
-      const w = chainWeight(p, y);
+    for (const { p, lone } of tcEntries) {
+      const w = chainWeightOf(p, y, lone);
       if (w !== 0) tc += w * evalPiecewise(p.segments, t);
     }
-    for (const p of bmParams) {
-      const w = chainWeight(p, y);
+    for (const { p, lone } of bmEntries) {
+      const w = chainWeightOf(p, y, lone);
       if (w !== 0) bmagn += w * evalPiecewise(p.segments, t);
     }
     // Ideal sublattice mixing.
