@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { alloys, microConcepts, type Alloy, type MicroConcept } from "@alloyra/data";
+import { alloys, microConcepts, propertyDef, type Alloy, type MicroConcept } from "@alloyra/data";
+import { CurveViewer } from "./CurveViewer";
 import {
   MECHANISMS,
   ceIIW,
@@ -359,14 +360,30 @@ function DetailPanel({
             {c.properties.map((p) => (
               <div className="propline" key={p.property}>
                 <span>
-                  {p.property.replace(/_/g, " ")}{" "}
-                  <ProvenanceChip p={p.provenance} title={`${p.source}${p.note ? ` — ${p.note}` : ""}`} />
+                  {propertyDef(p.property).label}{" "}
+                  <ProvenanceChip
+                    p={p.provenance}
+                    title={`${p.source}${p.note ? ` — ${p.note}` : ""}${
+                      p.conditions?.note ? ` · ${p.conditions.note}` : ""
+                    }`}
+                  />
                 </span>
                 <span className="val">
-                  {p.value} {p.unit}
+                  {p.interval ? `${p.interval.lo} – ${p.interval.hi}` : p.value} {p.unit}
                 </span>
               </div>
             ))}
+            {c.curves && c.curves.length > 0 && (
+              <details className="curve-block">
+                <summary>
+                  Curves ({c.curves.length}):{" "}
+                  {[...new Set(c.curves.map((cv) => propertyDef(cv.property).label))].join(", ")}
+                </summary>
+                {c.curves.map((cv) => (
+                  <CurveViewer key={cv.id} curve={cv} color={famColor} />
+                ))}
+              </details>
+            )}
             {c.microstructure && <MicroSection m={c.microstructure} />}
             {c.note && <div className="note-text">{c.note}</div>}
           </div>

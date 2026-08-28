@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { alloys, DATASET_VERSION } from "@alloyra/data";
 import { EquilibriumPanel } from "./EquilibriumPanel";
 import { SweepSpark, type SweepPoint } from "./charts/SweepSpark";
+import { LineChart } from "./charts/Line";
 import {
   MATRIX_CONSTANTS,
   ashbyOrowan,
@@ -749,6 +750,39 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             </div>
           </div>
 
+          <div className="flow-curve-panel">
+            <span className="calc-label">
+              Flow curve — Hollomon fit <span className="prov computed">COMPUTED</span>
+            </span>
+            <LineChart
+              series={(() => {
+                const K = st.holl.K;
+                const n = Math.max(0.01, Math.min(0.6, st.holl.n));
+                const pts = 40;
+                const trueS: { x: number; y: number }[] = [];
+                const engS: { x: number; y: number }[] = [];
+                for (let i = 0; i <= pts; i++) {
+                  const eTrue = 0.002 + (i / pts) * (n - 0.002);
+                  const sTrue = K * eTrue ** n;
+                  const eEng = (Math.exp(eTrue) - 1) * 100;
+                  trueS.push({ x: eEng, y: sTrue });
+                  engS.push({ x: eEng, y: sTrue * Math.exp(-eTrue) });
+                }
+                return [
+                  { name: "σ true", color: "var(--viol)", points: trueS },
+                  { name: "σ engineering", color: "var(--accent)", points: engS },
+                ];
+              })()}
+              xLabel="engineering strain (%)"
+              yLabel="stress (MPa)"
+              height={240}
+              yMin={0}
+              yFmt={(y) => `${y.toFixed(0)} MPa`}
+              hoverHint="hover to read stress at a strain"
+              footnote={`σ_true = K·ε^n with YOUR K = ${st.holl.K} MPa, n = ${st.holl.n} (fit constants, not measurements). Drawn over the UNIFORM range only — the curve ends at the Considère point ε_true = n (necking onset); post-necking response is not modeled. Engineering curve: σ_eng = σ_true·e^(−ε_true).`}
+            />
+          </div>
+
           <div className="wrc-and-lmp">
             <WrcDiagram
               creq={results.wrc.creq.value}
@@ -782,6 +816,32 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
               <div className="calc-src">
                 {results.lmp.source.citation} — {results.lmp.source.note}
               </div>
+              {results.lmp.inWindow && (
+                <LineChart
+                  series={[
+                    {
+                      name: "iso-LMP",
+                      color: "var(--straw)",
+                      points: (() => {
+                        const P = results.lmp.value * 1000;
+                        const C = state.lmp.C;
+                        const out: { x: number; y: number }[] = [];
+                        for (let tC = 400; tC <= 900; tC += 10) {
+                          const logT = P / (tC + 273.15) - C;
+                          if (logT >= 0 && logT <= 7) out.push({ x: tC, y: logT });
+                        }
+                        return out;
+                      })(),
+                    },
+                  ]}
+                  xLabel="T (°C)"
+                  yLabel="log₁₀ t (h)"
+                  height={200}
+                  yFmt={(y) => `10^${y.toFixed(1)} h ≈ ${(10 ** y).toPrecision(2)} h`}
+                  hoverHint="hover to read the equivalent life at a temperature"
+                  footnote={`Time-temperature combinations sharing the current LMP = ${results.lmp.value.toFixed(2)}×10³ K (C = ${state.lmp.C}). The LMP EQUIVALENCE is the master-curve axis; it says nothing about the stress this parameter was reached at — pair it with rupture data for the specific alloy.`}
+                />
+              )}
             </div>
           </div>
 

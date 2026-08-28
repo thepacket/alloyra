@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { fmtTick, niceTicks } from "./axes";
+import { fmtTick, logTicks, niceTicks } from "./axes";
 
 /**
  * Plot kit — multi-series line chart (B-201/B-502). Theme-native SVG for
@@ -23,6 +23,9 @@ export function LineChart({
   height = 300,
   yMin,
   yMax,
+  xLog = false,
+  yFmt,
+  hoverHint,
   footnote,
 }: {
   series: LineSeries[];
@@ -31,6 +34,12 @@ export function LineChart({
   height?: number;
   yMin?: number;
   yMax?: number;
+  /** Logarithmic x axis (B-204 curve viewers — cryo T, cycles, time). */
+  xLog?: boolean;
+  /** Hover-readout y formatter; default renders phase fractions as %. */
+  yFmt?: (y: number) => string;
+  /** Hover hint when nothing is hovered. */
+  hoverHint?: string;
   footnote?: string;
 }) {
   const [hoverX, setHoverX] = useState<number | undefined>();
@@ -39,17 +48,28 @@ export function LineChart({
   const M = { l: 52, r: 14, t: 12, b: 38 };
 
   const plot = useMemo(() => {
-    const xs = series.flatMap((s) => s.points.map((p) => p.x));
+    const xs = series.flatMap((s) => s.points.map((p) => p.x)).filter((x) => !xLog || x > 0);
     const ys = series.flatMap((s) => s.points.map((p) => p.y));
     if (xs.length === 0) return undefined;
     const x0 = Math.min(...xs);
     const x1 = Math.max(...xs);
     const y0 = yMin ?? Math.min(0, ...ys);
     const y1 = yMax ?? Math.max(...ys) * 1.05;
-    const sx = (v: number) => M.l + ((v - x0) / (x1 - x0 || 1)) * (W - M.l - M.r);
+    const tx = (v: number) => (xLog ? Math.log10(v) : v);
+    const sx = (v: number) =>
+      M.l + ((tx(v) - tx(x0)) / (tx(x1) - tx(x0) || 1)) * (W - M.l - M.r);
     const sy = (v: number) => H - M.b - ((v - y0) / (y1 - y0 || 1)) * (H - M.t - M.b);
-    return { x0, x1, y0, y1, sx, sy, xt: niceTicks(x0, x1, 7), yt: niceTicks(y0, y1, 5) };
-  }, [series, yMin, yMax, H, M.l, M.r, M.t, M.b]);
+    return {
+      x0,
+      x1,
+      y0,
+      y1,
+      sx,
+      sy,
+      xt: xLog ? logTicks(x0, x1) : niceTicks(x0, x1, 7),
+      yt: niceTicks(y0, y1, 5),
+    };
+  }, [series, yMin, yMax, xLog, H, M.l, M.r, M.t, M.b]);
 
   if (!plot) return <div className="chart-empty">No points yet.</div>;
 
@@ -64,7 +84,9 @@ export function LineChart({
             );
             return { name: s.name, ...nearest };
           })
-          .filter((p) => p.y > 1e-4)
+          // Phase-fraction mode hides zero-fraction series; generic curves
+          // (custom yFmt) keep every value — contraction curves are negative.
+          .filter((p) => (yFmt ? true : p.y > 1e-4))
           .sort((a, b) => b.y - a.y);
 
   return (
@@ -79,7 +101,12 @@ export function LineChart({
           const frac = (e.clientX - rect.left) / rect.width;
           const xView = frac * W;
           if (xView < M.l || xView > W - M.r) return setHoverX(undefined);
-          setHoverX(plot.x0 + ((xView - M.l) / (W - M.l - M.r)) * (plot.x1 - plot.x0));
+          const frac2 = (xView - M.l) / (W - M.l - M.r);
+          setHoverX(
+            xLog
+              ? 10 ** (Math.log10(plot.x0) + frac2 * (Math.log10(plot.x1) - Math.log10(plot.x0)))
+              : plot.x0 + frac2 * (plot.x1 - plot.x0),
+          );
         }}
         onMouseLeave={() => setHoverX(undefined)}
       >
@@ -146,8 +173,10 @@ export function LineChart({
       </div>
       <div className="chart-readout mono">
         {hovered && hovered.length > 0
-          ? `${fmtTick(hovered[0]!.x)}: ${hovered.map((p) => `${p.name} ${(p.y * 100).toFixed(1)}%`).join(" · ")}`
-          : "hover to read phase fractions at a temperature"}
+          ? `${fmtTick(hovered[0]!.x)}: ${hovered
+              .map((p) => `${p.name} ${yFmt ? yFmt(p.y) : `${(p.y * 100).toFixed(1)}%`}`)
+              .join(" · ")}`
+          : (hoverHint ?? "hover to read phase fractions at a temperature")}
       </div>
       {footnote && <div className="chart-foot">{footnote}</div>}
     </div>

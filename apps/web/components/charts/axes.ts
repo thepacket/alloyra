@@ -14,6 +14,20 @@ export function niceTicks(min: number, max: number, target = 6): number[] {
   return ticks;
 }
 
+/** Log-decade ticks (1-2-5 per decade) within [min, max]. */
+export function logTicks(min: number, max: number): number[] {
+  const ticks: number[] = [];
+  const lo = Math.floor(Math.log10(Math.max(min, Number.MIN_VALUE)));
+  const hi = Math.ceil(Math.log10(max));
+  for (let e = lo; e <= hi; e++) {
+    for (const m of [1, 2, 5]) {
+      const v = m * 10 ** e;
+      if (v >= min * 0.999 && v <= max * 1.001) ticks.push(v);
+    }
+  }
+  return ticks;
+}
+
 export function fmtTick(v: number): string {
   if (v === 0) return "0";
   const a = Math.abs(v);
