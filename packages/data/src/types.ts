@@ -1,4 +1,4 @@
-import type { CompositionRange, Provenance } from "@alloyra/core";
+import type { CompositionRange, Microstructure, Provenance } from "@alloyra/core";
 
 /** Property identifiers — extend deliberately, never ad hoc strings in seeds. */
 export type PropertyId =
@@ -25,6 +25,12 @@ export interface Condition {
   name: string;
   form: string;
   properties: PropertyRecord[];
+  /**
+   * Literature-typical microstructural descriptors for this condition
+   * (backlog E1). Absent field = undocumented, never "none"; the block
+   * carries its own citation and is searchable from the database view.
+   */
+  microstructure?: Microstructure;
   note?: string;
 }
 

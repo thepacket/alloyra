@@ -38,3 +38,19 @@ export type {
 } from "./provider.ts";
 export type { Contribution, RankResult, Weights } from "./ranking.ts";
 export { DEFAULT_WEIGHTS, rankCandidate } from "./ranking.ts";
+export type {
+  Constituent,
+  ConstituentRole,
+  MechanismId,
+  MechanismRole,
+  MechanismTag,
+  Microstructure,
+  SerrationClass,
+  TwinDensity,
+} from "./microstructure.ts";
+export {
+  MECHANISMS,
+  hasMechanism,
+  matchesMicroQuery,
+  microstructureHaystack,
+} from "./microstructure.ts";
