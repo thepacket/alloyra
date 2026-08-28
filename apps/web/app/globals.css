@@ -835,25 +835,33 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
   .cmdk-hint::before { content: "⌕"; font-size: 18px; line-height: 1; color: var(--muted); }
 }
 
-/* Touch devices: visible controls stay compact, but hit areas grow to
-   ~44 px (WCAG 2.5.5) — chips and mini buttons get an invisible expanded
-   halo; text controls get taller. */
-@media (pointer: coarse) {
+/* Touch-sized controls: visible boxes grow modestly and an invisible halo
+   completes the ~44 px hit area (WCAG 2.5.5). Applied at the mobile layout
+   breakpoint AND on coarse pointers — a narrow viewport is treated as
+   touch regardless of what the pointer reports. */
+@media (max-width: 768px), (pointer: coarse) {
   .fchip, .mini {
     position: relative;
-    min-height: 32px;
-    padding: 6px 11px;
+    min-height: 34px;
+    min-width: 34px;
+    padding: 7px 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   .fchip::after, .mini::after {
     content: "";
     position: absolute;
-    inset: -6px;
+    inset: -5px;
   }
   .field input, .field select, .hdr-select, .el-num, .micro-search {
-    min-height: 40px;
+    min-height: 42px;
   }
+  input[type="range"] { min-height: 34px; }
   .el-row { gap: 10px; padding: 5px 0; }
-  .rail a { padding: 11px 10px; }
+  .rail a { padding: 12px 10px; }
+  .cmp-actions { gap: 8px; }
+  .price-item .el-num { min-height: 38px; }
 }
 
 /* ---- Comparison intervention log ---- */
