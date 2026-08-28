@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   Composition,
   EquilibriumResult,
   ProviderCapabilities,
 } from "@alloyra/core";
 import { calphadProvider } from "../lib/calphad";
+import type { EngineResponse } from "../workers/calphadEngine.worker";
+
+type EngineResult = NonNullable<EngineResponse["result"]>;
 
 /**
  * Phase-equilibrium panel (M3): the studio's window onto the CALPHAD
@@ -31,6 +34,16 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
   const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState<EquilibriumResult | null>(null);
   const [error, setError] = useState("");
+  // In-browser engine (B-501, experimental) — runs in a worker off the
+  // main thread; cross-checked against the hosted result when comparable.
+  const workerRef = useRef<Worker | null>(null);
+  const reqIdRef = useRef(0);
+  const [engineRunning, setEngineRunning] = useState(false);
+  const [engineElapsed, setEngineElapsed] = useState(0);
+  const [engineResult, setEngineResult] = useState<EngineResult | null>(null);
+  const [engineError, setEngineError] = useState("");
+  const [engineKey, setEngineKey] = useState("");
+  const [hostedKey, setHostedKey] = useState("");
 
   const refresh = () => {
     setCaps(null);
@@ -105,6 +118,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
       setResult(
         await calphadProvider.equilibrium({ databaseId: dbId, compositionWt: comp, tempC }),
       );
+      setHostedKey(`${dbId}|${tempC}`);
     } catch (e) {
       setError(
         `${e instanceof Error ? e.message : String(e)} — if the service was idle, it may have been waking up and compiling models; running again usually succeeds within a few seconds.`,
@@ -113,6 +127,73 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
       setRunning(false);
     }
   };
+
+  useEffect(() => {
+    if (!engineRunning) return;
+    const t0 = Date.now();
+    setEngineElapsed(0);
+    const iv = setInterval(() => setEngineElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, [engineRunning]);
+
+  useEffect(() => () => workerRef.current?.terminate(), []);
+
+  const runEngine = () => {
+    if (typeof Worker === "undefined") {
+      setEngineError("This browser does not support Web Workers.");
+      return;
+    }
+    if (!workerRef.current) {
+      workerRef.current = new Worker(
+        new URL("../workers/calphadEngine.worker.ts", import.meta.url),
+      );
+    }
+    const worker = workerRef.current;
+    const id = ++reqIdRef.current;
+    setEngineRunning(true);
+    setEngineError("");
+    setEngineResult(null);
+    const key = `${dbId}|${tempC}`;
+    const onMessage = (ev: MessageEvent<EngineResponse>) => {
+      if (ev.data.id !== id) return;
+      worker.removeEventListener("message", onMessage);
+      setEngineRunning(false);
+      if (ev.data.ok && ev.data.result) {
+        setEngineResult(ev.data.result);
+        setEngineKey(key);
+      } else {
+        setEngineError(ev.data.error ?? "Engine failed.");
+      }
+    };
+    worker.addEventListener("message", onMessage);
+    worker.postMessage({
+      id,
+      dbId,
+      tdbUrl: `/tdb/${dbId}.tdb`,
+      compositionWt: comp,
+      tempC,
+    });
+  };
+
+  // Cross-check: comparable only when both results came from the same
+  // database + temperature. Reports the honest disagreement, not a verdict.
+  const crossCheck = useMemo(() => {
+    if (!result || !engineResult || engineKey === "" || engineKey !== hostedKey) return null;
+    const hosted = new Map(result.phases.map((p) => [p.phase, p.fraction]));
+    const engine = new Map(engineResult.phases.map((p) => [p.phase, p.fraction]));
+    const names = new Set([...hosted.keys(), ...engine.keys()]);
+    let maxDelta = 0;
+    let samePhaseSet = true;
+    for (const n of names) {
+      const a = hosted.get(n) ?? 0;
+      const b = engine.get(n) ?? 0;
+      if (!hosted.has(n) || !engine.has(n)) {
+        if (Math.max(a, b) > 0.005) samePhaseSet = false;
+      }
+      maxDelta = Math.max(maxDelta, Math.abs(a - b));
+    }
+    return { samePhaseSet, maxDelta };
+  }, [result, engineResult, engineKey, hostedKey]);
 
   const selected = caps?.systems.find((s) => s.id === dbId);
   const missing = selected ? coverage(selected.elements) : [];
@@ -221,6 +302,76 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
               </div>
             </div>
           )}
+
+          <div className="engine-block">
+            <div className="engine-head">
+              <span className="calc-label">
+                In-browser engine <span className="prov engine-chip">EXPERIMENTAL · B-501</span>
+              </span>
+              <button
+                type="button"
+                className="mini"
+                onClick={runEngine}
+                disabled={engineRunning || missing.length > 0}
+              >
+                {engineRunning ? `Computing… ${engineElapsed}s` : "Run in-browser"}
+              </button>
+            </div>
+            <div className="calc-src">
+              Pure-TypeScript CALPHAD engine running in this tab (no server):
+              same TDB, same phase suspensions. Validated against pycalphad on
+              the shipped databases; still experimental — the hosted service
+              remains authoritative, and every run here can be cross-checked
+              against it.
+            </div>
+            {engineRunning && (
+              <div className="calc-src" role="status">
+                Sampling constitutions and refining the tangent plane against{" "}
+                {dbId} — typically 1–10 s depending on the alloy system.
+              </div>
+            )}
+            {engineError && <div className="calc-warn">{engineError}</div>}
+            {engineResult && (
+              <div className="eq-result">
+                {engineResult.phases.map((p) => (
+                  <div className="eq-phase" key={p.phase + p.fraction.toFixed(6)}>
+                    <span className="mono eq-phase-name">{p.phase}</span>
+                    <div className="eq-bar engine-bar">
+                      <span style={{ width: `${(p.fraction * 100).toFixed(1)}%` }} />
+                    </div>
+                    <span className="mono eq-frac">{(p.fraction * 100).toFixed(1)} %</span>
+                  </div>
+                ))}
+                <div className="calc-src mono engine-meta">
+                  G = {engineResult.gPerMoleAtom.toFixed(1)} J/mol-atom ·{" "}
+                  {engineResult.samples.toLocaleString()} sampled constitutions ·{" "}
+                  {engineResult.rounds} refinement rounds · {engineResult.ms} ms
+                </div>
+                <details className="eq-howto">
+                  <summary>Chemical potentials (SER reference)</summary>
+                  <div className="calc-src mono">
+                    {Object.entries(engineResult.chemicalPotentials)
+                      .map(([el, mu]) => `μ(${el}) = ${mu.toFixed(0)} J/mol`)
+                      .join(" · ")}
+                  </div>
+                </details>
+                {crossCheck && (
+                  <div className={crossCheck.samePhaseSet && crossCheck.maxDelta < 0.01 ? "engine-check ok" : "engine-check warn"}>
+                    Cross-check vs hosted pycalphad ({dbId} @ {tempC} °C):{" "}
+                    {crossCheck.samePhaseSet
+                      ? `same phase set, max phase-fraction difference ${(crossCheck.maxDelta * 100).toFixed(2)} %.`
+                      : `PHASE SETS DIFFER — trust the hosted service and treat this engine result as a bug report.`}
+                  </div>
+                )}
+                {!crossCheck && (
+                  <div className="calc-src">
+                    Run the hosted service at the same database and temperature
+                    to cross-check this result.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>

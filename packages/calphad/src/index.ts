@@ -17,6 +17,7 @@ export {
   type EquilibriumPhase,
 } from "./equilibrium.ts";
 export { solveTangentLp } from "./lp.ts";
+export { ATOMIC_MASS, wtToMoleFractions } from "./composition.ts";
 export {
   pointEquilibrium,
   type MulticomponentPhase,

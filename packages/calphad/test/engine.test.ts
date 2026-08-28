@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +8,7 @@ import {
   buildPhaseModel,
   parseTdb,
   pointEquilibrium,
+  wtToMoleFractions,
 } from "../src/index.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -133,7 +135,7 @@ describe("multicomponent equilibrium matches pycalphad (production databases)", 
   }[];
 
   for (const c of mcRef) {
-    it(`${c.db.replace(/_v.*/, "")} ${Object.keys(c.x).join("-")} at ${c.T} K`, () => {
+    it(`${c.db.replace(/_v.*/, "")} ${Object.keys(c.x).join("-")} at ${c.T} K`, { timeout: 30000 }, () => {
       const db = parseTdb(
         readFileSync(
           join(here, `../../../services/calphad/databases/${c.db}.tdb`),
@@ -162,4 +164,31 @@ describe("multicomponent equilibrium matches pycalphad (production databases)", 
       }
     });
   }
+});
+
+describe("browser-served TDB copies stay in sync with the service", () => {
+  for (const f of [
+    "mc_fe_v2.059.pycalphad.tdb",
+    "mc_ni_v2.034.pycalphad.tdb",
+    "mc_al_v2.032.pycalphad.tdb",
+    "NIST-solder.tdb",
+  ]) {
+    it(f, () => {
+      const a = readFileSync(join(here, `../../../services/calphad/databases/${f}`));
+      const b = readFileSync(join(here, `../../../apps/web/public/tdb/${f}`));
+      const h = (buf: Buffer) => createHash("sha256").update(buf).digest("hex");
+      expect(h(b)).toBe(h(a));
+    });
+  }
+});
+
+describe("wt% to mole fractions", () => {
+  it("matches the hosted service's conversion for 316L mid-spec", () => {
+    const x = wtToMoleFractions({ C: 0.015, Mn: 1.0, Si: 0.375, Cr: 17.0, Ni: 12.0, Mo: 2.5, N: 0.05, Fe: 67.06 });
+    // Reference values from the service's earlier verified response.
+    expect(x.CR).toBeCloseTo(0.18217897385110457, 6);
+    expect(x.NI).toBeCloseTo(0.11392373185332694, 6);
+    expect(x.C).toBeCloseTo(0.000695875197076359, 8);
+    expect(Object.values(x).reduce((s, v) => s + v, 0)).toBeCloseTo(1, 12);
+  });
 });

@@ -27,6 +27,8 @@ export interface MulticomponentResult {
   feasible: boolean;
   /** Total Gibbs energy of the state, J per mole of atoms. */
   gPerMoleAtom: number;
+  /** Chemical potentials (J/mol, SER reference) from the LP tangent plane. */
+  chemicalPotentials: Record<string, number>;
   rounds: number;
   samples: number;
 }
@@ -157,8 +159,12 @@ export function pointEquilibrium(
     }
   });
 
-  const rounds = opts?.rounds ?? 8;
-  const zoomSamples = opts?.zoomSamples ?? 320;
+  // Defaults sized for the hard cases (multi-phase low-T states need the
+  // budget: 316L at 773 K converges to pycalphad's G to the decimal at
+  // 16/600 but sits ~30 J high at 8/320); the early-exit below keeps easy
+  // cases fast.
+  const rounds = opts?.rounds ?? 16;
+  const zoomSamples = opts?.zoomSamples ?? 600;
   let lastObjective = Number.POSITIVE_INFINITY;
   let sol = solveTangentLp(pool, target);
   let roundsUsed = 0;
@@ -252,8 +258,24 @@ export function pointEquilibrium(
   }
 
   if (!sol.feasible) {
-    return { phases: [], feasible: false, gPerMoleAtom: Number.NaN, rounds: roundsUsed, samples: pool.length };
+    return {
+      phases: [],
+      feasible: false,
+      gPerMoleAtom: Number.NaN,
+      chemicalPotentials: {},
+      rounds: roundsUsed,
+      samples: pool.length,
+    };
   }
+
+  // Tangent plane = chemical potentials: G(x) = Σ duals[j]·x_j + duals[m−1],
+  // so μ_row = duals[j] + duals[m−1] and μ_dependent = duals[m−1].
+  const mu: Record<string, number> = {};
+  const muBase = sol.duals[sol.duals.length - 1] ?? Number.NaN;
+  mu[dependent] = muBase;
+  rows.forEach((e, j) => {
+    mu[e] = (sol.duals[j] ?? 0) + muBase;
+  });
 
   // Merge basis points of the same phase with (numerically) identical
   // composition — LP degeneracy, not a miscibility gap.
@@ -288,11 +310,17 @@ export function pointEquilibrium(
     }
   });
   merged.sort((a, b) => b.fraction - a.fraction);
+  // Drop LP-degeneracy slivers below the engine's honest resolution and
+  // renormalize — a 6e-5 "phase" is numerical residue, not a prediction.
+  const kept = merged.filter((p) => p.fraction >= 2e-4);
+  const fSum = kept.reduce((s, p) => s + p.fraction, 0);
+  for (const p of kept) p.fraction /= fSum;
 
   return {
-    phases: merged,
+    phases: kept,
     feasible: true,
     gPerMoleAtom: sol.objective,
+    chemicalPotentials: mu,
     rounds: roundsUsed,
     samples: pool.length,
   };

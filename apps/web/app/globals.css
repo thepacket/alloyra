@@ -679,6 +679,27 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
 .eq-bar span { display: block; height: 100%; background: var(--straw); }
 .eq-frac { font-size: 10.5px; color: var(--straw); text-align: right; }
 
+/* ---- In-browser CALPHAD engine (B-501, experimental) ---- */
+.engine-block {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border: 1px dashed color-mix(in srgb, var(--viol) 45%, var(--line));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--viol) 4%, transparent);
+}
+.engine-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.prov.engine-chip {
+  background: var(--viol-wash); color: var(--viol);
+  border: 1px solid color-mix(in srgb, var(--viol) 50%, transparent);
+}
+.eq-bar.engine-bar span { background: var(--viol); }
+.engine-meta { color: var(--faint); }
+.engine-check {
+  margin-top: 6px; font-size: 11.5px; border-radius: 4px; padding: 5px 9px;
+}
+.engine-check.ok { color: var(--good); background: #1c2b1e; border: 1px solid #2e4a33; }
+.engine-check.warn { color: var(--warn); background: #262015; border: 1px solid #4d3c22; }
+
 /* ---- Review-status chips ---- */
 .status-chip {
   font-family: var(--font-mono); font-size: 8.5px; letter-spacing: 0.08em;

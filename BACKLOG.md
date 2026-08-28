@@ -205,9 +205,16 @@ two hand-rolled visuals and no charting layer.
   Thermo-Calc lone-degree-0-is-symmetric convention; IHJ magnetics
   exercised. Matches pycalphad on production databases: 8-component 316L
   vs mc_fe (FCC+Laves+M23C6, G within 0.1 J/mol-atom, ~4 s), 625-like vs
-  mc_ni (FCC+δ), Fe-C (BCC+graphite) — 32 tests. Still open: UI
-  integration (worker + on-demand TDB download + hosted cross-check),
-  phase-diagram mapping, chemical-potential outputs.*
+  mc_ni (FCC+δ), Fe-C (BCC+graphite). **UI integration shipped:** the
+  studio's equilibrium panel gains an EXPERIMENTAL in-browser run — web
+  worker, on-demand TDB fetch from `/tdb/` (hash-synced with the service
+  copies by test), same auxiliary-phase suspension, chemical potentials
+  from the LP duals, and an honest cross-check line against the hosted
+  service (green on agreement, warning telling users to trust the hosted
+  service on divergence). Verified live: 316L @ 800 °C — same phase set,
+  max Δfraction 0.00 %. 37 engine tests. Still open: phase-diagram
+  mapping (property diagrams/isopleths), offline-fallback promotion once
+  the engine has a longer cross-check record.*
 - **B-502 — Property diagrams.** One-axis stepping: equilibrium phase
   fraction vs temperature for a fixed composition (the CALPHAD category's
   bread-and-butter plot), replacing today's single-point bars.

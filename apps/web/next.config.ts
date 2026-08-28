@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@alloyra/core", "@alloyra/data"],
+  transpilePackages: ["@alloyra/core", "@alloyra/data", "@alloyra/calphad"],
   /**
    * Static export: `pnpm build` emits apps/web/out/ — plain files any
    * static server can host (the deployment target is 1 CPU / 250 MB, so

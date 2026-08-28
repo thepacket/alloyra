@@ -13,7 +13,8 @@
     "@alloyra/data": "workspace:*",
     "next": "^15.5.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "@alloyra/calphad": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.0.0",
