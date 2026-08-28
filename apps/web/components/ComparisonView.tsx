@@ -15,7 +15,13 @@ import {
   type RuleAudit,
   type Weights,
 } from "@alloyra/core";
-import { dutyFromProfile, loadProfiles, type DutyProfile } from "../lib/profiles";
+import {
+  blankProfile,
+  dutyFromProfile,
+  loadProfiles,
+  saveProfiles,
+  type DutyProfile,
+} from "../lib/profiles";
 import Link from "next/link";
 import { activeRules, effectiveRuleList, emptyOverlay, loadOverlay, rulesetLabel, type RuleOverlay } from "../lib/rules";
 import { ProvenanceChip } from "./ProvenanceChip";
@@ -42,6 +48,39 @@ interface StoredComparison {
 
 const STORE = "alloyra.comparison.v1";
 const MAX_SLOTS = 6;
+
+/**
+ * First-run example study (external review, 2026-08-28): one click shows
+ * the full workflow — a sample duty, candidates, and the draft-rule opt-in
+ * — without weakening any production default. Everything it creates is
+ * labeled EXAMPLE and behaves like normal user data (editable, deletable).
+ */
+const EXAMPLE_PROFILE_NAME = "EXAMPLE — seawater pump housing (welded)";
+
+function exampleProfile(): DutyProfile {
+  const p = blankProfile();
+  p.name = EXAMPLE_PROFILE_NAME;
+  p.savedAt = new Date().toISOString();
+  p.thermal = { minC: 5, nomC: 25, maxC: 45 };
+  p.mechanical = { loadType: "sustained", designStressMPa: 120, rRatio: null, cycles: null };
+  p.chemistry = { medium: "immersion", chloridePpm: 19000, pH: 8.1, h2sKpa: 0, ammonia: "no" };
+  p.context = {
+    galvanicCouple: "",
+    crevices: "yes",
+    welded: "yes",
+    cathodicProtection: "no",
+    lmeContact: "none",
+  };
+  p.constraints = { maxCostPerKg: null, route: "wrought" };
+  return p;
+}
+
+const EXAMPLE_SLOTS: Slot[] = [
+  { uns: "S32205", conditionId: "s32205-annealed-plate", pinned: false, excluded: false },
+  { uns: "S32750", conditionId: "s32750-annealed-plate", pinned: false, excluded: false },
+  { uns: "S31603", conditionId: "s31603-annealed-plate", pinned: false, excluded: false },
+  { uns: "N06625", conditionId: "n06625-annealed-plate", pinned: false, excluded: false },
+];
 
 const defaultStored = (): StoredComparison => ({
   profileId: null,
@@ -215,6 +254,27 @@ export function ComparisonView() {
   const setWeight = (k: keyof Weights, v: number) =>
     update((s) => ({ ...s, weights: { ...s.weights, [k]: v } }));
 
+  const loadExample = () => {
+    const existing = loadProfiles();
+    let profile = existing.find((p) => p.name === EXAMPLE_PROFILE_NAME);
+    if (!profile) {
+      profile = exampleProfile();
+      saveProfiles([...existing, profile]);
+      setProfiles([...existing, profile]);
+    }
+    const id = profile.id;
+    update((s) => ({
+      ...s,
+      profileId: id,
+      slots: EXAMPLE_SLOTS,
+      includeDrafts: true,
+      overrideLog: [
+        ...s.overrideLog,
+        `${new Date().toISOString()} — loaded EXAMPLE study (sample seawater duty, 4 candidates, draft rules opted in)`,
+      ],
+    }));
+  };
+
   if (!loaded) return null;
 
   return (
@@ -324,6 +384,14 @@ export function ComparisonView() {
           <Link className="btn" href="/profiles?from=comparisons">
             Create a duty profile
           </Link>
+          <button type="button" className="btn ghost" onClick={loadExample}>
+            Load example study
+          </button>
+          <span className="d">
+            The example is a welded seawater duty with four candidates and
+            draft rules opted in — sample data, clearly labeled EXAMPLE, for
+            seeing the workflow before entering your own.
+          </span>
         </div>
       )}
 
@@ -335,6 +403,9 @@ export function ComparisonView() {
             Each candidate is an alloy in a specific condition — 7075-T651 and
             7075-T7351 are different answers to this duty.
           </span>
+          <button type="button" className="btn ghost" onClick={loadExample}>
+            Load example study
+          </button>
         </div>
       )}
 

@@ -53,11 +53,14 @@ body {
 }
 
 /* ---- Shell grid: titlebar / rail / main ---- */
+/* minmax(0, 1fr): a bare 1fr track's `auto` minimum inherits the
+   titlebar's min-content width and blows the whole app out past narrow
+   viewports (the 495px-at-390px mobile bug). */
 .shell {
   display: grid;
   grid-template:
     "titlebar titlebar" 42px
-    "rail main" 1fr / 216px 1fr;
+    "rail main" 1fr / 216px minmax(0, 1fr);
   height: 100vh;
 }
 
@@ -71,6 +74,7 @@ body {
   padding: 0 12px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
+  min-width: 0; /* never widen the shell; children shrink/truncate instead */
 }
 /* Hi-tech signature: a spectral hairline under the titlebar (theme v2). */
 .titlebar::after {
@@ -777,23 +781,28 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
 @media (max-width: 768px) {
   .shell {
     grid-template:
-      "titlebar" 42px
-      "main" 1fr / 1fr;
+      "titlebar" 48px
+      "main" 1fr / minmax(0, 1fr);
   }
-  .menu-btn { display: block; }
+  /* 48px bar hosts a 44x44 touch target for the drawer button (WCAG 2.5.5). */
+  .menu-btn {
+    display: flex; align-items: center; justify-content: center;
+    min-width: 44px; min-height: 44px; padding: 0; flex: none;
+  }
   .sys-chip { display: none; }
   .cmdk-hint { flex: 1 1 auto; min-width: 0; }
   .cmdk-hint span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .wordmark { font-size: 12px; }
+  .wordmark { font-size: 12px; white-space: nowrap; }
+  .preview-chip { font-size: 8px; padding: 2px 5px; letter-spacing: 0.06em; }
 
   .rail-holder {
-    position: fixed; top: 42px; bottom: 0; left: 0; width: 240px; z-index: 60;
+    position: fixed; top: 48px; bottom: 0; left: 0; width: 240px; z-index: 60;
     transform: translateX(-100%); transition: transform 160ms ease;
     box-shadow: 8px 0 24px rgba(0, 0, 0, 0.4);
   }
   .rail-holder.open { transform: translateX(0); }
   .drawer-backdrop {
-    display: block; position: fixed; inset: 42px 0 0 0;
+    display: block; position: fixed; inset: 48px 0 0 0;
     background: rgba(8, 10, 13, 0.55); z-index: 50;
   }
   @media (prefers-reduced-motion: reduce) {
@@ -805,7 +814,7 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
   /* Empty detail pane never eats the screen; a selection opens a sheet. */
   .detail { display: none; }
   .detail.open {
-    display: block; position: fixed; inset: 42px 0 0 0; width: 100%;
+    display: block; position: fixed; inset: 48px 0 0 0; width: 100%;
     z-index: 70; border-left: none; overflow-y: auto;
   }
   .detail-close { display: inline-block; }
@@ -816,6 +825,14 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
   }
   .wrc-and-lmp { grid-template-columns: 1fr; }
   .home { padding: 24px 16px 40px; }
+}
+
+/* Very narrow: the search field collapses to an icon button (its ⌘K
+   affordance is meaningless on touch anyway). */
+@media (max-width: 480px) {
+  .cmdk-hint { flex: none; width: 44px; min-height: 40px; justify-content: center; }
+  .cmdk-hint span, .cmdk-hint kbd { display: none; }
+  .cmdk-hint::before { content: "⌕"; font-size: 18px; line-height: 1; color: var(--muted); }
 }
 
 /* ---- Plot kit (B-201/B-202, design-v2 § 3) ---- */

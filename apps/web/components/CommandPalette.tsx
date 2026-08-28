@@ -120,10 +120,19 @@ export function CommandPalette() {
             aria-label="Command palette"
             onMouseDown={(e) => e.stopPropagation()}
           >
+            {/* ARIA combobox/listbox pattern: keyboard behavior unchanged,
+                but a screen reader now hears the results and the current
+                selection. */}
             <input
               ref={inputRef}
               value={query}
               placeholder="Type an alloy, UNS number, or action…"
+              role="combobox"
+              aria-expanded={results.length > 0}
+              aria-controls="cmdk-listbox"
+              aria-activedescendant={results[hi] ? `cmdk-opt-${results[hi].id}` : undefined}
+              aria-autocomplete="list"
+              aria-label="Search alloys, microstructure concepts, and actions"
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === "ArrowDown") {
@@ -137,13 +146,16 @@ export function CommandPalette() {
                 }
               }}
             />
-            <div className="results">
+            <div className="results" role="listbox" id="cmdk-listbox" aria-label="Search results">
               {results.length === 0 && (
-                <div className="empty">No matches in dataset or actions.</div>
+                <div className="empty" role="status">No matches in dataset or actions.</div>
               )}
               {results.map((c, i) => (
                 <div
                   key={c.id}
+                  id={`cmdk-opt-${c.id}`}
+                  role="option"
+                  aria-selected={i === hi}
                   className={`item ${i === hi ? "hi" : ""}`}
                   onMouseEnter={() => setHi(i)}
                   onClick={() => pick(c)}

@@ -14,21 +14,27 @@ import { calphadProvider } from "../lib/calphad";
  * what is missing and how to fix it, and no number appears without its
  * database named.
  */
+/** Base-metal hint from a database id (mc_fe → FE). */
+function baseHint(id: string): string | undefined {
+  const m = /(?:^|[_-])(fe|ni|al)(?:[_.-]|$)/i.exec(id);
+  if (m) return m[1]!.toUpperCase();
+  if (/solder/i.test(id)) return "SN";
+  return undefined;
+}
+
 export function EquilibriumPanel({ comp }: { comp: Composition }) {
   const [caps, setCaps] = useState<ProviderCapabilities | null>(null);
   const [dbId, setDbId] = useState("");
+  const [autoNote, setAutoNote] = useState("");
   const [tempC, setTempC] = useState(500);
   const [running, setRunning] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState<EquilibriumResult | null>(null);
   const [error, setError] = useState("");
 
   const refresh = () => {
     setCaps(null);
-    calphadProvider.capabilities().then((c) => {
-      setCaps(c);
-      const first = c.systems[0];
-      if (first && !c.systems.some((s) => s.id === dbId)) setDbId(first.id);
-    });
+    calphadProvider.capabilities().then(setCaps);
   };
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -44,6 +50,52 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
 
   const coverage = (systemElements: string[]) =>
     compElements.filter((el) => !systemElements.includes(el));
+  const covers = (systemElements: string[]) => coverage(systemElements).length === 0;
+
+  const dominant = useMemo(() => {
+    let best: string | undefined;
+    let bestV = -1;
+    for (const [el, v] of Object.entries(comp)) {
+      if ((v as number) > bestV) {
+        bestV = v as number;
+        best = el.toUpperCase();
+      }
+    }
+    return best;
+  }, [comp]);
+
+  // Database auto-selection: keep the user's choice while it covers the
+  // composition; otherwise pick a covering database (base-metal match
+  // first, then the most specific one) and say why. Never silently leave
+  // "Run" disabled on an incompatible default.
+  useEffect(() => {
+    if (!caps?.available || compElements.length === 0) return;
+    const current = caps.systems.find((s) => s.id === dbId);
+    if (current && covers(current.elements)) return;
+    const covering = caps.systems.filter((s) => covers(s.elements));
+    if (covering.length === 0) {
+      if (!current && caps.systems[0]) setDbId(caps.systems[0].id);
+      setAutoNote("");
+      return;
+    }
+    const pick =
+      covering.find((s) => baseHint(s.id) === dominant) ??
+      [...covering].sort((a, b) => a.elements.length - b.elements.length)[0]!;
+    setDbId(pick.id);
+    setAutoNote(
+      `Auto-selected ${pick.id} — covers all ${compElements.length} elements of this composition` +
+        (baseHint(pick.id) === dominant ? ` (base ${dominant} match).` : "."),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [caps, compElements.join(","), dominant]);
+
+  useEffect(() => {
+    if (!running) return;
+    const t0 = Date.now();
+    setElapsed(0);
+    const iv = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
+    return () => clearInterval(iv);
+  }, [running]);
 
   const run = async () => {
     setRunning(true);
@@ -54,7 +106,9 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
         await calphadProvider.equilibrium({ databaseId: dbId, compositionWt: comp, tempC }),
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(
+        `${e instanceof Error ? e.message : String(e)} — if the service was idle, it may have been waking up and compiling models; running again usually succeeds within a few seconds.`,
+      );
     } finally {
       setRunning(false);
     }
@@ -109,7 +163,14 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
         <>
           <div className="eq-controls">
             <label>Database
-              <select className="hdr-select" value={dbId} onChange={(e) => setDbId(e.target.value)}>
+              <select
+                className="hdr-select"
+                value={dbId}
+                onChange={(e) => {
+                  setDbId(e.target.value);
+                  setAutoNote("");
+                }}
+              >
                 {caps.systems.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.id} ({s.elements.join("-")})
@@ -118,18 +179,31 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
               </select>
             </label>
             <label>T (°C)
-              <input className="el-num mono" inputMode="decimal" value={tempC}
+              <input className="el-num mono" inputMode="decimal" value={tempC} aria-label="Equilibrium temperature, °C"
                 onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setTempC(n); }} />
             </label>
             <button type="button" className="btn" onClick={run} disabled={running || missing.length > 0}>
-              {running ? "Running…" : "Run equilibrium"}
+              {running ? `Computing… ${elapsed}s` : "Run equilibrium"}
             </button>
           </div>
+          {autoNote && <div className="calc-src">{autoNote} Your own selection is kept as long as it stays compatible.</div>}
+          {running && (
+            <div className="calc-src" role="status">
+              Computing equilibrium at {tempC} °C against {selected?.id}… The
+              first calculation for a new alloy system compiles thermodynamic
+              models (up to ~60 s on the hosted service, longer if it was
+              asleep); repeat calculations answer in about a second.
+            </div>
+          )}
           {missing.length > 0 && (
             <div className="calc-warn">
-              {selected?.id} does not cover {missing.join(", ")} — this composition
-              can't be computed against it. Pick a covering database or study a
-              composition within {selected?.elements.join("-")}.
+              {selected?.id} does not cover {missing.join(", ")}.{" "}
+              {(() => {
+                const covering = caps.systems.filter((s) => covers(s.elements));
+                return covering.length > 0
+                  ? `A covering database is available: ${covering.map((s) => s.id).join(", ")}.`
+                  : "No loaded database covers this composition — drop a covering .tdb into the service.";
+              })()}
             </div>
           )}
           {error && <div className="calc-warn">{error}</div>}

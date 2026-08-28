@@ -16,8 +16,17 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Alloyra",
-  description: "Alloy-design workbench",
+  metadataBase: new URL("https://alloyra.fly.dev"),
+  title: { default: "Alloyra", template: "%s | Alloyra" },
+  description:
+    "Alloy-design workbench for metallurgists: duty-driven screening, failure-mode audits, microstructure search, and composition design with provenance on every value. Research preview.",
+  openGraph: {
+    siteName: "Alloyra",
+    title: "Alloyra",
+    description:
+      "Alloy-design workbench: duty-driven screening, failure-mode audits, microstructure search, composition design.",
+    type: "website",
+  },
 };
 
 export const viewport = {

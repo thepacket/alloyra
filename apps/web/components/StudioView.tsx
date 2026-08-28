@@ -368,7 +368,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
 
       <div className="split">
         <div className="studio-left">
-          <h3 className="studio-h">Composition (wt %) — seeded at mid-spec, residuals at half-max</h3>
+          <h2 className="studio-h">Composition (wt %) — seeded at mid-spec, residuals at half-max</h2>
           {editableElements.map((el) => {
             const max = sliderMax(el, state.baseUns);
             const v = state.comp[el] ?? 0;
@@ -388,6 +388,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
                   className="el-num mono"
                   inputMode="decimal"
                   value={v}
+                  aria-label={`${el} content, numeric entry (wt%)`}
                   onChange={(e) => {
                     const n = Number(e.target.value);
                     if (Number.isFinite(n) && n >= 0) setElement(el, n);
@@ -414,6 +415,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             <select
               className="hdr-select"
               value={addSel}
+              aria-label="Add composition element"
               onChange={(e) => {
                 const el = e.target.value as ElementSymbol;
                 if (el) setElement(el, 0);
@@ -427,7 +429,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             </select>
           </div>
 
-          <h3 className="studio-h">Element prices — Alloyra ships no price data; enter your procurement figures (R-4.5)</h3>
+          <h2 className="studio-h">Element prices — Alloyra ships no price data; enter your procurement figures (R-4.5)</h2>
           <div className="price-grid">
             {(Object.keys(comp) as ElementSymbol[]).map((el) => (
               <label className="price-item" key={el}>
@@ -437,6 +439,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
                   inputMode="decimal"
                   value={state.prices[el] ?? ""}
                   placeholder="—"
+                  aria-label={`${el} price per kilogram`}
                   onChange={(e) => {
                     const n = Number(e.target.value);
                     update((s) => ({
@@ -473,7 +476,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
         </div>
 
         <div className="studio-right">
-          <h3 className="studio-h">Nearest standard grades — spec conformance first (R-4.4)</h3>
+          <h2 className="studio-h">Nearest standard grades — spec conformance first (R-4.4)</h2>
           <div className="match-row">
             {results.matches.map((m, i) => (
               <div className={`match ${i === 0 ? "best" : ""}`} key={m.uns}>
@@ -576,7 +579,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             </div>
           </div>
 
-          <h3 className="studio-h">Phase equilibrium — hosted calculation service</h3>
+          <h2 className="studio-h">Phase equilibrium — hosted calculation service</h2>
           <EquilibriumPanel comp={comp} />
         </div>
       </div>
