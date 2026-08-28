@@ -20,8 +20,24 @@ export const DEFAULT_WEIGHTS: Weights = {
   auditCleanliness: 1,
 };
 
+/**
+ * A caller-supplied scoring criterion (e.g. the comparison view's
+ * castability index from Scheil results). The caller owns the raw value
+ * and its normalization; ranking only folds it into the same transparent
+ * weighted mean. `included: false` = N/A, excluded like any other N/A.
+ */
+export interface ExtraCriterion {
+  id: string;
+  label: string;
+  /** Normalized 0–1; ignored when `included` is false. */
+  raw: number;
+  weight: number;
+  note: string;
+  included: boolean;
+}
+
 export interface Contribution {
-  criterion: keyof Weights;
+  criterion: string;
   label: string;
   /** Normalized 0–1; NaN when the criterion is N/A. */
   raw: number;
@@ -48,6 +64,7 @@ export function rankCandidate(
   duty: DutyInput,
   audits: readonly RuleAudit[],
   weights: Weights = DEFAULT_WEIGHTS,
+  extra: readonly ExtraCriterion[] = [],
 ): RankResult {
   const eliminationReasons: string[] = [];
 
@@ -151,6 +168,17 @@ export function rankCandidate(
         : "N/A — no rules ran; this criterion is excluded from the score.",
       included: auditIncluded,
     },
+    ...extra.map(
+      (e): Contribution => ({
+        criterion: e.id,
+        label: e.label,
+        raw: e.included ? clamp01(e.raw) : Number.NaN,
+        weight: e.weight,
+        points: e.included ? clamp01(e.raw) * e.weight : 0,
+        note: e.note,
+        included: e.included,
+      }),
+    ),
   ];
 
   // score = Σ(weightᵢ · rawᵢ) / Σ weightᵢ × 100, over included criteria.

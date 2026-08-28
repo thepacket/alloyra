@@ -237,9 +237,19 @@ two hand-rolled visuals and no charting layer.
   liquidus, solidus, and phase totals match to ≤2 K / 4 decimals. Studio
   section streams the fs(T) curve live and reports liquidus / Scheil
   solidus / freezing range with the hot-cracking correlation named.
-  Still open: microsegregation profile chart (liquid-composition trace is
-  already recorded), fast-diffuser back-diffusion variant, failure-rule
-  integration of freezing range.*
+  Follow-through shipped same day: microsegregation profiles (x_L/x_0 per
+  solute vs fraction solid, streamed) and the Kou hot-cracking index
+  (max |dT/d√fs|, √fs 0.90–0.99, Kou Acta Mater. 88 (2015) 366) in the
+  studio; then the COMPARISON VIEW integration — per-candidate Scheil at
+  mid-spec (max-only elements at half-max; unrecorded traces disclosed as
+  not modeled), sequential worker queue with live cooling readouts,
+  liquidus/solidus/freezing-range and Kou rows, overlaid fs(T) curves,
+  and a cohort-normalized "Castability (Kou)" score criterion (raw =
+  best/own, active only with ≥2 computed candidates, N/A otherwise;
+  `rankCandidate` gained caller-supplied extra criteria for it).
+  Still open: fast-diffuser back-diffusion variant; a citation-backed
+  absolute threshold for a failure RULE does not exist — Kou stays a
+  comparative score criterion by design.*
 - **B-505 — Steel transformation kinetics.** Empirical TTT/CCT C-curves,
   Jominy hardenability, and martensite-fraction (Koistinen-Marburger)
   models for steels — chartable, citation-backed, validity-windowed like

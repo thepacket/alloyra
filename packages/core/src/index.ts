@@ -44,7 +44,7 @@ export type {
   ProviderCapabilities,
   SystemInfo,
 } from "./provider.ts";
-export type { Contribution, RankResult, Weights } from "./ranking.ts";
+export type { Contribution, ExtraCriterion, RankResult, Weights } from "./ranking.ts";
 export { DEFAULT_WEIGHTS, rankCandidate } from "./ranking.ts";
 export type {
   Constituent,

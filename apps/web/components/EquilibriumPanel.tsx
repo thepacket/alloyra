@@ -7,6 +7,7 @@ import type {
   ProviderCapabilities,
 } from "@alloyra/core";
 import { calphadProvider } from "../lib/calphad";
+import { ENGINE_DBS, baseHint } from "../lib/engine";
 import type { EngineResponse } from "../workers/calphadEngine.worker";
 import { LineChart } from "./charts/Line";
 
@@ -19,22 +20,6 @@ type SweepPointUi = { tC: number; phases: { phase: string; fraction: number }[] 
  * what is missing and how to fix it, and no number appears without its
  * database named.
  */
-/** Databases shipped to the browser at /tdb/ (hash-synced with the
- *  hosted service's copies by test) — the engine's offline catalog. */
-const ENGINE_DBS = [
-  "mc_fe_v2.059.pycalphad",
-  "mc_ni_v2.034.pycalphad",
-  "mc_al_v2.032.pycalphad",
-  "NIST-solder",
-];
-
-/** Base-metal hint from a database id (mc_fe → FE). */
-function baseHint(id: string): string | undefined {
-  const m = /(?:^|[_-])(fe|ni|al)(?:[_.-]|$)/i.exec(id);
-  if (m) return m[1]!.toUpperCase();
-  if (/solder/i.test(id)) return "SN";
-  return undefined;
-}
 
 export function EquilibriumPanel({ comp }: { comp: Composition }) {
   const [caps, setCaps] = useState<ProviderCapabilities | null>(null);

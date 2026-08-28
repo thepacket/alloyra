@@ -17,7 +17,9 @@ export function niceTicks(min: number, max: number, target = 6): number[] {
 export function fmtTick(v: number): string {
   if (v === 0) return "0";
   const a = Math.abs(v);
-  if (a >= 1000) return `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k`;
+  // k-abbreviate only from 10 000 up: temperatures live in 1 000–2 000 °C,
+  // where one-decimal "1.4k" collapses neighboring ticks into duplicates.
+  if (a >= 10000) return `${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k`;
   if (a < 1) return v.toFixed(2);
   return `${Number(v.toPrecision(4))}`;
 }

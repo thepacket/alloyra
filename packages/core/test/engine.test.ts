@@ -180,6 +180,39 @@ describe("ranking", () => {
     expect(clean?.raw).toBeCloseTo(0.6, 5); // serious → −0.4
     expect(clean?.note).toMatch(/temp rule/);
   });
+
+  it("extra criteria fold into the weighted mean; N/A extras drop out", () => {
+    const duty = { ...baseDuty, designStressMPa: 100 };
+    const base = rankCandidate(facts, duty, []);
+    const withExtra = rankCandidate(facts, duty, [], DEFAULT_WEIGHTS, [
+      { id: "castability", label: "Castability (Kou)", raw: 0.5, weight: 1, note: "test", included: true },
+    ]);
+    const c = withExtra.contributions.find((x) => x.criterion === "castability");
+    expect(c?.raw).toBeCloseTo(0.5, 5);
+    const included = withExtra.contributions.filter((x) => x.included);
+    const expected =
+      (included.reduce((s, x) => s + x.points, 0) / included.reduce((s, x) => s + x.weight, 0)) * 100;
+    expect(withExtra.score).toBeCloseTo(expected, 5);
+    // A perfect extra raises the score, a poor one lowers it — it really participates.
+    const perfect = rankCandidate(facts, duty, [], DEFAULT_WEIGHTS, [
+      { id: "castability", label: "x", raw: 1, weight: 1, note: "", included: true },
+    ]);
+    expect(perfect.score).toBeGreaterThan(withExtra.score);
+    // N/A extras are excluded entirely: identical score to no extras at all.
+    const na = rankCandidate(facts, duty, [], DEFAULT_WEIGHTS, [
+      { id: "castability", label: "x", raw: Number.NaN, weight: 1, note: "", included: false },
+    ]);
+    expect(na.score).toBeCloseTo(base.score, 8);
+    expect(na.contributions.find((x) => x.criterion === "castability")?.included).toBe(false);
+  });
+
+  it("extra raws are clamped to 0–1 — a runaway ratio cannot dominate", () => {
+    const duty = { ...baseDuty, designStressMPa: 100 };
+    const r = rankCandidate(facts, duty, [], DEFAULT_WEIGHTS, [
+      { id: "x", label: "x", raw: 7, weight: 1, note: "", included: true },
+    ]);
+    expect(r.contributions.find((c) => c.criterion === "x")?.raw).toBe(1);
+  });
 });
 
 describe("scoring invariants (release-gate checks)", () => {

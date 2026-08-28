@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   alloys,
   candidateFacts,
@@ -12,9 +12,13 @@ import {
   midpointComposition,
   pren,
   rankCandidate,
+  type ExtraCriterion,
   type RuleAudit,
   type Weights,
 } from "@alloyra/core";
+import type { EngineResponse } from "../workers/calphadEngine.worker";
+import { ENGINE_DBS, baseHint, engineDbForBase, scheilStartCFor } from "../lib/engine";
+import { LineChart } from "./charts/Line";
 import {
   blankProfile,
   dutyFromProfile,
@@ -38,6 +42,8 @@ interface StoredComparison {
   profileId: string | null;
   slots: Slot[];
   weights: Weights;
+  /** Weight of the Scheil-derived castability criterion (B-504 follow-through). */
+  castabilityWeight: number;
   /** Draft (unreviewed) rules run only on visible opt-in — default off. */
   includeDrafts: boolean;
   /** Append-only audit trail of expert overrides (R-3.4). */
@@ -86,6 +92,7 @@ const defaultStored = (): StoredComparison => ({
   profileId: null,
   slots: [],
   weights: { strength: 1, corrosion: 1, auditCleanliness: 1 },
+  castabilityWeight: 1,
   includeDrafts: false,
   overrideLog: [],
   datasetVersion: DATASET_VERSION,
@@ -103,6 +110,49 @@ function loadStored(): StoredComparison {
 }
 
 const sevRank = { disqualifying: 0, serious: 1, caution: 2 } as const;
+
+/**
+ * Solidification comparison (B-504 follow-through): per-candidate Scheil
+ * via the in-browser engine, at MID-SPEC composition with max-only
+ * elements at half-max (dropping them would flatter every candidate —
+ * e.g. C ≤ 0.03 in 316L still shapes the solidification path). Elements
+ * a grade's recorded spec does not mention are NOT modeled — absent
+ * means unknown, never zero. One worker, candidates run sequentially,
+ * each streaming its cooling progress live.
+ */
+interface ScheilSlotState {
+  status: "queued" | "running" | "done" | "error";
+  db?: string;
+  error?: string;
+  points: { tC: number; fractionSolid: number }[];
+  result?: {
+    liquidusC?: number;
+    solidusC?: number;
+    solidTotals: Record<string, number>;
+    kouIndexK?: number;
+    terminated: string;
+    ms: number;
+  };
+}
+
+/** Full mid-spec wt% including the balance element, plus the base metal. */
+function scheilInput(
+  alloy: (typeof alloys)[number],
+): { wt: Record<string, number>; base: string } | null {
+  const bal = alloy.composition.find((r) => r.balance)?.element;
+  if (!bal) return null;
+  const mid = midpointComposition(alloy.composition, { includeResidualsAtHalfMax: true });
+  const wt: Record<string, number> = {};
+  let sum = 0;
+  for (const [el, v] of Object.entries(mid)) {
+    if (typeof v === "number" && v > 0) {
+      wt[el] = v;
+      sum += v;
+    }
+  }
+  wt[bal] = Math.max(0, 100 - sum);
+  return { wt, base: bal.toUpperCase() };
+}
 
 function AuditList({ audits, rulesRan }: { audits: RuleAudit[]; rulesRan: number }) {
   if (rulesRan === 0) {
@@ -158,6 +208,12 @@ export function ComparisonView() {
   const [overlay, setOverlay] = useState<RuleOverlay>(emptyOverlay());
   const [loaded, setLoaded] = useState(false);
   const [adding, setAdding] = useState("");
+  // Solidification comparison: per-condition Scheil state (session-only —
+  // minutes of compute are not silently trusted across dataset changes).
+  const [scheil, setScheil] = useState<Record<string, ScheilSlotState>>({});
+  const [scheilQueue, setScheilQueue] = useState(false);
+  const scheilWorkerRef = useRef<Worker | null>(null);
+  const scheilReqRef = useRef(0);
 
   useEffect(() => {
     setStored(loadStored());
@@ -165,6 +221,8 @@ export function ComparisonView() {
     setOverlay(loadOverlay());
     setLoaded(true);
   }, []);
+
+  useEffect(() => () => scheilWorkerRef.current?.terminate(), []);
 
   const rules = useMemo(
     () => activeRules(overlay, { includeDrafts: stored.includeDrafts }),
@@ -196,17 +254,47 @@ export function ComparisonView() {
   const duty = profile ? dutyFromProfile(profile) : null;
 
   const rows = useMemo(() => {
+    // Castability (Kou) is COMPARATIVE: raw = bestKou / ownKou over the
+    // non-excluded candidates with a Scheil result, and the criterion only
+    // participates once at least two candidates have one — a lone result
+    // has nothing to be compared against.
+    const kouOf = (conditionId: string): number | undefined => {
+      const st = scheil[conditionId];
+      return st?.status === "done" ? st.result?.kouIndexK : undefined;
+    };
+    const cohort = stored.slots
+      .filter((s) => !s.excluded)
+      .map((s) => kouOf(s.conditionId))
+      .filter((k): k is number => k !== undefined);
+    const bestKou = cohort.length >= 2 ? Math.min(...cohort) : undefined;
+
     return stored.slots.flatMap((slot) => {
       const alloy = alloys.find((a) => a.uns === slot.uns);
       const condition = alloy?.conditions.find((c) => c.id === slot.conditionId);
       if (!alloy || !condition) return [];
       const facts = candidateFacts(alloy, condition);
       const audits = duty ? evaluateRules(facts, duty, rules) : [];
-      const rank = duty ? rankCandidate(facts, duty, audits, stored.weights) : null;
+      const kou = kouOf(slot.conditionId);
+      const castable = bestKou !== undefined && kou !== undefined && !slot.excluded;
+      const castability: ExtraCriterion = {
+        id: "castability",
+        label: "Castability (Kou)",
+        raw: castable ? bestKou / kou : Number.NaN,
+        weight: stored.castabilityWeight,
+        note: castable
+          ? `Kou index ${kou.toFixed(0)} K vs best ${bestKou.toFixed(0)} K in this comparison — raw = best/own. Comparative between these candidates only, from mid-spec Scheil (in-browser engine).`
+          : kou === undefined
+            ? "N/A — run the solidification comparison (Scheil row) to score this criterion."
+            : "N/A — the Kou index is comparative; it needs at least two computed candidates.",
+        included: castable,
+      };
+      const rank = duty
+        ? rankCandidate(facts, duty, audits, stored.weights, [castability])
+        : null;
       const p = pren(midpointComposition(alloy.composition));
       return [{ slot, alloy, condition, facts, audits, rank, pren: p.inWindow ? p.value : null }];
     });
-  }, [stored.slots, stored.weights, duty, rules]);
+  }, [stored.slots, stored.weights, stored.castabilityWeight, duty, rules, scheil]);
 
   const ordered = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -253,6 +341,142 @@ export function ComparisonView() {
 
   const setWeight = (k: keyof Weights, v: number) =>
     update((s) => ({ ...s, weights: { ...s.weights, [k]: v } }));
+
+  /** One candidate's Scheil run through the shared worker; resolves on done. */
+  const runScheilOne = (
+    conditionId: string,
+    db: string,
+    wt: Record<string, number>,
+    startC: number,
+  ) =>
+    new Promise<void>((resolve) => {
+      const worker = scheilWorkerRef.current!;
+      const id = ++scheilReqRef.current;
+      setScheil((s) => ({ ...s, [conditionId]: { status: "running", db, points: [] } }));
+      const onMessage = (ev: MessageEvent<EngineResponse>) => {
+        const d = ev.data;
+        if (d.id !== id) return;
+        if (d.kind === "scheil-progress") {
+          const pt = { tC: d.point.tC, fractionSolid: d.point.fractionSolid };
+          setScheil((s) => {
+            const cur = s[conditionId];
+            if (!cur) return s;
+            return { ...s, [conditionId]: { ...cur, points: [...cur.points, pt] } };
+          });
+          return;
+        }
+        if (d.kind === "scheil-done") {
+          worker.removeEventListener("message", onMessage);
+          setScheil((s) => {
+            const cur = s[conditionId] ?? { status: "running" as const, db, points: [] };
+            return {
+              ...s,
+              [conditionId]:
+                d.ok && d.result
+                  ? { ...cur, status: "done", result: d.result }
+                  : { ...cur, status: "error", error: d.error ?? "Scheil simulation failed." },
+            };
+          });
+          resolve();
+        }
+      };
+      worker.addEventListener("message", onMessage);
+      worker.postMessage({
+        id,
+        kind: "scheil",
+        dbId: db,
+        tdbUrl: `/tdb/${db}.tdb`,
+        compositionWt: wt,
+        tStartC: startC,
+        dT: 5,
+      });
+    });
+
+  const runSolidification = async () => {
+    if (scheilQueue) return;
+    if (typeof Worker === "undefined") return;
+    if (!scheilWorkerRef.current) {
+      scheilWorkerRef.current = new Worker(
+        new URL("../workers/calphadEngine.worker.ts", import.meta.url),
+      );
+    }
+    // Snapshot the runnable candidates now; excluded slots and finished
+    // runs are skipped, coverage gaps are reported per-candidate.
+    const targets: { conditionId: string; db: string; wt: Record<string, number>; startC: number }[] = [];
+    for (const row of rows) {
+      const { slot, alloy } = row;
+      if (slot.excluded) continue;
+      const st = scheil[slot.conditionId];
+      if (st && (st.status === "done" || st.status === "running" || st.status === "queued")) continue;
+      const input = scheilInput(alloy);
+      if (!input) {
+        setScheil((s) => ({
+          ...s,
+          [slot.conditionId]: {
+            status: "error",
+            points: [],
+            error: "No balance element in this grade's spec — cannot resolve a mid-spec composition.",
+          },
+        }));
+        continue;
+      }
+      const db = engineDbForBase(input.base);
+      if (!db) {
+        setScheil((s) => ({
+          ...s,
+          [slot.conditionId]: {
+            status: "error",
+            points: [],
+            error: `No license-vetted database shipped for ${input.base}-based alloys yet (shipped bases: ${ENGINE_DBS.map((d) => baseHint(d)).join(", ")}).`,
+          },
+        }));
+        continue;
+      }
+      targets.push({
+        conditionId: slot.conditionId,
+        db,
+        wt: input.wt,
+        startC: scheilStartCFor(input.base),
+      });
+      setScheil((s) => ({ ...s, [slot.conditionId]: { status: "queued", db, points: [] } }));
+    }
+    if (targets.length === 0) return;
+    setScheilQueue(true);
+    try {
+      for (const t of targets) {
+        await runScheilOne(t.conditionId, t.db, t.wt, t.startC);
+      }
+    } finally {
+      setScheilQueue(false);
+    }
+  };
+
+  // Overlaid fs(T) curves — one series per non-excluded candidate, each
+  // trimmed to its own liquidus + 25 K so superheat doesn't flatten the
+  // interesting part.
+  const scheilSeries = useMemo(() => {
+    const PALETTE = [
+      "var(--fam-fe)", "var(--fam-cu)", "var(--viol)", "var(--fam-ni)",
+      "var(--straw)", "var(--fam-al)",
+    ];
+    return rows
+      .filter((r) => !r.slot.excluded)
+      .map((r, i) => {
+        const st = scheil[r.slot.conditionId];
+        if (!st || st.points.length === 0) return null;
+        const withSolid = st.points.filter((p) => p.fractionSolid > 0);
+        if (withSolid.length === 0) return null;
+        const liqTc = Math.max(...withSolid.map((p) => p.tC));
+        return {
+          name: `${r.alloy.names[0]} (${r.alloy.uns})`,
+          color: PALETTE[i % PALETTE.length]!,
+          points: st.points
+            .filter((p) => p.tC <= liqTc + 25)
+            .map((p) => ({ x: p.tC, y: p.fractionSolid })),
+        };
+      })
+      .filter((s): s is NonNullable<typeof s> => s !== null);
+  }, [rows, scheil]);
 
   const loadExample = () => {
     const existing = loadProfiles();
@@ -345,6 +569,20 @@ export function ComparisonView() {
             <span className="mono">{stored.weights[k].toFixed(2)}</span>
           </label>
         ))}
+        <label className="weight" title="Participates only once at least two candidates have a Scheil result — see the Solidification row.">
+          Castability (Kou)
+          <input
+            type="range"
+            min={0}
+            max={2}
+            step={0.25}
+            value={stored.castabilityWeight}
+            onChange={(e) =>
+              update((s) => ({ ...s, castabilityWeight: Number(e.target.value) }))
+            }
+          />
+          <span className="mono">{stored.castabilityWeight.toFixed(2)}</span>
+        </label>
         <span className="score-eq mono">
           score = Σ(wᵢ·rawᵢ)/Σwᵢ × 100 over available criteria
         </span>
@@ -510,6 +748,93 @@ export function ComparisonView() {
               </div>
             ))}
 
+            <div className="cmp-rowlabel">
+              Solidification — Scheil{" "}
+              <span className="prov computed" title="Mid-spec composition (max-only spec elements at half-max), in-browser CALPHAD engine — experimental">COMPUTED</span>
+              <button
+                type="button"
+                className="mini"
+                onClick={runSolidification}
+                disabled={scheilQueue}
+                style={{ marginTop: 6 }}
+              >
+                {scheilQueue ? "Computing…" : "Compute"}
+              </button>
+            </div>
+            {ordered.map(({ condition, slot }) => {
+              const st = scheil[condition.id];
+              const last = st?.points[st.points.length - 1];
+              return (
+                <div key={condition.id} className={`cmp-cell ${slot.excluded ? "excluded" : ""}`}>
+                  {!st ? (
+                    <span className="cmp-dim">— not computed</span>
+                  ) : st.status === "queued" ? (
+                    <span className="cmp-dim">queued…</span>
+                  ) : st.status === "running" ? (
+                    <span className="mono cmp-dim" role="status">
+                      {last
+                        ? `cooling… ${last.tC.toFixed(0)} °C · fs ${(last.fractionSolid * 100).toFixed(0)} %`
+                        : "starting…"}
+                    </span>
+                  ) : st.status === "error" ? (
+                    <span className="calc-warn cmp-scheil-err">{st.error}</span>
+                  ) : st.result ? (
+                    <div className="mono cmp-scheil-nums" title={`Database: ${st.db} · ${st.result.ms} ms`}>
+                      {st.result.liquidusC !== undefined
+                        ? `liquidus ≈ ${st.result.liquidusC.toFixed(0)} °C`
+                        : "no solid above the floor"}
+                      {st.result.solidusC !== undefined && (
+                        <><br />solidus ≈ {st.result.solidusC.toFixed(0)} °C</>
+                      )}
+                      {st.result.liquidusC !== undefined && st.result.solidusC !== undefined && (
+                        <><br />freezing range ≈ {(st.result.liquidusC - st.result.solidusC).toFixed(0)} K</>
+                      )}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+
+            <div className="cmp-rowlabel">
+              Kou hot-cracking index (K){" "}
+              <span
+                className="prov computed"
+                title="max |dT/d√fs| over √fs 0.90–0.99 (Kou, Acta Mater. 88 (2015) 366). Comparative between candidates — steeper terminal solidification = more susceptible. Not a pass/fail."
+              >
+                COMPUTED
+              </span>
+            </div>
+            {(() => {
+              const kouMax = Math.max(
+                0,
+                ...ordered
+                  .filter((r) => !r.slot.excluded)
+                  .map((r) => scheil[r.slot.conditionId]?.result?.kouIndexK ?? 0),
+              );
+              return ordered.map(({ condition, slot }) => {
+                const st = scheil[condition.id];
+                const kou = st?.status === "done" ? st.result?.kouIndexK : undefined;
+                return (
+                  <div key={condition.id} className={`cmp-cell num ${slot.excluded ? "excluded" : ""}`}>
+                    {kou !== undefined ? (
+                      <>
+                        <span className="mono">{kou.toFixed(0)}</span>
+                        {kouMax > 0 && (
+                          <div className="score-bar kou-bar" title="Relative to the highest (most susceptible) computed candidate">
+                            <span style={{ width: `${Math.max(2, (kou / kouMax) * 100)}%` }} />
+                          </div>
+                        )}
+                      </>
+                    ) : st?.status === "done" ? (
+                      <span className="cmp-dim" title="Terminal solidification did not cross the √fs 0.90–0.99 window">n/a</span>
+                    ) : (
+                      <span className="cmp-dim">—</span>
+                    )}
+                  </div>
+                );
+              });
+            })()}
+
             <div className="cmp-rowlabel">Failure audit &amp; evidence gaps</div>
             {ordered.map(({ condition, audits }) => (
               <div key={condition.id} className="cmp-cell">
@@ -517,6 +842,20 @@ export function ComparisonView() {
               </div>
             ))}
           </div>
+
+          {scheilSeries.length > 0 && (
+            <div className="cmp-scheil-chart">
+              <LineChart
+                series={scheilSeries}
+                xLabel="T (°C)"
+                yLabel="fraction solid (Scheil)"
+                yMin={0}
+                yMax={1}
+                height={280}
+                footnote={`Scheil-Gulliver solidification at mid-spec composition (max-only spec elements taken at half-max), in-browser CALPHAD engine, databases per base metal (${[...new Set(Object.values(scheil).map((s) => s.db).filter(Boolean))].join(", ")}). Complete liquid mixing, NO solid diffusion: the segregation-limited bound. Trace elements the spec does not record (e.g. P, S) are not modeled — real heats can show steeper terminal solidification than these curves. Kou index = max |dT/d√fs| over √fs 0.90–0.99 (Kou, Acta Mater. 88 (2015) 366) — comparative between candidates, not a pass/fail; matters most for welded or cast parts${duty ? ` (this duty — welded: ${duty.welded})` : ""}.`}
+              />
+            </div>
+          )}
 
           <div className="cmp-foot">
             Flags inform expert judgment — Alloyra never claims a part is safe
