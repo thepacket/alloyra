@@ -32,6 +32,25 @@ from pycalphad import Database, equilibrium, variables as v
 from pycalphad.codegen.phase_record_factory import PhaseRecordFactory
 from pycalphad.core.utils import filter_phases, instantiate_models, unpack_species
 
+# Compat shim: the cython PhaseRecord constructor requires a builtin str,
+# but the eq solver can hand the factory a numpy.str_ from the grid (seen
+# on mc_al mid-spec compositions and mc_ni C-276 at 1150 °C — the request
+# 500s without this). get is @lru_cache-decorated and __getitem__ aliases
+# it at class definition, so BOTH must be replaced. Pure type coercion, no
+# thermodynamic effect.
+from functools import lru_cache as _lru_cache
+
+_orig_prf_get = PhaseRecordFactory.get
+
+
+@_lru_cache(maxsize=None)
+def _prf_get(self, phase_name):
+    return _orig_prf_get(self, str(phase_name))
+
+
+PhaseRecordFactory.get = _prf_get
+PhaseRecordFactory.__getitem__ = _prf_get
+
 app = FastAPI(title="alloyra-calphad")
 
 # The workbench is served as static files and calls this bridge directly

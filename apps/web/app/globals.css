@@ -547,6 +547,12 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
 
 /* ---- Isopleth map (B-503) ---- */
 .iso-boundary { fill: var(--ink); opacity: 0.85; }
+.iso-boundary-line { fill: none; stroke: var(--ink); stroke-width: 1.3; opacity: 0.8; }
+.iso-region-label {
+  font-family: var(--font-mono); font-size: 8.5px; fill: var(--ink);
+  paint-order: stroke; stroke: rgba(0, 0, 0, 0.55); stroke-width: 2px;
+  pointer-events: none; letter-spacing: 0.02em;
+}
 
 /* ---- Curve viewers (B-204) ---- */
 .curve-viewer { margin: 10px 0 14px; }

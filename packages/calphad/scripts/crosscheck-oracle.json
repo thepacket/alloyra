@@ -1,0 +1,1186 @@
+[
+ {
+  "id": "mc-S31603",
+  "tempC": 500,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.4283053548516811
+   },
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.3564214579381469
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.12437761491840753
+   },
+   {
+    "phase": "LAVES_PHASE",
+    "fraction": 0.0778596975181678
+   },
+   {
+    "phase": "CR3NI2SIN",
+    "fraction": 0.006484433672034725
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.0033581683079505417
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.003193273624200217
+   }
+  ],
+  "gm": -32956.82527221626,
+  "excluded": [],
+  "seconds": 3.74
+ },
+ {
+  "id": "mc-S31603",
+  "tempC": 700,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9451506284376396
+   },
+   {
+    "phase": "LAVES_PHASE",
+    "fraction": 0.048714185904553745
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.003184504055725528
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.0029506933268266464
+   }
+  ],
+  "gm": -47006.61273364043,
+  "excluded": [],
+  "seconds": 0.25
+ },
+ {
+  "id": "mc-S31603",
+  "tempC": 900,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999998390379
+   }
+  ],
+  "gm": -62639.90570598651,
+  "excluded": [],
+  "seconds": 0.26
+ },
+ {
+  "id": "mc-S31603",
+  "tempC": 1100,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.999999999928664
+   }
+  ],
+  "gm": -79498.31300302559,
+  "excluded": [],
+  "seconds": 0.47
+ },
+ {
+  "id": "mc-S31603",
+  "tempC": 1300,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999999594192
+   }
+  ],
+  "gm": -97407.19869735728,
+  "excluded": [],
+  "seconds": 0.27
+ },
+ {
+  "id": "mc-S30400",
+  "tempC": 500,
+  "phases": [
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.516710436200349
+   },
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.3141116256764324
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.1513650038034649
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.007733127457256691
+   },
+   {
+    "phase": "CR3NI2SIN",
+    "fraction": 0.007317675475999915
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.002762131849668162
+   }
+  ],
+  "gm": -32090.624743713306,
+  "excluded": [],
+  "seconds": 2.3
+ },
+ {
+  "id": "mc-S30400",
+  "tempC": 700,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.969898768557629
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.021194866894426848
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.0066518250709536484
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.0022545396108851552
+   }
+  ],
+  "gm": -46040.38792146702,
+  "excluded": [],
+  "seconds": 0.08
+ },
+ {
+  "id": "mc-S30400",
+  "tempC": 900,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999999878967
+   }
+  ],
+  "gm": -61567.19701226847,
+  "excluded": [],
+  "seconds": 0.07
+ },
+ {
+  "id": "mc-S30400",
+  "tempC": 1100,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999998356074
+   }
+  ],
+  "gm": -78270.73356737755,
+  "excluded": [],
+  "seconds": 0.26
+ },
+ {
+  "id": "mc-S30400",
+  "tempC": 1300,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999998876543
+   }
+  ],
+  "gm": -96027.7823337222,
+  "excluded": [],
+  "seconds": 0.1
+ },
+ {
+  "id": "mc-S32205",
+  "tempC": 500,
+  "phases": [
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.5903101579072448
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.2724265527232864
+   },
+   {
+    "phase": "LAVES_PHASE",
+    "fraction": 0.09520880357733083
+   },
+   {
+    "phase": "CR3NI2SIN",
+    "fraction": 0.032440480626387984
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.006287101017890212
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.0033269036834944307
+   }
+  ],
+  "gm": -32685.662209090842,
+  "excluded": [],
+  "seconds": 0.24
+ },
+ {
+  "id": "mc-S32205",
+  "tempC": 700,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.6808601282185243
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.2630984117500648
+   },
+   {
+    "phase": "LAVES_PHASE",
+    "fraction": 0.034942873264644715
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.018269533537673115
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.002829052618615496
+   }
+  ],
+  "gm": -46209.3094977653,
+  "excluded": [],
+  "seconds": 0.31
+ },
+ {
+  "id": "mc-S32205",
+  "tempC": 900,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.7882456181563444
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.20453920112912868
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.0072151802862962635
+   }
+  ],
+  "gm": -61570.43482626144,
+  "excluded": [],
+  "seconds": 0.42
+ },
+ {
+  "id": "mc-S32205",
+  "tempC": 1100,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.6043533056982759
+   },
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.3956466943560533
+   }
+  ],
+  "gm": -78269.7137956395,
+  "excluded": [],
+  "seconds": 0.26
+ },
+ {
+  "id": "mc-S32205",
+  "tempC": 1300,
+  "phases": [
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.8539641405882402
+   },
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.14603585941495112
+   }
+  ],
+  "gm": -96156.61483488377,
+  "excluded": [],
+  "seconds": 0.27
+ },
+ {
+  "id": "mc-S32750",
+  "tempC": 500,
+  "phases": [
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.4672010802243149
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.32556473699110733
+   },
+   {
+    "phase": "LAVES_PHASE",
+    "fraction": 0.12459379415806499
+   },
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.03283075453486468
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.02359413184079395
+   },
+   {
+    "phase": "CR3NI2SIN",
+    "fraction": 0.0229010410699283
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.0033144604172566368
+   }
+  ],
+  "gm": -33030.69112823914,
+  "excluded": [],
+  "seconds": 0.32
+ },
+ {
+  "id": "mc-S32750",
+  "tempC": 700,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.5640259557492381
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.3372356238868398
+   },
+   {
+    "phase": "LAVES_PHASE",
+    "fraction": 0.06373384177606879
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.032121404386237104
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.0028831737228759364
+   }
+  ],
+  "gm": -46587.27535355852,
+  "excluded": [],
+  "seconds": 0.25
+ },
+ {
+  "id": "mc-S32750",
+  "tempC": 900,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.6804771023089431
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.2965050749869263
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.023017822048248395
+   }
+  ],
+  "gm": -61897.0887586077,
+  "excluded": [],
+  "seconds": 0.28
+ },
+ {
+  "id": "mc-S32750",
+  "tempC": 1100,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.7217046807117516
+   },
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.22524680453794305
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.053048516280545424
+   }
+  ],
+  "gm": -78537.11084521307,
+  "excluded": [],
+  "seconds": 0.26
+ },
+ {
+  "id": "mc-S32750",
+  "tempC": 1300,
+  "phases": [
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.687746682115989
+   },
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.31225331779850374
+   }
+  ],
+  "gm": -96414.23281730569,
+  "excluded": [],
+  "seconds": 0.25
+ },
+ {
+  "id": "mc-S41000",
+  "tempC": 500,
+  "phases": [
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.974621291659241
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.02537870798256583
+   }
+  ],
+  "gm": -30672.196624181706,
+  "excluded": [],
+  "seconds": 1.78
+ },
+ {
+  "id": "mc-S41000",
+  "tempC": 700,
+  "phases": [
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.974742654675941
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.025257345897995415
+   }
+  ],
+  "gm": -43511.91136293081,
+  "excluded": [],
+  "seconds": 0.15
+ },
+ {
+  "id": "mc-S41000",
+  "tempC": 900,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999996725145
+   }
+  ],
+  "gm": -58385.74349184748,
+  "excluded": [],
+  "seconds": 0.06
+ },
+ {
+  "id": "mc-S41000",
+  "tempC": 1100,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999998091597
+   }
+  ],
+  "gm": -74628.2413465229,
+  "excluded": [],
+  "seconds": 0.17
+ },
+ {
+  "id": "mc-S41000",
+  "tempC": 1300,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.5001879910479862
+   },
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.4998120088625319
+   }
+  ],
+  "gm": -91930.38996938855,
+  "excluded": [],
+  "seconds": 0.06
+ },
+ {
+  "id": "mc-S17400",
+  "tempC": 500,
+  "phases": [
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.828817895286642
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.10947910384672548
+   },
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.03553403730515944
+   },
+   {
+    "phase": "G_PHASE",
+    "fraction": 0.018384614362832032
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.007784349482860875
+   }
+  ],
+  "gm": -31550.653617963606,
+  "excluded": [],
+  "seconds": 2.84
+ },
+ {
+  "id": "mc-S17400",
+  "tempC": 700,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.895033494091915
+   },
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.10496650593078552
+   }
+  ],
+  "gm": -44941.346449449185,
+  "excluded": [],
+  "seconds": 0.18
+ },
+ {
+  "id": "mc-S17400",
+  "tempC": 900,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999999000682
+   }
+  ],
+  "gm": -60306.03340060145,
+  "excluded": [],
+  "seconds": 0.17
+ },
+ {
+  "id": "mc-S17400",
+  "tempC": 1100,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999999444781
+   }
+  ],
+  "gm": -76941.08965384752,
+  "excluded": [],
+  "seconds": 0.38
+ },
+ {
+  "id": "mc-S17400",
+  "tempC": 1300,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.6160413968749082
+   },
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.3839586029379087
+   }
+  ],
+  "gm": -94698.31143078394,
+  "excluded": [],
+  "seconds": 0.13
+ },
+ {
+  "id": "mc-N06625",
+  "tempC": 650,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.7758669086433262
+   },
+   {
+    "phase": "P_PHASE",
+    "fraction": 0.13714579265041055
+   },
+   {
+    "phase": "DELTA",
+    "fraction": 0.08698729877093622
+   }
+  ],
+  "gm": -46645.27752821982,
+  "excluded": [],
+  "seconds": 1.47
+ },
+ {
+  "id": "mc-N06625",
+  "tempC": 900,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9835850943904818
+   },
+   {
+    "phase": "DELTA",
+    "fraction": 0.016414905581994467
+   }
+  ],
+  "gm": -64889.36608907229,
+  "excluded": [],
+  "seconds": 0.06
+ },
+ {
+  "id": "mc-N06625",
+  "tempC": 1150,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 1.0000000000373346
+   }
+  ],
+  "gm": -85208.92544761747,
+  "excluded": [],
+  "seconds": 0.06
+ },
+ {
+  "id": "mc-N07718",
+  "tempC": 650,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.727876153288408
+   },
+   {
+    "phase": "DELTA",
+    "fraction": 0.12907960557284928
+   },
+   {
+    "phase": "GAMMA_PRIME",
+    "fraction": 0.08668081487498769
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.047049484659856526
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.009313941623315062
+   }
+  ],
+  "gm": -51589.17211707657,
+  "excluded": [
+   "BCC_B2"
+  ],
+  "seconds": 3.31
+ },
+ {
+  "id": "mc-N07718",
+  "tempC": 900,
+  "phases": [
+   {
+    "phase": "GAMMA_DP",
+    "fraction": 0.7222245209963655
+   },
+   {
+    "phase": "GAMMA_PRIME",
+    "fraction": 0.14730026218544187
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.1265167651906886
+   },
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.003958453710445298
+   }
+  ],
+  "gm": -69307.67429573933,
+  "excluded": [
+   "BCC_B2"
+  ],
+  "seconds": 0.51
+ },
+ {
+  "id": "mc-N07718",
+  "tempC": 1150,
+  "phases": [
+   {
+    "phase": "LIQUID",
+    "fraction": 0.528764933210867
+   },
+   {
+    "phase": "GAMMA_DP",
+    "fraction": 0.4383957030838322
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.03271737157966332
+   },
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.00012199230399150672
+   }
+  ],
+  "gm": -90013.99693599339,
+  "excluded": [
+   "BCC_B2"
+  ],
+  "seconds": 0.58
+ },
+ {
+  "id": "mc-N10276",
+  "tempC": 650,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.778998812062713
+   },
+   {
+    "phase": "MU_PHASE",
+    "fraction": 0.15464155831104484
+   },
+   {
+    "phase": "GAMMA_PRIME",
+    "fraction": 0.06457810708257665
+   },
+   {
+    "phase": "M6C",
+    "fraction": 0.0017815226211101815
+   }
+  ],
+  "gm": -46553.00803725151,
+  "excluded": [
+   "BCC_B2"
+  ],
+  "seconds": 3.37
+ },
+ {
+  "id": "mc-N10276",
+  "tempC": 900,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.8837663369461186
+   },
+   {
+    "phase": "MU_PHASE",
+    "fraction": 0.08159736279140692
+   },
+   {
+    "phase": "GAMMA_PRIME",
+    "fraction": 0.03354315063996583
+   },
+   {
+    "phase": "M6C",
+    "fraction": 0.0010931500402122896
+   }
+  ],
+  "gm": -64555.874401240224,
+  "excluded": [
+   "BCC_B2"
+  ],
+  "seconds": 0.25
+ },
+ {
+  "id": "mc-N10276",
+  "tempC": 1150,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9896890728739062
+   },
+   {
+    "phase": "MU_PHASE",
+    "fraction": 0.010310927283784469
+   }
+  ],
+  "gm": -85065.63329369087,
+  "excluded": [
+   "BCC_B2"
+  ],
+  "seconds": 0.34
+ },
+ {
+  "id": "mc-A96061",
+  "tempC": 200,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9530302019643854
+   },
+   {
+    "phase": "MG2SI_B",
+    "fraction": 0.015993914769259446
+   },
+   {
+    "phase": "AL12MN",
+    "fraction": 0.015551541405431794
+   },
+   {
+    "phase": "ALCRFEMNSI_A",
+    "fraction": 0.00980171265655473
+   },
+   {
+    "phase": "THETA_AL2CU",
+    "fraction": 0.0023204702631639458
+   },
+   {
+    "phase": "AL18CR2MG3",
+    "fraction": 0.001887574552572168
+   },
+   {
+    "phase": "AL3TI_L",
+    "fraction": 0.0012884923342487407
+   },
+   {
+    "phase": "AL13CR4SI4",
+    "fraction": 0.00012609159095867696
+   }
+  ],
+  "gm": -15331.135065033464,
+  "excluded": [],
+  "seconds": 3.82
+ },
+ {
+  "id": "mc-A96061",
+  "tempC": 400,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9655105079397466
+   },
+   {
+    "phase": "MG2SI_B",
+    "fraction": 0.011578815442804667
+   },
+   {
+    "phase": "AL12MN",
+    "fraction": 0.010235470008280524
+   },
+   {
+    "phase": "ALCRFEMNSI_A",
+    "fraction": 0.010115103948951997
+   },
+   {
+    "phase": "AL13CR4SI4",
+    "fraction": 0.0025601025645968496
+   }
+  ],
+  "gm": -24353.308611404285,
+  "excluded": [],
+  "seconds": 0.23
+ },
+ {
+  "id": "mc-A96061",
+  "tempC": 550,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9849243422504804
+   },
+   {
+    "phase": "ALCRFEMNSI_A",
+    "fraction": 0.008326555745030368
+   },
+   {
+    "phase": "AL13CR4SI4",
+    "fraction": 0.0034208245976842474
+   },
+   {
+    "phase": "AL8FEMNSI2",
+    "fraction": 0.003328277140219496
+   }
+  ],
+  "gm": -32367.41083831846,
+  "excluded": [],
+  "seconds": 0.64
+ },
+ {
+  "id": "mc-A97075",
+  "tempC": 200,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.896334802946796
+   },
+   {
+    "phase": "MGALCUZN_T",
+    "fraction": 0.04841329994851518
+   },
+   {
+    "phase": "AL12MN",
+    "fraction": 0.02235596115898202
+   },
+   {
+    "phase": "LC14_ZN2MG",
+    "fraction": 0.009810886140374824
+   },
+   {
+    "phase": "ALCRFEMNSI_A",
+    "fraction": 0.007259146553127498
+   },
+   {
+    "phase": "S_PHASE",
+    "fraction": 0.005302705675200141
+   },
+   {
+    "phase": "MG2SI_B",
+    "fraction": 0.005076442555263601
+   },
+   {
+    "phase": "AL18CR2MG3",
+    "fraction": 0.0034172558917119076
+   },
+   {
+    "phase": "AL3TI_L",
+    "fraction": 0.002029508848266566
+   }
+  ],
+  "gm": -16339.055110548927,
+  "excluded": [],
+  "seconds": 0.18
+ },
+ {
+  "id": "mc-A97075",
+  "tempC": 400,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.931976051297317
+   },
+   {
+    "phase": "AL12MN",
+    "fraction": 0.019833597398034756
+   },
+   {
+    "phase": "MGALCUZN_T",
+    "fraction": 0.01968687966669537
+   },
+   {
+    "phase": "S_PHASE",
+    "fraction": 0.011236649435199326
+   },
+   {
+    "phase": "ALCRFEMNSI_A",
+    "fraction": 0.00751638858426228
+   },
+   {
+    "phase": "AL18CR2MG3",
+    "fraction": 0.004877675479972558
+   },
+   {
+    "phase": "MG2SI_B",
+    "fraction": 0.004872748618923292
+   }
+  ],
+  "gm": -25599.987437552976,
+  "excluded": [],
+  "seconds": 0.18
+ },
+ {
+  "id": "mc-A97075",
+  "tempC": 550,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9444650177202898
+   },
+   {
+    "phase": "LIQUID",
+    "fraction": 0.036168239998627345
+   },
+   {
+    "phase": "ALCRCU_TAU",
+    "fraction": 0.007961485826237538
+   },
+   {
+    "phase": "AL13CR2",
+    "fraction": 0.007608010930274682
+   },
+   {
+    "phase": "AL8FEMNSI2",
+    "fraction": 0.0037972610694612385
+   }
+  ],
+  "gm": -33928.024985038806,
+  "excluded": [],
+  "seconds": 0.34
+ },
+ {
+  "id": "mc-A95083",
+  "tempC": 200,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9514116634781788
+   },
+   {
+    "phase": "AL6MN",
+    "fraction": 0.023905452806155015
+   },
+   {
+    "phase": "AL12MN",
+    "fraction": 0.01031741958563713
+   },
+   {
+    "phase": "ALCRFEMNSI_A",
+    "fraction": 0.005614866278854406
+   },
+   {
+    "phase": "MG2SI_B",
+    "fraction": 0.00503483823215701
+   },
+   {
+    "phase": "BETA_AL3MG2",
+    "fraction": 0.003715752276988389
+   }
+  ],
+  "gm": -15750.146618817944,
+  "excluded": [],
+  "seconds": 2.19
+ },
+ {
+  "id": "mc-A95083",
+  "tempC": 400,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9512633424980939
+   },
+   {
+    "phase": "AL12MN",
+    "fraction": 0.02020447992950228
+   },
+   {
+    "phase": "AL6MN",
+    "fraction": 0.016785488052107275
+   },
+   {
+    "phase": "ALCRFEMNSI_A",
+    "fraction": 0.0069047530629624985
+   },
+   {
+    "phase": "MG2SI_B",
+    "fraction": 0.004841936488407902
+   }
+  ],
+  "gm": -25079.251765169938,
+  "excluded": [],
+  "seconds": 0.06
+ },
+ {
+  "id": "mc-A95083",
+  "tempC": 550,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9668757844376817
+   },
+   {
+    "phase": "AL6MN",
+    "fraction": 0.016373554386856524
+   },
+   {
+    "phase": "AL11CR2",
+    "fraction": 0.011057864023505367
+   },
+   {
+    "phase": "MG2SI_B",
+    "fraction": 0.003854799921892982
+   },
+   {
+    "phase": "AL8FEMNSI2",
+    "fraction": 0.001837997524614043
+   }
+  ],
+  "gm": -33260.43833012256,
+  "excluded": [],
+  "seconds": 0.33
+ },
+ {
+  "id": "solder-sac305",
+  "tempC": 120,
+  "phases": [
+   {
+    "phase": "BCT_A5",
+    "fraction": 0.9394769030910725
+   },
+   {
+    "phase": "EPSILON",
+    "fraction": 0.04352529780773385
+   },
+   {
+    "phase": "CU6SN5_L",
+    "fraction": 0.01699779910115089
+   }
+  ],
+  "gm": -20653.60561154957,
+  "excluded": [],
+  "seconds": 0.26
+ },
+ {
+  "id": "solder-sac305",
+  "tempC": 200,
+  "phases": [
+   {
+    "phase": "BCT_A5",
+    "fraction": 0.9401310426635999
+   },
+   {
+    "phase": "EPSILON",
+    "fraction": 0.042968237833065887
+   },
+   {
+    "phase": "CU6SN5",
+    "fraction": 0.016900719504725322
+   }
+  ],
+  "gm": -25556.462149148054,
+  "excluded": [],
+  "seconds": 0.06
+ },
+ {
+  "id": "solder-sn37pb",
+  "tempC": 120,
+  "phases": [
+   {
+    "phase": "BCT_A5",
+    "fraction": 0.7182538047292181
+   },
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.28174619527080763
+   }
+  ],
+  "gm": -21953.10639600496,
+  "excluded": [],
+  "seconds": 0.13
+ },
+ {
+  "id": "solder-sn37pb",
+  "tempC": 200,
+  "phases": [
+   {
+    "phase": "LIQUID",
+    "fraction": 1.0000000000000002
+   }
+  ],
+  "gm": -27599.65794900326,
+  "excluded": [],
+  "seconds": 0.0
+ }
+]

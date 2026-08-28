@@ -91,6 +91,45 @@ describe("NIST cryogenic fit sanity anchors", () => {
     expect(at("s30400-nist-cp", 4)).toBeLessThan(5);
   });
 
+  it("5083 conductivity ≈ 120 W/(m·K) and modulus ≈ 71 GPa at room temperature", () => {
+    const k = at("a95083-nist-k", 300);
+    expect(k).toBeGreaterThan(95);
+    expect(k).toBeLessThan(145);
+    const e = at("a95083-nist-e", 293);
+    expect(e).toBeGreaterThan(65);
+    expect(e).toBeLessThan(78);
+  });
+
+  it("Ti-6Al-4V conductivity ≈ 7 W/(m·K) at room temperature; contraction plateaus ≈ −174 at 4 K", () => {
+    const k = at("r56400-nist-k", 300);
+    expect(k).toBeGreaterThan(5);
+    expect(k).toBeLessThan(10);
+    const dl = at("r56400-nist-dl", 4);
+    expect(dl).toBeGreaterThan(-182);
+    expect(dl).toBeLessThan(-165);
+  });
+
+  it("718 conductivity ≈ 11 W/(m·K) at room temperature; contraction ≈ −239 at 4 K", () => {
+    const k = at("n07718-nist-k", 300);
+    expect(k).toBeGreaterThan(8.5);
+    expect(k).toBeLessThan(14.5);
+    const dl = at("n07718-nist-dl", 4);
+    expect(dl).toBeGreaterThan(-246);
+    expect(dl).toBeLessThan(-231);
+  });
+
+  it("brass conductivity curve stays within its 5–110 K validity and rises with T", () => {
+    const c = curveById("c26000-nist-k");
+    expect(c.points[0]![0]).toBeGreaterThanOrEqual(5);
+    expect(c.points[c.points.length - 1]![0]).toBeLessThanOrEqual(110.2);
+    const k5 = at("c26000-nist-k", 5);
+    const k110 = at("c26000-nist-k", 110);
+    expect(k5).toBeGreaterThan(0);
+    expect(k110).toBeGreaterThan(k5);
+    expect(k110).toBeGreaterThan(30);
+    expect(k110).toBeLessThan(160);
+  });
+
   it("thermal contraction is ~0 at 293 K and strongly negative at 4 K", () => {
     for (const [id, coldMin, coldMax] of [
       ["s30400-nist-dl", -320, -280],

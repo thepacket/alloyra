@@ -605,7 +605,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
           <div className="engine-block">
             <div className="engine-head">
               <span className="calc-label">
-                In-browser engine <span className="prov engine-chip">EXPERIMENTAL · B-501</span>
+                In-browser engine <span className="prov engine-chip" title="52-equilibrium battery vs pycalphad across all 4 shipped databases — see docs/engine-validation.md in the repository">CROSS-CHECKED · B-501</span>
               </span>
               <button
                 type="button"
@@ -638,10 +638,16 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
             )}
             <div className="calc-src">
               Pure-TypeScript CALPHAD engine running in this tab (no server):
-              same TDB, same phase suspensions. Validated against pycalphad on
-              the shipped databases; still experimental — the hosted service
-              remains authoritative when reachable — and this engine keeps
-              working when it is not.
+              same TDB, same phase suspensions. Cross-checked against
+              pycalphad on a 52-equilibrium battery over the dataset's
+              mid-specs across all four shipped databases: 45 identical phase
+              sets at ≈0 fraction difference; every disagreement investigated
+              and documented (docs/engine-validation.md) — the worst genuine
+              engine miss is 221 J/mol-atom in a five-phase 500 °C
+              assemblage, and in three Alloy-718 cases the engine found
+              DEEPER minima than the reference solver. The hosted service
+              stays available as a live cross-check, and this engine keeps
+              working when it is not reachable.
             </div>
             {engineRunning && (
               <div className="calc-src" role="status">

@@ -67,10 +67,12 @@ function parsePiecewise(body: string, resolve: Resolver): PiecewiseSegment[] {
   let lo = Number(m0[1]);
   let expr = m0[2]!;
   for (let i = 1; i < parts.length; i++) {
-    // "<hiT> Y <nextExpr>"  or  "<hiT> N"
-    const m = /^([0-9.]+(?:[eE][+-]?\d+)?)\s+([YN])\s*(.*)$/.exec(parts[i]!);
+    // "<hiT> Y <nextExpr>"  or  "<hiT> N [ref]"  or  ",,N [ref]" — the
+    // comma form (NIST solder dialect) leaves the upper limit at the
+    // Thermo-Calc default; a trailing reference token after N is ignored.
+    const m = /^([0-9.]+(?:[eE][+-]?\d+)?)?\s*,{0,2}\s*([YN])\b\s*(.*)$/.exec(parts[i]!);
     if (!m) throw new Error(`Bad piecewise segment: "${parts[i]!.slice(0, 60)}"`);
-    const hi = Number(m[1]);
+    const hi = m[1] !== undefined ? Number(m[1]) : 6000;
     segments.push({ lo, hi, fn: compileExpression(expr, resolve) });
     if (m[2] === "N") return segments;
     lo = hi;
@@ -119,14 +121,16 @@ export function parseTdb(src: string): TdbDatabase {
       if (el !== "/-") elements.push(el);
       continue;
     }
-    if (upper.startsWith("FUNCTION ")) {
-      const m = /^FUNCTION\s+(\S+)\s+(.*)$/i.exec(st)!;
+    if (upper.startsWith("FUNCTION ") || upper.startsWith("FUN ")) {
+      const m = /^FUN(?:CTION)?\s+(\S+)\s+(.*)$/i.exec(st)!;
       functions.set(m[1]!.toUpperCase(), parsePiecewise(m[2]!, resolve));
       continue;
     }
-    if (upper.startsWith("TYPE_DEFINITION ")) {
+    if (upper.startsWith("TYPE_DEFINITION ") || upper.startsWith("TYPE_DEF ")) {
       // TYPE_DEFINITION & GES A_P_D BCC_A2 MAGNETIC -1 0.4
-      const m = /^TYPE_DEFINITION\s+(\S)\s+GES\s+A(?:MEND)?_P(?:HASE)?_D(?:ESCRIPTION)?\s+(\S+)\s+MAGNETIC\s+(-?[\d.]+)\s+([\d.]+)/i.exec(st);
+      // (the phase may be "@" — "the phase this typedef char is attached
+      // to" — which resolves through the PHASE type-character column)
+      const m = /^TYPE_DEF(?:INITION)?\s+(\S)\s+GES\s+A(?:MEND)?_P(?:HASE)?_D(?:ESCRIPTION)?\s+(\S+)\s+MAGNETIC\s+(-?[\d.]+)\s+([\d.]+)/i.exec(st);
       if (m) {
         magneticTypedefs.set(m[1]!, {
           antiferromagneticFactor: Number(m[3]),
@@ -137,9 +141,10 @@ export function parseTdb(src: string): TdbDatabase {
       continue;
     }
     if (upper.startsWith("PHASE ")) {
-      // PHASE NAME %&  2  1  3
+      // PHASE NAME %&  2  1  3   — a ":L"-style model-code suffix on the
+      // name (PHASE LIQUID:L …) is not part of the phase name.
       const parts = st.split(/\s+/);
-      const name = parts[1]!.toUpperCase();
+      const name = parts[1]!.toUpperCase().replace(/:.*$/, "");
       const typeChars = parts[2] ?? "";
       const nSub = Number(parts[3]);
       const sites = parts.slice(4, 4 + nSub).map(Number);
@@ -172,9 +177,9 @@ export function parseTdb(src: string): TdbDatabase {
         .filter((arr) => arr.length > 0);
       continue;
     }
-    if (upper.startsWith("PARAMETER ") || upper.startsWith("PARAM ")) {
+    if (upper.startsWith("PARAMETER ") || upper.startsWith("PARAM ") || upper.startsWith("PARA ")) {
       // PARAMETER G(FCC_A1,AL,ZN;1) 298.15 +6612.9-4.5911*T; 6000 N
-      const m = /^PARAM(?:ETER)?\s+([A-Z]+)\s*\(\s*([^,]+)\s*,\s*([^;)]+)(?:;\s*(\d+))?\s*\)\s+(.*)$/i.exec(st);
+      const m = /^PARA(?:METER|M)?\s+([A-Z]+)\s*\(\s*([^,]+)\s*,\s*([^;)]+)(?:;\s*(\d+))?\s*\)\s+(.*)$/i.exec(st);
       if (!m) {
         skipped.push(st.slice(0, 60));
         continue;

@@ -97,6 +97,35 @@ const AL6061_DL: Fit[] = [
   { kind: "poly", coeffs: [-412.77, -0.30389, 0.0087696, -9.9821e-6, 0], rangeK: [4, 300], plateau: { belowK: 18, value: -415.45 } },
 ];
 
+// ---- 5083 aluminum (NIST publishes shared Al cp/expansion fits — noted) --
+const AL5083_K: Fit[] = [
+  { kind: "log10poly", coeffs: [-0.90933, 5.751, -11.112, 13.612, -9.3977, 3.6873, -0.77295, 0.067336], rangeK: [1, 300] },
+];
+const AL5083_E: Fit[] = [
+  { kind: "poly", coeffs: [8.083212e1, 1.061708e-2, -3.0161e-4, 7.56134e-7, -6.9948e-10], rangeK: [2, 295] },
+];
+
+// ---- Ti-6Al-4V -----------------------------------------------------------
+const TI64_K: Fit[] = [
+  { kind: "log10poly", coeffs: [-5107.8774, 19240.422, -30789.064, 27134.756, -14226.379, 4438.2154, -763.07767, 55.796592], rangeK: [20, 300] },
+];
+const TI64_DL: Fit[] = [
+  { kind: "poly", coeffs: [-1.711e2, -2.14e-1, 4.807e-3, -7.111e-6, 0], rangeK: [4, 300], plateau: { belowK: 24, value: -173.61 } },
+];
+
+// ---- Inconel 718 ---------------------------------------------------------
+const IN718_K: Fit[] = [
+  { kind: "log10poly", coeffs: [-8.28921, 39.447, -83.4353, 98.169, -67.2088, 26.7082, -5.7205, 0.51115], rangeK: [4, 300] },
+];
+const IN718_DL: Fit[] = [
+  { kind: "poly", coeffs: [-2.368e2, -2.12e-1, 5.497e-3, -6.882e-6, 0], rangeK: [4, 300], plateau: { belowK: 20, value: -238.87 } },
+];
+
+// ---- Cartridge brass (NIST states UNS C26000; conductivity only, 5–110 K)
+const BRASS_K: Fit[] = [
+  { kind: "log10poly", coeffs: [0.021035, -1.01835, 4.54083, -5.03374, 3.20536, -1.12933, 0.174057, -0.0038151], rangeK: [5, 110] },
+];
+
 const curve = (
   id: string,
   property: CurveRecord["property"],
@@ -147,5 +176,33 @@ export const nistCryoCurves: Record<string, CurveRecord[]> = {
     curve("a96061-nist-cp", "specific_heat", "J/(kg·K)", AL6061_CP, LOG_T, "5 %", { log: true }),
     curve("a96061-nist-e", "elastic_modulus", "GPa", AL6061_E, linspace(4, 295, 25), "1 %"),
     curve("a96061-nist-dl", "thermal_contraction", "10⁻⁵·ΔL/L₂₉₃", AL6061_DL, linspace(4, 300, 25), "4 %"),
+  ],
+  "a95083-h116-plate": [
+    curve("a95083-nist-k", "thermal_conductivity", "W/(m·K)", AL5083_K, LOG_T, "1 %", { log: true }),
+    curve("a95083-nist-cp", "specific_heat", "J/(kg·K)", AL6061_CP, LOG_T, "5 %", {
+      log: true,
+      note: "NIST publishes one aluminum-alloy specific-heat fit (shared with 6061); applied to 5083.",
+    }),
+    curve("a95083-nist-e", "elastic_modulus", "GPa", AL5083_E, linspace(4, 295, 25), "1 %"),
+    curve("a95083-nist-dl", "thermal_contraction", "10⁻⁵·ΔL/L₂₉₃", AL6061_DL, linspace(4, 300, 25), "4 %", {
+      note: "NIST publishes one aluminum-alloy expansion fit (shared with 6061); applied to 5083.",
+    }),
+  ],
+  "r56400-annealed-sheet": [
+    curve("r56400-nist-k", "thermal_conductivity", "W/(m·K)", TI64_K, logspace(23, 300, 22), "2 %", {
+      log: true,
+      note: "NIST fit valid 20–300 K (data 23–300 K) — no extrapolation below.",
+    }),
+    curve("r56400-nist-dl", "thermal_contraction", "10⁻⁵·ΔL/L₂₉₃", TI64_DL, linspace(4, 300, 25), "1.5 %"),
+  ],
+  "n07718-sta": [
+    curve("n07718-nist-k", "thermal_conductivity", "W/(m·K)", IN718_K, LOG_T, "2 %", { log: true }),
+    curve("n07718-nist-dl", "thermal_contraction", "10⁻⁵·ΔL/L₂₉₃", IN718_DL, linspace(4, 300, 25), "1.1 %"),
+  ],
+  "c26000-annealed": [
+    curve("c26000-nist-k", "thermal_conductivity", "W/(m·K)", BRASS_K, logspace(5, 110, 20), "1.5 %", {
+      log: true,
+      note: "NIST fit for UNS C26000, valid 5–110 K only — room-temperature conductivity is NOT covered by this curve.",
+    }),
   ],
 };

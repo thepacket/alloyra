@@ -164,7 +164,10 @@ two hand-rolled visuals and no charting layer.
   Condition.curves. First curves: NIST cryogenic fits (public domain,
   coefficients verbatim, points evaluated deterministically, RT sanity
   anchors in CI) for 304/316L/6061-T6; RT elastic moduli for 10 grades
-  (ESTIMATED). Dataset 2026.08.5. Open: curve data for more grades,
+  (ESTIMATED). Dataset 2026.08.5. Extended same evening (2026.08.6):
+  NIST cryo fits for 5083, Ti-6Al-4V (20–300 K), Inconel 718, and brass
+  C26000 (5–110 K, validity stated on the curve) — 15 curve records
+  total, all anchor-tested. Open: curve data beyond NIST's material list,
   measured-record support per heat.*
 - **B-302 — Cross-standard equivalence.** UNS ↔ EN ↔ DIN ↔ JIS ↔ GB ↔ GOST
   designation cross-referencing (table stakes in every database product),
@@ -175,7 +178,11 @@ two hand-rolled visuals and no charting layer.
   guessed, stated in the UI), NOMINAL-equivalence framing throughout;
   `similarGrades()` mid-spec closeness ranking with itemized per-element
   deltas, same-base only; detail-panel sections + ⌘K finds "1.4404".
-  Open: GB/GOST cross-references when a citable table is on file.*
+  Follow-up same evening: GB (GB/T 20878 Annex C) and GOST (GOST 5632)
+  designations added for the stainless grades — systematic GB names
+  verified against the standard's own cross-reference annex; GOST rows
+  only where that standard has a real counterpart (03Х17Н14М3 carries an
+  explicit higher-Mo caveat). Non-stainless GB/GOST still open.*
   (extends existing `nearestGrades`).
 - **B-303 — Composition search.** Per-element min/max range search and a
   periodic-table include/exclude filter over the database.
@@ -239,7 +246,22 @@ two hand-rolled visuals and no charting layer.
   Thermo-Calc lone-degree-0-is-symmetric convention; IHJ magnetics
   exercised. Matches pycalphad on production databases: 8-component 316L
   vs mc_fe (FCC+Laves+M23C6, G within 0.1 J/mol-atom, ~4 s), 625-like vs
-  mc_ni (FCC+δ), Fe-C (BCC+graphite). **UI integration shipped:** the
+  mc_ni (FCC+δ), Fe-C (BCC+graphite). **Promoted past "experimental"
+  (2026-08-28 evening): 52-equilibrium cross-check battery vs pycalphad
+  over dataset mid-specs across all 4 shipped databases
+  (docs/engine-validation.md; regenerable via packages/calphad/scripts +
+  services/calphad/scripts). 45/52 identical phase sets at ≈0 Δfraction;
+  every disagreement repriced — worst genuine engine miss 221 J/mol-atom
+  (5-phase 500 °C 17-4 assemblage); in three Alloy-718 cases the ENGINE
+  found deeper minima than pycalphad (reference-solver miss on the
+  GAMMA_DP system, confirmed by pycalphad repricing its own states). The
+  battery also caught: the NIST-solder TDB dialect parsing ZERO
+  parameters in the engine (FUN/PARA/TYPE_DEF abbreviations, PHASE
+  LIQUID:L suffix, ",,N" bounds — fixed, pycalphad-anchored solder tests
+  added; in-browser solder results before this fix were invalid) and a
+  pycalphad numpy.str_ TypeError that 500'd the HOSTED service on mc_al
+  compositions (shim deployed). UI chip now CROSS-CHECKED.**
+  **UI integration shipped:** the
   studio's equilibrium panel gains an EXPERIMENTAL in-browser run — web
   worker, on-demand TDB fetch from `/tdb/` (hash-synced with the service
   copies by test), same auxiliary-phase suspension, chemical potentials
@@ -270,8 +292,12 @@ two hand-rolled visuals and no charting layer.
   ≈ 6 min in-browser. Engine fix along the way: warm-start seeds with
   mismatched sublattice dimensions (element set changed between calls)
   are now skipped — they used to poison the LP pool and turn whole
-  columns infeasible (regression-tested). Open: labeled region polygons,
-  true boundary tracing, binary-diagram special case.*
+  columns infeasible (regression-tested). Second slice same evening:
+  in-place region labels (connected components; full set text when it
+  fits, [n] markers keyed in the legend) and boundary POLYLINES chaining
+  the bisection points per set-pair. Open: true boundary tracing between
+  columns (current polylines connect refined points), binary-diagram
+  special case.*
 - **B-504 — Scheil solidification.** Scheil-Gulliver fraction-solid curves,
   freezing range, and microsegregation profiles; flags hot-cracking-prone
   wide-freezing-range compositions for the failure engine.

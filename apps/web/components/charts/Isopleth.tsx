@@ -72,6 +72,79 @@ export function IsoplethChart({
   const hoverCell =
     hover && columns[hover.ix] ? columns[hover.ix]![hover.iT] : undefined;
 
+  // Region labels: connected components (4-neighbor) of same-set cells.
+  // Components big enough get labeled in place — the full set text when it
+  // fits, else a compact [n] marker keyed in the legend.
+  const regions = useMemo(() => {
+    const sig = (ix: number, iT: number): string | undefined => {
+      const col = columns[ix];
+      if (!col) return undefined;
+      const s = col[iT]?.join(" + ");
+      return s || undefined;
+    };
+    const seen = new Set<string>();
+    const out: { sig: string; cells: [number, number][] }[] = [];
+    for (let ix = 0; ix < xs.length; ix++) {
+      for (let iT = 0; iT < tCs.length; iT++) {
+        const key = `${ix},${iT}`;
+        if (seen.has(key)) continue;
+        const s = sig(ix, iT);
+        if (!s) continue;
+        const cells: [number, number][] = [];
+        const stack: [number, number][] = [[ix, iT]];
+        seen.add(key);
+        while (stack.length > 0) {
+          const [cx, cy] = stack.pop()!;
+          cells.push([cx, cy]);
+          for (const [nx, ny] of [
+            [cx - 1, cy],
+            [cx + 1, cy],
+            [cx, cy - 1],
+            [cx, cy + 1],
+          ] as const) {
+            const nkey = `${nx},${ny}`;
+            if (nx < 0 || ny < 0 || nx >= xs.length || ny >= tCs.length || seen.has(nkey)) continue;
+            if (sig(nx, ny) === s) {
+              seen.add(nkey);
+              stack.push([nx, ny]);
+            }
+          }
+        }
+        out.push({ sig: s, cells });
+      }
+    }
+    return out.filter((r) => r.cells.length >= 3);
+  }, [columns, xs, tCs]);
+
+  // Boundary polylines: chain refined points that share the same set pair
+  // across neighboring columns; isolated points stay dots.
+  const boundaryChains = useMemo(() => {
+    const groups = new Map<string, IsoplethBoundary[]>();
+    for (const b of boundaries) {
+      const key = `${b.below.join("+")}|${b.above.join("+")}`;
+      const arr = groups.get(key) ?? [];
+      arr.push(b);
+      groups.set(key, arr);
+    }
+    const dx = xs.length > 1 ? Math.abs(xs[1]! - xs[0]!) : 1;
+    const dT = tCs.length > 1 ? Math.abs(tCs[1]! - tCs[0]!) : 1;
+    const chains: IsoplethBoundary[][] = [];
+    for (const pts of groups.values()) {
+      const sorted = [...pts].sort((a, b) => a.xWt - b.xWt);
+      let chain: IsoplethBoundary[] = [];
+      for (const p of sorted) {
+        const prev = chain[chain.length - 1];
+        if (prev && (p.xWt - prev.xWt > 1.5 * dx || Math.abs(p.tC - prev.tC) > 2.5 * dT)) {
+          chains.push(chain);
+          chain = [];
+        }
+        chain.push(p);
+      }
+      if (chain.length > 0) chains.push(chain);
+    }
+    return chains;
+  }, [boundaries, xs, tCs]);
+
   return (
     <div className="chart-wrap">
       <svg viewBox={`0 0 ${W} ${H}`} className="chart" role="img" aria-label={`Phase-set map: T vs ${xLabel}`}>
@@ -99,9 +172,31 @@ export function IsoplethChart({
               })
             : null,
         )}
-        {boundaries.map((b, i) => (
-          <circle key={i} cx={sx(b.xWt)} cy={sy(b.tC)} r={1.6} className="iso-boundary" />
-        ))}
+        {boundaryChains.map((chain, i) =>
+          chain.length >= 2 ? (
+            <polyline
+              key={`bl${i}`}
+              className="iso-boundary-line"
+              points={chain.map((b) => `${sx(b.xWt).toFixed(1)},${sy(b.tC).toFixed(1)}`).join(" ")}
+            />
+          ) : (
+            <circle key={`bd${i}`} cx={sx(chain[0]!.xWt)} cy={sy(chain[0]!.tC)} r={1.6} className="iso-boundary" />
+          ),
+        )}
+        {regions.map((r, i) => {
+          const cxs = r.cells.map(([ix]) => sx(xs[ix]!));
+          const cys = r.cells.map(([, iT]) => sy(tCs[iT]!));
+          const cx = cxs.reduce((s, v) => s + v, 0) / cxs.length;
+          const cy = cys.reduce((s, v) => s + v, 0) / cys.length;
+          const widthPx = Math.max(...cxs) - Math.min(...cxs) + cw;
+          const idx = sets.indexOf(r.sig) + 1;
+          const fits = r.sig.length * 5.2 <= widthPx && Math.max(...cys) - Math.min(...cys) + ch >= 11;
+          return (
+            <text key={`rl${i}`} x={cx} y={cy + 3} className="iso-region-label" textAnchor="middle">
+              {fits ? r.sig : `[${idx}]`}
+            </text>
+          );
+        })}
         {niceTicks(x0, x1, 7).map((v) => (
           <g key={`x${v}`}>
             <text x={sx(v)} y={H - M.b + 14} className="chart-tick" textAnchor="middle">
@@ -128,10 +223,10 @@ export function IsoplethChart({
         </text>
       </svg>
       <div className="chart-legend">
-        {sets.map((sig) => (
+        {sets.map((sig, i) => (
           <span key={sig} className="legend-item">
             <span className="legend-dot" style={{ background: colorOf(sig) }} />
-            {sig}
+            <span className="mono dim2">[{i + 1}]</span> {sig}
           </span>
         ))}
       </div>

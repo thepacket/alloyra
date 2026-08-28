@@ -323,3 +323,50 @@ describe("dimension-mismatched warm-start seeds are skipped, never poisonous", (
     expect(Math.abs(poisoned.gPerMoleAtom - clean.gPerMoleAtom)).toBeLessThan(1);
   });
 });
+
+describe("NIST-solder dialect (FUN/PARA/TYPE_DEF, PHASE LIQUID:L, ',,N' bounds)", () => {
+  // The battery caught this: the solder TDB parsed with ZERO parameters
+  // (every energy 0) because its abbreviations and terminators differ from
+  // the MatCalc dialect. Anchors are pycalphad numbers on this exact file.
+  const solder = parseTdb(
+    readFileSync(join(here, "../../../apps/web/public/tdb/NIST-solder.tdb"), "utf8"),
+  );
+
+  it("parses the phases and parameters (LIQUID name suffix stripped)", () => {
+    expect(solder.phases.has("LIQUID")).toBe(true);
+    expect(solder.phases.has("BCT_A5")).toBe(true);
+    expect(solder.parameters.length).toBeGreaterThan(100);
+  });
+
+  it("pure-Sn energies match pycalphad to 0.01 J/mol-atom at 473 K", () => {
+    const cases: [string, number][] = [
+      ["BCT_A5", -25431.02],
+      ["LIQUID", -24985.75],
+      ["FCC_A1", -23923.87],
+    ];
+    for (const [name, want] of cases) {
+      const model = buildPhaseModel(solder, solder.phases.get(name)!, ["SN"])!;
+      const y = model.constituents.map((sub) => {
+        const arr = new Array(sub.length).fill(0);
+        let i = sub.indexOf("SN");
+        if (i < 0) i = sub.indexOf("VA");
+        arr[i] = 1;
+        return arr;
+      });
+      expect(model.gm(y, 473.15)).toBeCloseTo(want, 1);
+    }
+  });
+
+  it("Sn-37Pb: two-phase at 120 °C, fully molten at 200 °C (eutectic 183 °C)", { timeout: 30000 }, () => {
+    const x = wtToMoleFractions({ Sn: 63, Pb: 37 });
+    const cold = pointEquilibrium(solder, x, 120 + 273.15);
+    expect(cold.feasible).toBe(true);
+    const coldSet = [...new Set(cold.phases.map((p) => p.phase))].sort();
+    expect(coldSet).toEqual(["BCT_A5", "FCC_A1"]);
+    const bct = cold.phases.filter((p) => p.phase === "BCT_A5").reduce((s, p) => s + p.fraction, 0);
+    expect(bct).toBeCloseTo(0.718, 1); // pycalphad: 0.718
+    const hot = pointEquilibrium(solder, x, 200 + 273.15);
+    expect(hot.feasible).toBe(true);
+    expect(hot.phases.map((p) => p.phase)).toEqual(["LIQUID"]);
+  });
+});

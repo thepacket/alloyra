@@ -314,8 +314,9 @@ function DetailPanel({
             <div className="note-text">
               Equivalence is NOMINAL — each standard sets its own composition
               and property limits; verify against the target standard's own
-              tables. * = see hover note (nearest-grade caveats). GB and GOST
-              counterparts are not yet on file — omitted rather than guessed.
+              tables. * = see hover note (nearest-grade caveats). Systems
+              without a confident cross-reference for this grade are omitted
+              rather than guessed.
             </div>
           </>
         ) : (
