@@ -304,6 +304,7 @@ export function ComparisonView() {
         <select
           className="hdr-select"
           value={adding}
+          aria-label="Add alloy candidate"
           onChange={(e) => addCandidate(e.target.value)}
           disabled={stored.slots.length >= MAX_SLOTS}
         >
@@ -520,8 +521,22 @@ export function ComparisonView() {
           <div className="cmp-foot">
             Flags inform expert judgment — Alloyra never claims a part is safe
             or will fail (R-5.4). Hover any flag for mechanism, evidence, and
-            mitigations. Overrides are logged ({stored.overrideLog.length} so far). This comparison
-            is saved in this browser only.
+            mitigations. This comparison is saved in this browser only.
+            {stored.overrideLog.length > 0 && (
+              <details className="override-log">
+                <summary>
+                  Intervention log ({stored.overrideLog.length}) — pins,
+                  exclusions, removals, and example loads, append-only
+                </summary>
+                <ul>
+                  {stored.overrideLog.map((entry, i) => (
+                    <li key={i} className="mono">
+                      {entry}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </div>
         </div>
       )}

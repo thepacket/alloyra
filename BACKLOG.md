@@ -158,7 +158,8 @@ two hand-rolled visuals and no charting layer.
 - **B-306 — Cost & sustainability axes.** Indicative cost/kg and embodied
   CO2/energy as first-class, screenable, plottable properties (replacing the
   placeholder studio price table).
-- **B-307 — Record-level provenance drawer.** (External review, 2026-08-28.)
+- **B-307 — Record-level provenance drawer.** (External review, 2026-08-28;
+  re-raised in review round 2 — the highest-value open item per reviewer.)
   Per-value drawer showing source edition + year, exact table/clause, whether
   the value was copied, transformed, or calculated, and formula version +
   assumptions; clickable references where licensing permits. Constraint:
