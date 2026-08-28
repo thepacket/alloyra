@@ -166,11 +166,21 @@ export function pointEquilibrium(
   // budget: 316L at 773 K converges to pycalphad's G to the decimal at
   // 16/600 but sits ~30 J high at 8/320); the early-exit below keeps easy
   // cases fast.
-  // Warm-start seeds join the pool before the first LP.
+  // Warm-start seeds join the pool before the first LP. A seed is only
+  // usable when its site-fraction vectors match this system's sublattice
+  // dimensions — a seed from a run with a different element set (e.g. an
+  // isopleth column where a solute hits zero) has differently-sized
+  // constituent lists, and pushing it would poison the pool with garbage
+  // energies. Mismatched seeds are skipped, never trusted.
   if (opts?.seeds) {
     for (const seed of opts.seeds) {
       const idx = models.findIndex((m) => m.name === seed.phase);
-      if (idx >= 0) pushSample(models[idx]!, idx, seed.y);
+      if (idx < 0) continue;
+      const m = models[idx]!;
+      const dimsOk =
+        seed.y.length === m.constituents.length &&
+        seed.y.every((row, s) => row.length === m.constituents[s]!.length);
+      if (dimsOk) pushSample(m, idx, seed.y);
     }
   }
 

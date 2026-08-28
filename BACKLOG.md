@@ -130,6 +130,13 @@ two hand-rolled visuals and no charting layer.
 - **B-204 — Curve viewers.** Interactive viewers for curve-valued data with
   test-condition metadata (temperature, strain rate, R-ratio): stress-strain,
   S-N fatigue, creep/stress-rupture and LMP master curves. Depends on B-301.
+  *Shipped 2026-08-28: CurveViewer (vocabulary labels, log-x axes,
+  test-condition line, provenance + full source footnote) wired into the
+  database detail panel; LineChart gained log-x, generic hover formatting.
+  Studio: Hollomon flow curve (uniform range only, Considère endpoint)
+  and iso-LMP time-temperature curve, both COMPUTED with stated models.
+  S-N and creep-rupture DATA remain an honest gap — no license-clean
+  source on file; the model and viewer already support them.*
 - **B-205 — Comparison charts.** Score breakdowns and multi-candidate
   overlays as charts (per-criterion bars, candidate overlays on the Ashby
   chart, strength-vs-temperature overlays), replacing number-only tables as
@@ -151,9 +158,24 @@ two hand-rolled visuals and no charting layer.
   **curve-valued** records (value vs temperature/strain/cycles) with
   test-condition metadata and per-record provenance. This is the data-model
   redesign that everything in E1/E2 stands on.
+  *Shipped 2026-08-28: PROPERTY_VOCABULARY (18 unit-typed entries across 7
+  categories; PropertyId derived from its keys; validation test enforces
+  canonical units), interval records, TestConditions, CurveRecord +
+  Condition.curves. First curves: NIST cryogenic fits (public domain,
+  coefficients verbatim, points evaluated deterministically, RT sanity
+  anchors in CI) for 304/316L/6061-T6; RT elastic moduli for 10 grades
+  (ESTIMATED). Dataset 2026.08.5. Open: curve data for more grades,
+  measured-record support per heat.*
 - **B-302 — Cross-standard equivalence.** UNS ↔ EN ↔ DIN ↔ JIS ↔ GB ↔ GOST
   designation cross-referencing (table stakes in every database product),
-  plus algorithmic similar-grade ranking by composition/property closeness
+  plus algorithmic similar-grade ranking by composition/property closeness.
+  *Shipped 2026-08-28: designations[] seeded for all 27 grades
+  (high-confidence systems only — AISI/SAE, EN numbers + names, JIS SUS,
+  EN AW, W.-Nr., CEN CW, ISO chemical names; GB/GOST omitted rather than
+  guessed, stated in the UI), NOMINAL-equivalence framing throughout;
+  `similarGrades()` mid-spec closeness ranking with itemized per-element
+  deltas, same-base only; detail-panel sections + ⌘K finds "1.4404".
+  Open: GB/GOST cross-references when a citable table is on file.*
   (extends existing `nearestGrades`).
 - **B-303 — Composition search.** Per-element min/max range search and a
   periodic-table include/exclude filter over the database.
@@ -239,6 +261,17 @@ two hand-rolled visuals and no charting layer.
   remain open.*
 - **B-503 — Phase diagram sections.** Binary diagrams and isopleth sections
   through multicomponent systems, plotted with labeled phase regions.
+  *First slice shipped 2026-08-28: SAMPLED isopleth (vertical section) in
+  the studio — coarse-grid design: worker "map" kind computes an nX×nT
+  phase-set grid (light budgets, warm-started down each T column), then
+  bisects differing adjacent cells to ΔT/4; streams column by column.
+  Same-named phases with genuinely distinct compositions render as "×2"
+  (real miscibility gaps), numerical duplicates collapse. 9×12 316L map
+  ≈ 6 min in-browser. Engine fix along the way: warm-start seeds with
+  mismatched sublattice dimensions (element set changed between calls)
+  are now skipped — they used to poison the LP pool and turn whole
+  columns infeasible (regression-tested). Open: labeled region polygons,
+  true boundary tracing, binary-diagram special case.*
 - **B-504 — Scheil solidification.** Scheil-Gulliver fraction-solid curves,
   freezing range, and microsegregation profiles; flags hot-cracking-prone
   wide-freezing-range compositions for the failure engine.

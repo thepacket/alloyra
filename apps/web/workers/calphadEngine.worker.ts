@@ -43,6 +43,23 @@ export type EngineRequest =
       compositionWt: Record<string, number>;
       tStartC: number;
       dT: number;
+    }
+  | {
+      id: number;
+      kind: "map";
+      dbId: string;
+      tdbUrl: string;
+      /** Base composition; `varyElement` is overridden per column and the
+       *  balance element absorbs the difference. */
+      compositionWt: Record<string, number>;
+      balanceElement: string;
+      varyElement: string;
+      fromWt: number;
+      toWt: number;
+      nX: number;
+      tMinC: number;
+      tMaxC: number;
+      nT: number;
     };
 
 export interface EnginePhase {
@@ -92,7 +109,24 @@ export type EngineResponse =
         terminated: string;
         ms: number;
       };
-    };
+    }
+  | {
+      id: number;
+      kind: "map-column";
+      ix: number;
+      xWt: number;
+      /** One entry per grid temperature, ascending tC; phases sorted.
+       *  Empty array = infeasible at that cell. */
+      cells: { tC: number; phases: string[] }[];
+    }
+  | {
+      id: number;
+      kind: "map-refine";
+      ix: number;
+      /** Bisection-localized phase boundaries within this column. */
+      points: { xWt: number; tC: number; below: string[]; above: string[] }[];
+    }
+  | { id: number; kind: "map-done"; ok: boolean; error?: string; ms?: number };
 
 const dbCache = new Map<string, TdbDatabase>();
 
@@ -181,6 +215,127 @@ self.onmessage = async (ev: MessageEvent<EngineRequest>) => {
       return;
     }
 
+    if (msg.kind === "map") {
+      // Isopleth (vertical section, B-503): coarse phase-set grid with
+      // boundary refinement. Columns sweep the varied element; each column
+      // is a warm-started descent in T at a LIGHT budget (the map needs
+      // phase SETS, not tight fractions), then adjacent cells with
+      // different sets get two T-bisections to localize the boundary to
+      // ΔT/4. Everything streams so the map fills in live.
+      const t0 = performance.now();
+      // Phase SET of a result. Light budgets sometimes return the same
+      // phase twice with near-identical compositions (numerical duplicates)
+      // — collapse those; a same-named pair with genuinely different
+      // compositions (a real miscibility gap, e.g. α+α′) is kept as "×2".
+      const setOf = (r: ReturnType<typeof pointEquilibrium>): string[] => {
+        if (!r.feasible) return [];
+        const byName = new Map<string, Record<string, number>[]>();
+        for (const p of r.phases) {
+          if (p.fraction <= 0.005) continue;
+          const arr = byName.get(p.phase) ?? [];
+          arr.push(p.composition);
+          byName.set(p.phase, arr);
+        }
+        const out: string[] = [];
+        for (const [name, comps] of byName) {
+          let gap = false;
+          for (let i = 1; i < comps.length && !gap; i++) {
+            for (const el of new Set([...Object.keys(comps[0]!), ...Object.keys(comps[i]!)])) {
+              if (Math.abs((comps[0]![el] ?? 0) - (comps[i]![el] ?? 0)) > 0.05) {
+                gap = true;
+                break;
+              }
+            }
+          }
+          out.push(gap ? `${name}×2` : name);
+        }
+        return out.sort();
+      };
+      const sameSet = (a: string[], b: string[]) => a.join("+") === b.join("+");
+      const xs = Array.from(
+        { length: msg.nX },
+        (_, i) => msg.fromWt + (i / Math.max(1, msg.nX - 1)) * (msg.toWt - msg.fromWt),
+      );
+      const tCs = Array.from(
+        { length: msg.nT },
+        (_, i) => msg.tMinC + (i / Math.max(1, msg.nT - 1)) * (msg.tMaxC - msg.tMinC),
+      );
+      const LIGHT = { samplesPerPhase: 600, rounds: 4, zoomSamples: 250 };
+      const TOP = { samplesPerPhase: 1400, rounds: 8, zoomSamples: 450 };
+
+      let prevColumnTopSeeds: { phase: string; y: number[][] }[] | undefined;
+      for (let ix = 0; ix < xs.length; ix++) {
+        const wt: Record<string, number> = { ...msg.compositionWt, [msg.varyElement]: xs[ix]! };
+        // Composition keys arrive in element-symbol case ("Fe"); the balance
+        // element may be named in any case — match case-insensitively.
+        for (const k of Object.keys(wt)) {
+          if (k.toUpperCase() === msg.balanceElement.toUpperCase()) delete wt[k];
+        }
+        const others = Object.values(wt).reduce((s, v) => s + v, 0);
+        if (others >= 99.9) throw new Error(`Varying ${msg.varyElement} to ${xs[ix]} wt% leaves no room for the ${msg.balanceElement} balance.`);
+        wt[msg.balanceElement] = 100 - others;
+        const xMole = wtToMoleFractions(wt);
+        checkCoverage(db, msg.dbId, xMole);
+
+        let seeds = prevColumnTopSeeds;
+        const cells: { tC: number; phases: string[]; seeds?: { phase: string; y: number[][] }[] }[] = [];
+        // High T → low T for warm-start quality; report ascending later.
+        for (let iT = tCs.length - 1; iT >= 0; iT--) {
+          const r = pointEquilibrium(db, xMole, tCs[iT]! + 273.15, {
+            suspend,
+            ...(seeds ? { seeds } : {}),
+            ...(iT === tCs.length - 1 ? TOP : LIGHT),
+          });
+          if (r.feasible && r.phases.length > 0) {
+            seeds = r.phases.map((p) => ({ phase: p.phase, y: p.siteFractions }));
+            if (iT === tCs.length - 1) prevColumnTopSeeds = seeds;
+          }
+          cells[iT] = { tC: tCs[iT]!, phases: setOf(r), ...(seeds ? { seeds } : {}) };
+        }
+        self.postMessage({
+          id: msg.id,
+          kind: "map-column",
+          ix,
+          xWt: xs[ix]!,
+          cells: cells.map((c) => ({ tC: c.tC, phases: c.phases })),
+        } satisfies EngineResponse);
+
+        // Boundary refinement: two bisections per differing adjacent pair.
+        const points: { xWt: number; tC: number; below: string[]; above: string[] }[] = [];
+        for (let iT = 0; iT + 1 < cells.length; iT++) {
+          const lower = cells[iT]!;
+          const upper = cells[iT + 1]!;
+          if (lower.phases.length === 0 || upper.phases.length === 0) continue;
+          if (sameSet(lower.phases, upper.phases)) continue;
+          let lo = lower.tC;
+          let hi = upper.tC;
+          for (let b = 0; b < 2; b++) {
+            const mid = (lo + hi) / 2;
+            const r = pointEquilibrium(db, xMole, mid + 273.15, {
+              suspend,
+              ...(lower.seeds ? { seeds: lower.seeds } : {}),
+              ...LIGHT,
+            });
+            const s = setOf(r);
+            if (s.length === 0) break;
+            if (sameSet(s, lower.phases)) lo = mid;
+            else hi = mid;
+          }
+          points.push({ xWt: xs[ix]!, tC: (lo + hi) / 2, below: lower.phases, above: upper.phases });
+        }
+        if (points.length > 0) {
+          self.postMessage({ id: msg.id, kind: "map-refine", ix, points } satisfies EngineResponse);
+        }
+      }
+      self.postMessage({
+        id: msg.id,
+        kind: "map-done",
+        ok: true,
+        ms: Math.round(performance.now() - t0),
+      } satisfies EngineResponse);
+      return;
+    }
+
     // Temperature sweep: manual warm-started loop (mirrors stepTemperature)
     // so each point streams to the UI before the next one computes.
     const t0 = performance.now();
@@ -222,7 +377,9 @@ self.onmessage = async (ev: MessageEvent<EngineRequest>) => {
         ? ({ id: msg.id, kind: "point", ok: false, error } satisfies EngineResponse)
         : msg.kind === "scheil"
           ? ({ id: msg.id, kind: "scheil-done", ok: false, error } satisfies EngineResponse)
-          : ({ id: msg.id, kind: "step-done", ok: false, error } satisfies EngineResponse),
+          : msg.kind === "map"
+            ? ({ id: msg.id, kind: "map-done", ok: false, error } satisfies EngineResponse)
+            : ({ id: msg.id, kind: "step-done", ok: false, error } satisfies EngineResponse),
     );
   }
 };

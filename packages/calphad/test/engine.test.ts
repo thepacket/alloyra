@@ -300,3 +300,26 @@ describe("Kou hot-cracking index (B-504 follow-through)", () => {
     expect(late.liquidX.ZN!).toBeGreaterThan(first.liquidX.ZN!);
   });
 });
+
+describe("dimension-mismatched warm-start seeds are skipped, never poisonous", () => {
+  // Isopleth columns change the element SET when a solute hits zero: a
+  // seed from the reduced system has differently-sized site-fraction
+  // vectors. It must be ignored — feeding it to the pool once produced
+  // NaN energies and made every later column "infeasible" (B-503 bug).
+  it("Al-Zn equilibrium with a garbage-dimensioned seed matches the clean run", () => {
+    const x = { AL: 0.7, ZN: 0.3 };
+    const clean = pointEquilibrium(db, x, 600);
+    const poisoned = pointEquilibrium(db, x, 600, {
+      seeds: [
+        { phase: "FCC_A1", y: [[0.5]] }, // wrong sublattice widths
+        { phase: "LIQUID", y: [[0.2, 0.3, 0.5]] }, // wrong constituent count
+        { phase: "NOT_A_PHASE", y: [[1]] },
+      ],
+    });
+    expect(poisoned.feasible).toBe(true);
+    expect(poisoned.phases.map((p) => p.phase).sort()).toEqual(
+      clean.phases.map((p) => p.phase).sort(),
+    );
+    expect(Math.abs(poisoned.gPerMoleAtom - clean.gPerMoleAtom)).toBeLessThan(1);
+  });
+});

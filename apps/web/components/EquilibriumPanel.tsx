@@ -10,6 +10,7 @@ import { calphadProvider } from "../lib/calphad";
 import { ENGINE_DBS, baseHint } from "../lib/engine";
 import type { EngineResponse } from "../workers/calphadEngine.worker";
 import { LineChart } from "./charts/Line";
+import { IsoplethChart, type IsoplethBoundary } from "./charts/Isopleth";
 
 type EngineResult = NonNullable<Extract<EngineResponse, { kind: "point" }>["result"]>;
 type SweepPointUi = { tC: number; phases: { phase: string; fraction: number }[] };
@@ -67,6 +68,25 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
   } | null>(null);
   const [scheilError, setScheilError] = useState("");
   const [scheilDb, setScheilDb] = useState("");
+  // Isopleth map (B-503): sampled phase-set grid vs composition & T.
+  const [mapEl, setMapEl] = useState("");
+  const [mapFrom, setMapFrom] = useState(0);
+  const [mapTo, setMapTo] = useState(4);
+  const [mapTMin, setMapTMin] = useState(600);
+  const [mapTMax, setMapTMax] = useState(1500);
+  const [mapNX, setMapNX] = useState(13);
+  const [mapNT, setMapNT] = useState(19);
+  const [mapRunning, setMapRunning] = useState(false);
+  const [mapCols, setMapCols] = useState(0);
+  const [mapData, setMapData] = useState<{
+    xs: number[];
+    tCs: number[];
+    columns: (string[][] | undefined)[];
+    boundaries: IsoplethBoundary[];
+  } | null>(null);
+  const [mapError, setMapError] = useState("");
+  const [mapDb, setMapDb] = useState("");
+  const [mapMs, setMapMs] = useState<number | null>(null);
 
   const refresh = () => {
     setCaps(null);
@@ -325,6 +345,101 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
       compositionWt: comp,
       tStartC: scheilStart,
       dT: Math.max(1, scheilDT),
+    });
+  };
+
+  // Isopleth vary-element candidates: everything present except the base.
+  const mapCandidates = useMemo(
+    () =>
+      Object.entries(comp)
+        .filter(([el, v]) => (v as number) > 0 && el.toUpperCase() !== dominant)
+        .map(([el]) => el)
+        .sort(),
+    [comp, dominant],
+  );
+  useEffect(() => {
+    if (mapCandidates.includes(mapEl)) return;
+    const pick = [...mapCandidates].sort(
+      (a, b) => ((comp as Record<string, number>)[b] ?? 0) - ((comp as Record<string, number>)[a] ?? 0),
+    )[0];
+    if (pick) {
+      setMapEl(pick);
+      const cur = (comp as Record<string, number>)[pick] ?? 1;
+      setMapFrom(0);
+      setMapTo(Math.max(1, Math.ceil(cur * 1.8)));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapCandidates.join(","), mapEl]);
+
+  const runMap = () => {
+    if (typeof Worker === "undefined") {
+      setMapError("This browser does not support Web Workers.");
+      return;
+    }
+    const nX = Math.max(4, Math.min(30, Math.round(mapNX)));
+    const nT = Math.max(4, Math.min(40, Math.round(mapNT)));
+    if (nX * nT > 900) {
+      setMapError(`${nX}×${nT} = ${nX * nT} cells — keep the grid at or under 900 cells (the map refines boundaries on top of that).`);
+      return;
+    }
+    if (!(mapTMin < mapTMax) || !(mapFrom < mapTo) || !mapEl) {
+      setMapError("Check the ranges: the varied element and both ranges need lo < hi.");
+      return;
+    }
+    if (!workerRef.current) {
+      workerRef.current = new Worker(
+        new URL("../workers/calphadEngine.worker.ts", import.meta.url),
+      );
+    }
+    const worker = workerRef.current;
+    const id = ++reqIdRef.current;
+    const xs = Array.from({ length: nX }, (_, i) => mapFrom + (i / (nX - 1)) * (mapTo - mapFrom));
+    const tCs = Array.from({ length: nT }, (_, i) => mapTMin + (i / (nT - 1)) * (mapTMax - mapTMin));
+    setMapRunning(true);
+    setMapError("");
+    setMapCols(0);
+    setMapMs(null);
+    setMapDb(engineDb);
+    setMapData({ xs, tCs, columns: Array.from({ length: nX }, () => undefined), boundaries: [] });
+    const onMessage = (ev: MessageEvent<EngineResponse>) => {
+      const d = ev.data;
+      if (d.id !== id) return;
+      if (d.kind === "map-column") {
+        setMapCols(d.ix + 1);
+        setMapData((m) => {
+          if (!m) return m;
+          const columns = [...m.columns];
+          columns[d.ix] = d.cells.map((c) => c.phases);
+          return { ...m, columns };
+        });
+        return;
+      }
+      if (d.kind === "map-refine") {
+        setMapData((m) => (m ? { ...m, boundaries: [...m.boundaries, ...d.points] } : m));
+        return;
+      }
+      if (d.kind === "map-done") {
+        worker.removeEventListener("message", onMessage);
+        setMapRunning(false);
+        if (!d.ok) setMapError(d.error ?? "Isopleth mapping failed.");
+        else if (d.ms !== undefined) setMapMs(d.ms);
+      }
+    };
+    worker.addEventListener("message", onMessage);
+    worker.postMessage({
+      id,
+      kind: "map",
+      dbId: engineDb,
+      tdbUrl: `/tdb/${engineDb}.tdb`,
+      compositionWt: comp,
+      balanceElement: dominant ?? "",
+      varyElement: mapEl,
+      fromWt: mapFrom,
+      toWt: mapTo,
+      nX,
+      tMinC: mapTMin,
+      tMaxC: mapTMax,
+      nT,
     });
   };
 
@@ -708,6 +823,90 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                   yLabel="liquid enrichment x_L / x_0"
                   height={240}
                   footnote="Scheil microsegregation: solute enrichment of the remaining liquid as solidification proceeds. Ratios > 1 mean the element piles up in the last liquid (interdendritic regions, weld centerlines) — where Laves, sigma, and low-melting films nucleate. No back-diffusion assumed."
+                />
+              )}
+            </div>
+
+            <div className="sweep-panel">
+              <div className="engine-head">
+                <span className="calc-label">
+                  Isopleth — phase-set map vs composition &amp; T{" "}
+                  <span className="prov engine-chip">SAMPLED · B-503</span>
+                </span>
+                <button
+                  type="button"
+                  className="mini"
+                  onClick={runMap}
+                  disabled={mapRunning || (caps?.available === true && missing.length > 0) || !mapEl}
+                >
+                  {mapRunning ? `Column ${mapCols}/${mapData?.xs.length ?? 0}…` : "Compute map"}
+                </button>
+              </div>
+              <div className="lmp-inputs">
+                <label>Vary
+                  <select
+                    className="hdr-select"
+                    value={mapEl}
+                    aria-label="Element varied along the x axis"
+                    onChange={(e) => {
+                      const el = e.target.value;
+                      setMapEl(el);
+                      const cur = (comp as Record<string, number>)[el] ?? 1;
+                      setMapFrom(0);
+                      setMapTo(Math.max(1, Math.ceil(cur * 1.8)));
+                    }}
+                  >
+                    {mapCandidates.map((el) => (
+                      <option key={el} value={el}>{el}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>From (wt%)
+                  <input className="el-num mono" inputMode="decimal" value={mapFrom} aria-label="Vary-element lower bound, wt%"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setMapFrom(n); }} />
+                </label>
+                <label>To (wt%)
+                  <input className="el-num mono" inputMode="decimal" value={mapTo} aria-label="Vary-element upper bound, wt%"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setMapTo(n); }} />
+                </label>
+                <label>T min (°C)
+                  <input className="el-num mono" inputMode="decimal" value={mapTMin} aria-label="Map minimum temperature, °C"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setMapTMin(n); }} />
+                </label>
+                <label>T max (°C)
+                  <input className="el-num mono" inputMode="decimal" value={mapTMax} aria-label="Map maximum temperature, °C"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setMapTMax(n); }} />
+                </label>
+                <label>Columns
+                  <input className="el-num mono" inputMode="numeric" value={mapNX} aria-label="Composition grid columns"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setMapNX(n); }} />
+                </label>
+                <label>Rows
+                  <input className="el-num mono" inputMode="numeric" value={mapNT} aria-label="Temperature grid rows"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setMapNT(n); }} />
+                </label>
+              </div>
+              <div className="calc-src">
+                Coarse-grid design: every cell is an independent light-budget
+                minimization ({mapNX}×{mapNT} = {Math.round(mapNX * mapNT)}{" "}
+                cells, warm-started down each column), then boundaries between
+                differing cells are bisected to ΔT/4. Budget minutes, not
+                seconds: an 8-component steel runs ~1–4 s per cell (simpler
+                systems are faster). The map fills in column by column and the
+                rest of the studio stays responsive.
+              </div>
+              {mapError && <div className="calc-warn">{mapError}</div>}
+              {mapRunning && mapCols === 0 && (
+                <div className="calc-src" role="status">Compiling the first column (largest budget)…</div>
+              )}
+              {mapData && mapData.columns.some((c) => c !== undefined) && (
+                <IsoplethChart
+                  xs={mapData.xs}
+                  tCs={mapData.tCs}
+                  columns={mapData.columns}
+                  boundaries={mapData.boundaries}
+                  xLabel={`${mapEl} (wt%, balance ${dominant ?? "?"} absorbs)`}
+                  footnote={`SAMPLED vertical section vs ${mapDb}: phase SETS at grid resolution, not computed phase boundaries — a region narrower than one cell can be missed, and light budgets can misread a near-degenerate cell (verify any surprising cell with a full point equilibrium above). Dots mark T-bisected set changes (±${(((mapData.tCs[1] ?? 0) - (mapData.tCs[0] ?? 0)) / 8).toFixed(0)} °C). Phases under 0.5 % are ignored. Equilibrium only — no kinetics.${mapMs !== null ? ` Computed in ${(mapMs / 1000).toFixed(0)} s.` : ""}`}
                 />
               )}
             </div>
