@@ -4,23 +4,32 @@
  * surface we control, not a document rendered in a host theme.
  */
 :root {
-  --bg: #101419;
-  --panel: #171c23;
-  --panel-2: #1e252e;
-  --panel-3: #252d38;
-  --ink: #e2e7ee;
+  --bg: #0d1117;
+  --panel: #151b24;
+  --panel-2: #1c2430;
+  --panel-3: #242e3c;
+  --ink: #e6ebf2;
   --muted: #96a1af;
   --faint: #7d8896;
   --line: #2a323d;
   --line-strong: #38424f;
-  --accent: #6fa1cf;
+  --accent: #7db3e8;
   --accent-deep: #2f5d8a;
   --accent-wash: #1d2a38;
-  --straw: #d9a84e;
+  --straw: #e8b45a;
   --straw-wash: #2c2718;
-  --good: #6fb07a;
-  --warn: #d08a4c;
-  --crit: #cf7a7a;
+  --good: #74c383;
+  --warn: #e09a55;
+  --crit: #e08585;
+  /* Theme v2 (B-701): family color identities, used consistently across
+     chips, table dots, and chart marks. Colorful, still legible. */
+  --fam-fe: #6aa6ee;
+  --fam-al: #3ecfbe;
+  --fam-ti: #b18cff;
+  --fam-ni: #5fd98d;
+  --fam-cu: #ff9e64;
+  --viol: #b18cff;
+  --viol-wash: #241d33;
   --font-ui: var(--archivo), "Helvetica Neue", Arial, sans-serif;
   --font-mono: var(--plex-mono), ui-monospace, "SF Mono", Menlo, monospace;
 }
@@ -31,7 +40,10 @@ html, body { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    radial-gradient(1100px 600px at 78% -12%, rgba(47, 93, 138, 0.28) 0%, transparent 55%),
+    radial-gradient(900px 500px at -8% 108%, rgba(177, 140, 255, 0.10) 0%, transparent 50%),
+    var(--bg);
   color: var(--ink);
   font-family: var(--font-ui);
   font-size: 13px;
@@ -52,12 +64,32 @@ body {
 /* ---- Titlebar ---- */
 .titlebar {
   grid-area: titlebar;
+  position: relative;
   display: flex;
   align-items: center;
   gap: 12px;
   padding: 0 12px;
   background: var(--panel);
   border-bottom: 1px solid var(--line);
+}
+/* Hi-tech signature: a spectral hairline under the titlebar (theme v2). */
+.titlebar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--fam-fe) 0%,
+    var(--fam-al) 28%,
+    var(--fam-ni) 52%,
+    var(--fam-ti) 76%,
+    var(--fam-cu) 100%
+  );
+  opacity: 0.75;
+  pointer-events: none;
 }
 .menu-btn {
   display: none;
@@ -261,6 +293,23 @@ td.dim { color: var(--muted); }
   background: var(--accent-wash);
   border-color: var(--accent-deep);
   color: var(--accent);
+}
+/* Family-identity chips (theme v2): each base metal owns its hue. */
+.fchip[style*="--fam-c"] { color: var(--fam-c); border-color: color-mix(in srgb, var(--fam-c) 35%, var(--line)); }
+.fchip.on[style*="--fam-c"] {
+  background: color-mix(in srgb, var(--fam-c) 16%, var(--panel));
+  border-color: color-mix(in srgb, var(--fam-c) 60%, transparent);
+  color: var(--fam-c);
+  box-shadow: 0 0 12px -4px var(--fam-c);
+}
+.fam-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: 0.5px;
+  box-shadow: 0 0 6px -1px currentColor;
 }
 
 /* ---- Provenance chips ---- */
@@ -767,6 +816,131 @@ table.breakdown td:last-child { text-align: right; color: var(--faint); }
   }
   .wrc-and-lmp { grid-template-columns: 1fr; }
   .home { padding: 24px 16px 40px; }
+}
+
+/* ---- Plot kit (B-201/B-202, design-v2 § 3) ---- */
+.chart-pane { padding: 12px 16px 24px; max-width: 860px; }
+.chart-controls { display: flex; gap: 16px; margin-bottom: 6px; }
+.chart-controls label { font-size: 10.5px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.chart-wrap {
+  background: linear-gradient(180deg, var(--panel) 0%, color-mix(in srgb, var(--panel) 88%, #000) 100%);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 14px 8px;
+  box-shadow: 0 0 24px -12px rgba(125, 179, 232, 0.35);
+}
+.chart { width: 100%; height: auto; display: block; }
+.chart-frame { fill: none; stroke: var(--line-strong); }
+.chart-grid { stroke: var(--line); stroke-width: 0.5; }
+.chart-tick { fill: var(--faint); font-family: var(--font-mono); font-size: 9px; }
+.chart-axis { fill: var(--muted); font-family: var(--font-mono); font-size: 9.5px; letter-spacing: 0.06em; }
+.chart-label { font-family: var(--font-mono); font-size: 9px; }
+.chart-pt.muted { opacity: 0.85; }
+.chart-readout {
+  font-size: 10.5px; color: var(--accent); margin-top: 6px;
+  min-height: 15px; letter-spacing: 0.02em;
+}
+.chart-foot { font-size: 10.5px; color: var(--faint); margin-top: 4px; line-height: 1.5; }
+.chart-empty { font-size: 12px; color: var(--faint); padding: 24px; text-align: center; }
+
+/* ---- Sweep sparklines (B-206) ---- */
+.spark { width: 100%; height: auto; display: block; margin-top: 6px; }
+.spark-axis { stroke: var(--line-strong); }
+.spark-tick { fill: var(--faint); font-family: var(--font-mono); font-size: 7.5px; }
+.spark-line { fill: none; stroke: var(--straw); stroke-width: 1.6; }
+.spark-line.out { stroke: var(--faint); stroke-dasharray: 3 3; stroke-width: 1; }
+.spark-cursor { stroke: var(--accent); stroke-width: 1; opacity: 0.5; }
+.spark-dot { fill: var(--straw); stroke: var(--bg); stroke-width: 1; filter: drop-shadow(0 0 3px var(--straw)); }
+.spark-empty { font-size: 10px; color: var(--faint); font-style: italic; margin-top: 6px; }
+.sweep-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.sweep-pick { display: flex; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0; font-family: var(--font-ui); font-size: 10.5px; color: var(--muted); }
+.sweep-pick .hdr-select { padding: 2px 6px; font-size: 11px; }
+
+/* ---- Microstructure layer (E1) ---- */
+.micro-search {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--ink);
+  font-size: 11px;
+  padding: 5px 9px;
+  outline: none;
+  width: 250px;
+}
+.micro-search:focus { border-color: var(--viol); box-shadow: 0 0 10px -4px var(--viol); }
+.micro-search::placeholder { color: var(--faint); }
+.micro-block {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--viol) 5%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--viol) 22%, var(--line));
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.micro-line { display: flex; gap: 10px; font-size: 11.5px; line-height: 1.45; }
+.micro-k {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--viol);
+  flex: none; width: 84px; padding-top: 2px;
+}
+.micro-consts { display: flex; flex-direction: column; gap: 3px; }
+.dim2 { color: var(--muted); }
+.const-role {
+  font-family: var(--font-mono); font-size: 8.5px; letter-spacing: 0.05em;
+  border-radius: 3px; padding: 1px 5px; text-transform: uppercase;
+}
+.const-role.hardening { color: var(--good); border: 1px solid color-mix(in srgb, var(--good) 40%, transparent); }
+.const-role.embrittling { color: var(--crit); border: 1px solid color-mix(in srgb, var(--crit) 40%, transparent); }
+.const-role.inert { color: var(--muted); border: 1px solid var(--line-strong); }
+.const-role.grain-refining { color: var(--accent); border: 1px solid var(--accent-deep); }
+.gb-serr { color: var(--muted); }
+.gb-serr.on { color: var(--fam-cu); font-weight: 600; }
+.mech-row { display: flex; flex-wrap: wrap; gap: 5px; }
+.mech-chip {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.04em;
+  border-radius: 3px; padding: 2px 7px; white-space: nowrap; cursor: help;
+}
+.mech-chip.dominant {
+  background: color-mix(in srgb, var(--viol) 22%, var(--panel));
+  color: var(--viol);
+  border: 1px solid color-mix(in srgb, var(--viol) 55%, transparent);
+  box-shadow: 0 0 10px -4px var(--viol);
+}
+.mech-chip.active {
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid var(--line-strong);
+}
+.mech-chip.sm { padding: 1px 6px; cursor: default; }
+
+/* ---- Concept cards (B-104): the vocabulary answers even at zero matches ---- */
+.concept-card {
+  margin: 12px 14px 4px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--viol) 10%, var(--panel)) 0%, var(--panel) 60%);
+  border: 1px solid color-mix(in srgb, var(--viol) 35%, var(--line));
+  border-radius: 8px;
+  padding: 12px 16px;
+  max-width: 860px;
+  box-shadow: 0 0 24px -10px var(--viol);
+}
+.concept-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.concept-name { font-weight: 700; font-size: 14px; font-variation-settings: "wdth" 112; color: var(--viol); }
+.concept-count { font-size: 10px; color: var(--straw); }
+.concept-body { font-size: 12px; color: var(--ink); line-height: 1.55; max-width: 78ch; }
+.concept-body p { margin: 6px 0; }
+.concept-body b { color: var(--muted); font-weight: 600; }
+
+/* ---- Theme v2 depth touches ---- */
+table.data tbody tr.selected { box-shadow: inset 2px 0 0 var(--accent); }
+.calc-card { box-shadow: 0 1px 0 rgba(0, 0, 0, 0.25); }
+.match.best { box-shadow: 0 0 16px -8px var(--accent); }
+.home-mini { margin: 0 0 26px; }
+
+@media (max-width: 900px) {
+  .micro-search { width: 100%; }
+  .pane-header { flex-wrap: wrap; row-gap: 6px; }
 }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }

@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { alloys, failureRules, DATASET_VERSION, RULESET_VERSION } from "@alloyra/data";
+import { HomeMiniChart } from "../components/HomeMiniChart";
 
 /**
  * Workbench home: the five-stage workflow made explicit (the funnel from
- * the blueprint), plus dataset coverage stated up front — visitors should
- * know they are looking at a 13-alloy screening tool, not an encyclopedia.
+ * the blueprint), plus dataset coverage stated up front — coverage numbers
+ * are computed from the dataset, never hardcoded.
  */
 const steps = [
   {
     href: "/database",
     name: "Alloy database",
-    desc: "Browse the seed dataset — spec-min properties with provenance labels and record-level source citations.",
-    cta: "Search alloys",
+    desc: "Browse the seed dataset — spec-min properties, property charts, and searchable microstructural descriptors (mechanisms, twinning, grain-boundary character), all with provenance labels.",
+    cta: "Search alloys & microstructure",
   },
   {
     href: "/profiles",
@@ -70,6 +71,8 @@ export default function Home() {
           ))}
         </ol>
 
+        <HomeMiniChart />
+
         <section className="home-coverage">
           <h2 className="studio-h">Release boundary — research preview</h2>
           <div className="boundary">
@@ -108,6 +111,15 @@ export default function Home() {
             <div className="cov">
               <span className="cov-n mono">7</span>
               <span className="cov-l">calculators with formulas, sources, and validity windows</span>
+            </div>
+            <div className="cov">
+              <span className="cov-n mono">
+                {alloys.reduce((n, a) => n + a.conditions.filter((c) => c.microstructure).length, 0)}
+              </span>
+              <span className="cov-l">
+                conditions with cited microstructure descriptors — searchable by
+                mechanism, twinning, and grain-boundary character
+              </span>
             </div>
           </div>
           <p className="coverage-note">

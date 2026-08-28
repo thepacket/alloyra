@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { alloys, DATASET_VERSION } from "@alloyra/data";
 import { EquilibriumPanel } from "./EquilibriumPanel";
+import { SweepSpark, type SweepPoint } from "./charts/SweepSpark";
 import {
   ceIIW,
   elementCost,
@@ -31,16 +32,10 @@ const ADDABLE: ElementSymbol[] = [
   "C", "N", "Mn", "Si", "Cr", "Ni", "Mo", "Cu", "W", "Nb", "Ti", "Al", "V", "Co", "Mg", "Zn",
 ];
 
-/**
- * PLACEHOLDER element prices, USD/kg — order-of-magnitude seeds so the
- * roll-up works out of the box. Not market data; the user owns this table
- * (R-4.5) and the UI says so.
- */
-const PLACEHOLDER_PRICES: Partial<Record<ElementSymbol, number>> = {
-  Fe: 0.5, C: 0.5, Si: 2, Mn: 2, P: 0, S: 0, Cr: 10, Ni: 18, Mo: 40,
-  N: 0, Cu: 9, W: 40, Nb: 45, Ti: 12, Al: 2.5, V: 25, Zn: 3, Mg: 4,
-  Co: 35, Sn: 30, Pb: 2, Zr: 40, B: 5, O: 0, H: 0, Ta: 150,
-};
+// Alloyra ships NO price data (professional-data rule, 2026-08-28): prices
+// are volatile, contract-specific procurement facts. The table starts empty
+// and is user-owned (R-4.5); the roll-up stays honest ("unpriced") until
+// the user enters their figures.
 
 interface StudioState {
   baseUns: string;
@@ -66,7 +61,7 @@ function defaultState(): StudioState {
   return {
     baseUns: "S31603",
     comp: seedFromBase("S31603"),
-    prices: { ...PLACEHOLDER_PRICES },
+    prices: {},
     lmp: { tempC: 600, hours: 100_000, C: 20 },
   };
 }
@@ -94,7 +89,15 @@ function sliderMax(el: ElementSymbol, uns: string): number {
   return Math.max(1, Math.ceil(anchor * 2));
 }
 
-function CalcCard({ label, r }: { label: string; r: CalcResult }) {
+function CalcCard({
+  label,
+  r,
+  spark,
+}: {
+  label: string;
+  r: CalcResult;
+  spark?: React.ReactNode;
+}) {
   return (
     <div className={`calc-card ${r.inWindow ? "" : "out"}`}>
       <div className="calc-top">
@@ -110,6 +113,7 @@ function CalcCard({ label, r }: { label: string; r: CalcResult }) {
         </span>
       </div>
       <div className="calc-formula mono">{r.formula}</div>
+      {spark}
       <div className="calc-src">
         {r.source.citation}
         {r.source.note ? ` — ${r.source.note}` : ""}
@@ -169,6 +173,7 @@ export function StudioView() {
   const [state, setState] = useState<StudioState>(defaultState());
   const [loaded, setLoaded] = useState(false);
   const [addSel, setAddSel] = useState("");
+  const [sweepSel, setSweepSel] = useState<ElementSymbol | "">("");
 
   useEffect(() => {
     setState(loadState());
@@ -279,6 +284,55 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
     (el) => el !== bal,
   );
 
+  // Sweep sparklines (B-206): every calculator drawn against one element's
+  // content, current composition marked — no naked numbers.
+  const sweepEl: ElementSymbol | undefined = editableElements.includes(
+    sweepSel as ElementSymbol,
+  )
+    ? (sweepSel as ElementSymbol)
+    : editableElements.includes("Cr")
+      ? "Cr"
+      : editableElements[0];
+  const sweepFor = (calc: (c: Composition) => CalcResult): SweepPoint[] => {
+    if (!sweepEl) return [];
+    const max = sliderMax(sweepEl, state.baseUns);
+    const entries = (Object.entries(state.comp) as [ElementSymbol, number][]).filter(
+      ([el]) => el !== bal,
+    );
+    const pts: SweepPoint[] = [];
+    for (let i = 0; i <= 40; i++) {
+      const x = (i / 40) * max;
+      const c: Composition = {};
+      let sum = 0;
+      for (const [el, v] of entries) {
+        const val = el === sweepEl ? x : v;
+        // The swept element is a known value even at 0; others follow the
+        // studio rule (0 slider = not entered).
+        if (el === sweepEl || val > 0) {
+          c[el] = val;
+          sum += val;
+        }
+      }
+      if (bal) c[bal] = Number(Math.max(0, 100 - sum).toFixed(3));
+      const r = calc(c);
+      pts.push({
+        x,
+        value: r.missing?.length ? undefined : r.value,
+        inWindow: r.inWindow,
+      });
+    }
+    return pts;
+  };
+  const sweeps = sweepEl
+    ? {
+        pren: sweepFor((c) => pren(c)),
+        ce: sweepFor((c) => ceIIW(c)),
+        ms: sweepFor((c) => msAndrews(c)),
+        md30: sweepFor((c) => md30Nohara(c)),
+      }
+    : undefined;
+  const currentSweepX = sweepEl ? (state.comp[sweepEl] ?? 0) : 0;
+
   return (
     <>
       <div className="pane-header">
@@ -373,7 +427,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             </select>
           </div>
 
-          <h3 className="studio-h">Element prices — placeholders, edit with your procurement figures (R-4.5)</h3>
+          <h3 className="studio-h">Element prices — Alloyra ships no price data; enter your procurement figures (R-4.5)</h3>
           <div className="price-grid">
             {(Object.keys(comp) as ElementSymbol[]).map((el) => (
               <label className="price-item" key={el}>
@@ -402,9 +456,18 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             study produces the shareable record.
           </div>
           <div className="cost-line">
-            ≈ <span className="mono">{results.cost.perKg.toFixed(2)}</span> /kg raw-element basis
-            {results.cost.unpriced.length > 0 && (
-              <span className="calc-warn"> · unpriced: {results.cost.unpriced.join(", ")}</span>
+            {Object.values(state.prices).every((v) => v === undefined) ? (
+              <span className="calc-warn">
+                No prices entered — cost roll-up inactive until you provide
+                procurement figures.
+              </span>
+            ) : (
+              <>
+                ≈ <span className="mono">{results.cost.perKg.toFixed(2)}</span> /kg raw-element basis
+                {results.cost.unpriced.length > 0 && (
+                  <span className="calc-warn"> · unpriced: {results.cost.unpriced.join(", ")}</span>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -436,12 +499,45 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             all remain).
           </div>
 
-          <h3 className="studio-h">Derived quantities — greyed means outside the model's validated window (R-4.3)</h3>
+          <div className="studio-h sweep-head">
+            <span>Derived quantities — greyed means outside the model's validated window (R-4.3)</span>
+            <label className="sweep-pick">
+              sweep vs
+              <select
+                className="hdr-select"
+                value={sweepEl ?? ""}
+                onChange={(e) => setSweepSel(e.target.value as ElementSymbol | "")}
+                aria-label="Element to sweep in calculator sparklines"
+              >
+                {editableElements.map((el) => (
+                  <option key={el} value={el}>
+                    {el}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <div className="calc-grid">
-            <CalcCard label="PREN" r={results.pren} />
-            <CalcCard label="CE(IIW)" r={results.ce} />
-            <CalcCard label="Ms — Andrews" r={results.ms} />
-            <CalcCard label="Md30 — Nohara" r={results.md30} />
+            <CalcCard
+              label="PREN"
+              r={results.pren}
+              spark={sweeps && sweepEl && <SweepSpark points={sweeps.pren} currentX={currentSweepX} element={sweepEl} />}
+            />
+            <CalcCard
+              label="CE(IIW)"
+              r={results.ce}
+              spark={sweeps && sweepEl && <SweepSpark points={sweeps.ce} currentX={currentSweepX} element={sweepEl} />}
+            />
+            <CalcCard
+              label="Ms — Andrews"
+              r={results.ms}
+              spark={sweeps && sweepEl && <SweepSpark points={sweeps.ms} currentX={currentSweepX} element={sweepEl} />}
+            />
+            <CalcCard
+              label="Md30 — Nohara"
+              r={results.md30}
+              spark={sweeps && sweepEl && <SweepSpark points={sweeps.md30} currentX={currentSweepX} element={sweepEl} />}
+            />
           </div>
 
           <div className="wrc-and-lmp">

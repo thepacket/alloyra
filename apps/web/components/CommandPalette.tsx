@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { alloys } from "@alloyra/data";
+import { alloys, microConcepts } from "@alloyra/data";
+import { MECHANISMS, type MechanismId } from "@alloyra/core";
 
 interface Cmd {
   id: string;
@@ -20,15 +21,39 @@ const navCmds: Cmd[] = [
   { id: "nav-studio", label: "Go to Composition studio", kind: "nav", keywords: "composition studio calculators", run: (r) => r.push("/studio") },
 ];
 
-const alloyCmds: Cmd[] = alloys.map((a) => ({
-  id: `alloy-${a.uns}`,
-  label: `${a.names[0]} · ${a.uns}`,
-  kind: a.family.slice(0, 2).join(" / "),
-  keywords: `${a.uns} ${a.names.join(" ")} ${a.family.join(" ")}`.toLowerCase(),
-  run: (r) => r.push(`/database?sel=${a.uns}`),
+const alloyCmds: Cmd[] = alloys.map((a) => {
+  const mechs = a.conditions
+    .flatMap((c) => c.microstructure?.strengthening ?? [])
+    .map((t) => MECHANISMS[t.mechanism].label)
+    .join(" ");
+  return {
+    id: `alloy-${a.uns}`,
+    label: `${a.names[0]} · ${a.uns}`,
+    kind: a.family.slice(0, 2).join(" / "),
+    keywords: `${a.uns} ${a.names.join(" ")} ${a.family.join(" ")} ${mechs}`.toLowerCase(),
+    run: (r) => r.push(`/database?sel=${a.uns}`),
+  };
+});
+
+// Microstructure hunting terms (E1): mechanisms and concept vocabulary are
+// first-class palette targets — "precipitation hardening" must land somewhere.
+const mechCmds: Cmd[] = (Object.keys(MECHANISMS) as MechanismId[]).map((m) => ({
+  id: `mech-${m}`,
+  label: `Filter database: ${MECHANISMS[m].label.toLowerCase()} strengthening`,
+  kind: "mechanism",
+  keywords: `${MECHANISMS[m].label} ${MECHANISMS[m].synonyms.join(" ")}`.toLowerCase(),
+  run: (r) => r.push(`/database?mech=${m}`),
 }));
 
-const allCmds = [...alloyCmds, ...navCmds];
+const conceptCmds: Cmd[] = microConcepts.map((c) => ({
+  id: `concept-${c.id}`,
+  label: `Microstructure: ${c.name}`,
+  kind: "concept",
+  keywords: `${c.name} ${c.synonyms.join(" ")}`.toLowerCase(),
+  run: (r) => r.push(`/database?q=${encodeURIComponent(c.probe)}`),
+}));
+
+const allCmds = [...alloyCmds, ...conceptCmds, ...mechCmds, ...navCmds];
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
