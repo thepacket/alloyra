@@ -192,3 +192,48 @@ describe("wt% to mole fractions", () => {
     expect(Object.values(x).reduce((s, v) => s + v, 0)).toBeCloseTo(1, 12);
   });
 });
+
+describe("temperature stepping (B-502) tracks the pycalphad sweep", () => {
+  const suspend = (name: string) => /^(GP_|CL_)|^BCC_DISL$/.test(name);
+  const sweepRef = JSON.parse(
+    readFileSync(join(here, "fixtures/tsweep-316l-reference.json"), "utf8"),
+  ) as { tC: number; phases: { phase: string; fraction: number }[] }[];
+  // Subset keeps the suite fast while covering multi-phase, single-phase,
+  // and delta-ferrite regimes; warm starts still chain between them.
+  const temps = [500, 800, 1000, 1400];
+
+  it("phase sets and fractions match at each step", { timeout: 60000 }, async () => {
+    const { stepTemperature } = await import("../src/index.ts");
+    const db = parseTdb(
+      readFileSync(
+        join(here, "../../../services/calphad/databases/mc_fe_v2.059.pycalphad.tdb"),
+        "utf8",
+      ),
+    );
+    const x = {
+      FE: 1 - 0.182 - 0.114 - 0.0145 - 0.0007 - 0.0101 - 0.0074 - 0.002,
+      CR: 0.182, NI: 0.114, MO: 0.0145, C: 0.0007, MN: 0.0101, SI: 0.0074, N: 0.002,
+    };
+    const pts = stepTemperature(db, x, temps.map((t) => t + 273.15), { suspend });
+    for (let i = 0; i < temps.length; i++) {
+      const want = sweepRef.find((r) => r.tC === temps[i])!;
+      const got = pts[i]!.result;
+      expect(got.feasible).toBe(true);
+      // Every reference phase above 2% must appear within 3%; extra
+      // sub-2% slivers near phase boundaries are tolerated.
+      for (const w of want.phases) {
+        if (w.fraction < 0.02) continue;
+        const mine = got.phases.find((p) => p.phase === w.phase);
+        expect(mine, `${temps[i]} °C missing ${w.phase}`).toBeDefined();
+        expect(Math.abs(mine!.fraction - w.fraction)).toBeLessThan(0.03);
+      }
+      for (const p of got.phases) {
+        if (p.fraction < 0.02) continue;
+        expect(
+          want.phases.some((w) => w.phase === p.phase),
+          `${temps[i]} °C extra ${p.phase} at ${p.fraction.toFixed(3)}`,
+        ).toBe(true);
+      }
+    }
+  });
+});

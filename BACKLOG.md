@@ -218,6 +218,13 @@ two hand-rolled visuals and no charting layer.
 - **B-502 — Property diagrams.** One-axis stepping: equilibrium phase
   fraction vs temperature for a fixed composition (the CALPHAD category's
   bread-and-butter plot), replacing today's single-point bars.
+  *Shipped 2026-08-28, in-browser: `stepTemperature` warm-starts each
+  point from the previous step's constitutions; the worker streams points
+  so the studio's property diagram fills in live (plot-kit LineChart,
+  phase legend, kinetics-honesty footnote). Validated against a pycalphad
+  T-sweep of 316L/mc_fe (sigma/Laves dissolution through 500–900 °C,
+  δ-ferrite at 1400 °C). Hosted-service stepping and isopleth mapping
+  remain open.*
 - **B-503 — Phase diagram sections.** Binary diagrams and isopleth sections
   through multicomponent systems, plotted with labeled phase regions.
 - **B-504 — Scheil solidification.** Scheil-Gulliver fraction-solid curves,

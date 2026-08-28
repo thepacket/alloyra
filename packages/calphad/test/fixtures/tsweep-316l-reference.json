@@ -1,0 +1,156 @@
+[
+ {
+  "tC": 500,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.4292331117228096
+   },
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.3563533886971981
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.12372598347964835
+   },
+   {
+    "phase": "LAVES_PHASE",
+    "fraction": 0.07776582217359164
+   },
+   {
+    "phase": "CR3NI2SIN",
+    "fraction": 0.006188963202626617
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.0033780183893294307
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.0033547112222737175
+   }
+  ]
+ },
+ {
+  "tC": 600,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.8513479930366409
+   },
+   {
+    "phase": "SIGMA",
+    "fraction": 0.07704065222590442
+   },
+   {
+    "phase": "LAVES_PHASE",
+    "fraction": 0.06292081809344717
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.005389270970066208
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.0033012659754166254
+   }
+  ]
+ },
+ {
+  "tC": 700,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9451895798021575
+   },
+   {
+    "phase": "LAVES_PHASE",
+    "fraction": 0.04861331930049971
+   },
+   {
+    "phase": "HCP_A3",
+    "fraction": 0.0032274206484596223
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.002969692091902031
+   }
+  ]
+ },
+ {
+  "tC": 800,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9774220924008011
+   },
+   {
+    "phase": "LAVES_PHASE",
+    "fraction": 0.020891269494275496
+   },
+   {
+    "phase": "M23C6",
+    "fraction": 0.0016866386182147954
+   }
+  ]
+ },
+ {
+  "tC": 900,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999998509453
+   }
+  ]
+ },
+ {
+  "tC": 1000,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999998954375
+   }
+  ]
+ },
+ {
+  "tC": 1100,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999999185664
+   }
+  ]
+ },
+ {
+  "tC": 1200,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999999385492
+   }
+  ]
+ },
+ {
+  "tC": 1300,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.9999999999618453
+   }
+  ]
+ },
+ {
+  "tC": 1400,
+  "phases": [
+   {
+    "phase": "FCC_A1",
+    "fraction": 0.5469582880943306
+   },
+   {
+    "phase": "BCC_A2",
+    "fraction": 0.45304171189916076
+   }
+  ]
+ }
+]

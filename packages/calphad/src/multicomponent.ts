@@ -72,6 +72,9 @@ export function pointEquilibrium(
     rounds?: number;
     zoomSamples?: number;
     seed?: number;
+    /** Warm-start constitutions (e.g. the neighboring temperature step's
+     *  winners) — injected into the pool and refined like any candidate. */
+    seeds?: { phase: string; y: number[][] }[];
   },
 ): MulticomponentResult {
   const comps = Object.keys(composition).map((e) => e.toUpperCase());
@@ -163,6 +166,14 @@ export function pointEquilibrium(
   // budget: 316L at 773 K converges to pycalphad's G to the decimal at
   // 16/600 but sits ~30 J high at 8/320); the early-exit below keeps easy
   // cases fast.
+  // Warm-start seeds join the pool before the first LP.
+  if (opts?.seeds) {
+    for (const seed of opts.seeds) {
+      const idx = models.findIndex((m) => m.name === seed.phase);
+      if (idx >= 0) pushSample(models[idx]!, idx, seed.y);
+    }
+  }
+
   const rounds = opts?.rounds ?? 16;
   const zoomSamples = opts?.zoomSamples ?? 600;
   let lastObjective = Number.POSITIVE_INFINITY;

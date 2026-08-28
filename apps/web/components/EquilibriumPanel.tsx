@@ -8,8 +8,10 @@ import type {
 } from "@alloyra/core";
 import { calphadProvider } from "../lib/calphad";
 import type { EngineResponse } from "../workers/calphadEngine.worker";
+import { LineChart } from "./charts/Line";
 
-type EngineResult = NonNullable<EngineResponse["result"]>;
+type EngineResult = NonNullable<Extract<EngineResponse, { kind: "point" }>["result"]>;
+type SweepPointUi = { tC: number; phases: { phase: string; fraction: number }[] };
 
 /**
  * Phase-equilibrium panel (M3): the studio's window onto the CALPHAD
@@ -54,6 +56,15 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
   const [engineKey, setEngineKey] = useState("");
   const [hostedKey, setHostedKey] = useState("");
   const [engineDbId, setEngineDbId] = useState(ENGINE_DBS[0]!);
+  // Property diagram (B-502): T sweep streamed from the worker.
+  const [sweepFrom, setSweepFrom] = useState(400);
+  const [sweepTo, setSweepTo] = useState(1500);
+  const [sweepStep, setSweepStep] = useState(100);
+  const [sweepRunning, setSweepRunning] = useState(false);
+  const [sweepProgress, setSweepProgress] = useState<{ done: number; total: number } | null>(null);
+  const [sweepPoints, setSweepPoints] = useState<SweepPointUi[]>([]);
+  const [sweepError, setSweepError] = useState("");
+  const [sweepDb, setSweepDb] = useState("");
 
   const refresh = () => {
     setCaps(null);
@@ -175,7 +186,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     setEngineResult(null);
     const key = `${engineDb}|${tempC}`;
     const onMessage = (ev: MessageEvent<EngineResponse>) => {
-      if (ev.data.id !== id) return;
+      if (ev.data.id !== id || ev.data.kind !== "point") return;
       worker.removeEventListener("message", onMessage);
       setEngineRunning(false);
       if (ev.data.ok && ev.data.result) {
@@ -188,12 +199,92 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     worker.addEventListener("message", onMessage);
     worker.postMessage({
       id,
+      kind: "point",
       dbId: engineDb,
       tdbUrl: `/tdb/${engineDb}.tdb`,
       compositionWt: comp,
       tempC,
     });
   };
+
+  const runSweep = () => {
+    if (typeof Worker === "undefined") {
+      setSweepError("This browser does not support Web Workers.");
+      return;
+    }
+    if (!workerRef.current) {
+      workerRef.current = new Worker(
+        new URL("../workers/calphadEngine.worker.ts", import.meta.url),
+      );
+    }
+    const worker = workerRef.current;
+    const id = ++reqIdRef.current;
+    const tempsC: number[] = [];
+    const step = Math.max(10, sweepStep);
+    for (let t = Math.min(sweepFrom, sweepTo); t <= Math.max(sweepFrom, sweepTo); t += step) {
+      tempsC.push(t);
+    }
+    if (tempsC.length < 2 || tempsC.length > 60) {
+      setSweepError("Choose a range giving between 2 and 60 temperature points.");
+      return;
+    }
+    setSweepRunning(true);
+    setSweepError("");
+    setSweepPoints([]);
+    setSweepProgress({ done: 0, total: tempsC.length });
+    setSweepDb(engineDb);
+    const onMessage = (ev: MessageEvent<EngineResponse>) => {
+      if (ev.data.id !== id) return;
+      if (ev.data.kind === "step-progress") {
+        setSweepProgress({ done: ev.data.done, total: ev.data.total });
+        const point = ev.data.point;
+        setSweepPoints((prev) => [...prev, point]);
+        return;
+      }
+      if (ev.data.kind === "step-done") {
+        worker.removeEventListener("message", onMessage);
+        setSweepRunning(false);
+        if (!ev.data.ok) setSweepError(ev.data.error ?? "Sweep failed.");
+      }
+    };
+    worker.addEventListener("message", onMessage);
+    worker.postMessage({
+      id,
+      kind: "step",
+      dbId: engineDb,
+      tdbUrl: `/tdb/${engineDb}.tdb`,
+      compositionWt: comp,
+      tempsC,
+    });
+  };
+
+  // Property-diagram series: phases in order of appearance, stable colors,
+  // absent-at-T rendered as zero so solvus crossings read as lines hitting
+  // the axis. Trace phases (< 0.5 % everywhere) are dropped from the plot.
+  const sweepSeries = useMemo(() => {
+    const PALETTE = [
+      "var(--fam-fe)", "var(--fam-cu)", "var(--viol)", "var(--fam-ni)",
+      "var(--straw)", "var(--fam-al)", "var(--crit)", "var(--accent)",
+      "var(--good)", "var(--warn)",
+    ];
+    const names: string[] = [];
+    for (const pt of sweepPoints) {
+      for (const p of pt.phases) if (!names.includes(p.phase)) names.push(p.phase);
+    }
+    return names
+      .map((name, i) => ({
+        name,
+        color: PALETTE[i % PALETTE.length]!,
+        points: sweepPoints
+          .slice()
+          .sort((a, b) => a.tC - b.tC)
+          .map((pt) => ({
+            x: pt.tC,
+            y: pt.phases.find((p) => p.phase === name)?.fraction ?? 0,
+          })),
+      }))
+      .filter((s2) => s2.points.some((p) => p.y > 0.005));
+  }, [sweepPoints]);
 
   // Cross-check: comparable only when both results came from the same
   // database + temperature. Reports the honest disagreement, not a verdict.
@@ -414,6 +505,50 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                 )}
               </div>
             )}
+
+            <div className="sweep-panel">
+              <div className="engine-head">
+                <span className="calc-label">Property diagram — phase fractions vs T</span>
+                <button
+                  type="button"
+                  className="mini"
+                  onClick={runSweep}
+                  disabled={sweepRunning || (caps?.available === true && missing.length > 0)}
+                >
+                  {sweepRunning && sweepProgress
+                    ? `Computing ${sweepProgress.done}/${sweepProgress.total}…`
+                    : "Compute sweep"}
+                </button>
+              </div>
+              <div className="lmp-inputs">
+                <label>From (°C)
+                  <input className="el-num mono" inputMode="decimal" value={sweepFrom} aria-label="Sweep start temperature, °C"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setSweepFrom(n); }} />
+                </label>
+                <label>To (°C)
+                  <input className="el-num mono" inputMode="decimal" value={sweepTo} aria-label="Sweep end temperature, °C"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setSweepTo(n); }} />
+                </label>
+                <label>Step (°C)
+                  <input className="el-num mono" inputMode="decimal" value={sweepStep} aria-label="Sweep temperature step, °C"
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setSweepStep(n); }} />
+                </label>
+              </div>
+              {sweepError && <div className="calc-warn">{sweepError}</div>}
+              {sweepPoints.length > 0 && (
+                <>
+                  <LineChart
+                    series={sweepSeries}
+                    xLabel="T (°C)"
+                    yLabel="equilibrium phase fraction"
+                    yMin={0}
+                    yMax={1}
+                    height={300}
+                    footnote={`EQUILIBRIUM fractions vs ${sweepDb} — each point is a full in-browser minimization${sweepRunning ? " (filling in live…)" : ""}. The manufactured microstructure depends on kinetics and process history: an equilibrium sigma field at low T does not mean sigma forms in service time. Phases under 0.5 % everywhere are omitted.`}
+                  />
+                </>
+              )}
+            </div>
           </div>
     </div>
   );

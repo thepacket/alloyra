@@ -23,3 +23,4 @@ export {
   type MulticomponentPhase,
   type MulticomponentResult,
 } from "./multicomponent.ts";
+export { stepTemperature, type StepPoint } from "./step.ts";

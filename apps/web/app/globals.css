@@ -1031,3 +1031,9 @@ table.data tbody tr.selected { box-shadow: inset 2px 0 0 var(--accent); }
 @media (prefers-reduced-motion: no-preference) {
   .rail a, .fchip, .btn { transition: background 80ms linear, color 80ms linear, border-color 80ms linear; }
 }
+
+/* ---- Property diagram (B-502) ---- */
+.sweep-panel { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 10px; }
+.chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
+.legend-item { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+.legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
