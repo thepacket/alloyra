@@ -28,6 +28,14 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
   const [engineResult, setEngineResult] = useState<EngineResult | null>(null);
   const [engineError, setEngineError] = useState("");
   const [engineDbId, setEngineDbId] = useState(ENGINE_DBS[0]!);
+  // Staleness keys (honesty): engine results are run-on-demand snapshots.
+  // Each run records the inputs it was computed WITH; when the live inputs
+  // drift, the result stays visible (before/after comparison is useful)
+  // but is flagged stale instead of silently posing as current.
+  const [engineRunKey, setEngineRunKey] = useState("");
+  const [sweepRunKey, setSweepRunKey] = useState("");
+  const [scheilRunKey, setScheilRunKey] = useState("");
+  const [mapRunKey, setMapRunKey] = useState("");
   // Property diagram (B-502): T sweep streamed from the worker.
   const [sweepFrom, setSweepFrom] = useState(400);
   const [sweepTo, setSweepTo] = useState(1500);
@@ -86,10 +94,24 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     return best;
   }, [comp]);
 
+  const compKey = useMemo(() => JSON.stringify(comp), [comp]);
+
   // Database auto-pick by base metal; the user's own selection stands
   // until the base changes. Coverage gaps surface as the worker's honest
   // per-run error ("<db> does not cover: X"), never a silent disable.
   const engineDb = engineDbId;
+
+  const engineNowKey = `${compKey}|${engineDb}|${tempC}`;
+  const sweepNowKey = `${compKey}|${engineDb}|${sweepFrom}|${sweepTo}|${sweepStep}`;
+  const scheilNowKey = `${compKey}|${engineDb}|${scheilStart}|${scheilDT}`;
+  const mapNowKey = `${compKey}|${engineDb}|${mapEl}|${mapFrom}|${mapTo}|${mapTMin}|${mapTMax}|${mapNX}|${mapNT}`;
+
+  const StaleNote = ({ what }: { what: string }) => (
+    <div className="stale-note" role="status">
+      Inputs changed since this {what} was computed — it shows the PREVIOUS
+      composition/settings. Run again to refresh.
+    </div>
+  );
   useEffect(() => {
     const pick = ENGINE_DBS.find((id) => baseHint(id) === dominant);
     if (pick) setEngineDbId(pick);
@@ -120,6 +142,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     setEngineRunning(true);
     setEngineError("");
     setEngineResult(null);
+    setEngineRunKey(engineNowKey);
     const onMessage = (ev: MessageEvent<EngineResponse>) => {
       if (ev.data.id !== id || ev.data.kind !== "point") return;
       worker.removeEventListener("message", onMessage);
@@ -167,6 +190,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     setSweepPoints([]);
     setSweepProgress({ done: 0, total: tempsC.length });
     setSweepDb(engineDb);
+    setSweepRunKey(sweepNowKey);
     const onMessage = (ev: MessageEvent<EngineResponse>) => {
       if (ev.data.id !== id) return;
       if (ev.data.kind === "step-progress") {
@@ -234,6 +258,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     setScheilPoints([]);
     setScheilResult(null);
     setScheilDb(engineDb);
+    setScheilRunKey(scheilNowKey);
     const onMessage = (ev: MessageEvent<EngineResponse>) => {
       if (ev.data.id !== id) return;
       if (ev.data.kind === "scheil-progress") {
@@ -312,6 +337,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     setMapCols(0);
     setMapMs(null);
     setMapDb(engineDb);
+    setMapRunKey(mapNowKey);
     setMapData({ xs, tCs, columns: Array.from({ length: nX }, () => undefined), boundaries: [] });
     const onMessage = (ev: MessageEvent<EngineResponse>) => {
       const d = ev.data;
@@ -438,8 +464,11 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
               </div>
             )}
             {engineError && <div className="calc-warn">{engineError}</div>}
+            {engineResult && !engineRunning && engineRunKey !== engineNowKey && (
+              <StaleNote what="equilibrium" />
+            )}
             {engineResult && (
-              <div className="eq-result">
+              <div className={`eq-result ${!engineRunning && engineRunKey !== engineNowKey ? "stale" : ""}`}>
                 {engineResult.phases.map((p) => (
                   <div className="eq-phase" key={p.phase + p.fraction.toFixed(6)}>
                     <span className="mono eq-phase-name">{p.phase}</span>
@@ -494,6 +523,9 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                 </label>
               </div>
               {sweepError && <div className="calc-warn">{sweepError}</div>}
+              {sweepPoints.length > 0 && !sweepRunning && sweepRunKey !== sweepNowKey && (
+                <StaleNote what="property diagram" />
+              )}
               {sweepPoints.length > 0 && (
                 <>
                   <LineChart
@@ -532,6 +564,9 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                 </label>
               </div>
               {scheilError && <div className="calc-warn">{scheilError}</div>}
+              {scheilPoints.length > 0 && !scheilRunning && scheilRunKey !== scheilNowKey && (
+                <StaleNote what="Scheil result" />
+              )}
               {scheilRunning && scheilPoints.length > 0 && (
                 <div className="calc-src mono" role="status">
                   cooling… T = {scheilPoints[scheilPoints.length - 1]!.tC.toFixed(0)} °C ·
@@ -670,6 +705,9 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                 rest of the studio stays responsive.
               </div>
               {mapError && <div className="calc-warn">{mapError}</div>}
+              {mapData && mapData.columns.some((c) => c !== undefined) && !mapRunning && mapRunKey !== mapNowKey && (
+                <StaleNote what="isopleth map" />
+              )}
               {mapRunning && mapCols === 0 && (
                 <div className="calc-src" role="status">Compiling the first column (largest budget)…</div>
               )}

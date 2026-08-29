@@ -845,7 +845,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             </div>
           </div>
 
-          <h2 className="studio-h">Phase equilibrium — hosted calculation service</h2>
+          <h2 className="studio-h">Phase equilibrium — in-browser CALPHAD engine</h2>
           <EquilibriumPanel comp={comp} />
         </div>
       </div>
