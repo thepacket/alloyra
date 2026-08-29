@@ -19,7 +19,14 @@ type SweepPointUi = { tC: number; phases: { phase: string; fraction: number }[] 
  * validation oracle and an optional self-host.
  */
 
-export function EquilibriumPanel({ comp }: { comp: Composition }) {
+export function EquilibriumPanel({
+  comp,
+  onRegisterRunAll,
+}: {
+  comp: Composition;
+  /** Hands the parent a "queue every computation" trigger (Compute all). */
+  onRegisterRunAll?: (fn: () => void) => void;
+}) {
   const [tempC, setTempC] = useState(500);
   const workerRef = useRef<Worker | null>(null);
   const reqIdRef = useRef(0);
@@ -380,6 +387,21 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
       nT,
     });
   };
+
+  // "Compute all": queue every engine computation for the current inputs.
+  // The four requests share one worker, which processes them IN ORDER —
+  // point first (seconds), then sweep, Scheil, and the isopleth map
+  // (minutes); each section streams its own progress as its turn comes.
+  // Sections already running are left alone.
+  const runAll = () => {
+    if (!engineRunning) runEngine();
+    if (!sweepRunning) runSweep();
+    if (!scheilRunning) runScheil();
+    if (!mapRunning && mapEl) runMap();
+  };
+  useEffect(() => {
+    onRegisterRunAll?.(runAll);
+  });
 
   // Property-diagram series: phases in order of appearance, stable colors,
   // absent-at-T rendered as zero so solvus crossings read as lines hitting

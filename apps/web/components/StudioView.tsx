@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { alloys, DATASET_VERSION } from "@alloyra/data";
 import { EquilibriumPanel } from "./EquilibriumPanel";
 import { SweepSpark, type SweepPoint } from "./charts/SweepSpark";
@@ -205,6 +205,8 @@ function WrcDiagram({ creq, nieq, inWindow }: { creq: number; nieq: number; inWi
 
 export function StudioView() {
   const [state, setState] = useState<StudioState>(defaultState());
+  /** "Compute all" trigger, registered by the equilibrium panel. */
+  const runAllRef = useRef<(() => void) | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [addSel, setAddSel] = useState("");
   const [sweepSel, setSweepSel] = useState<ElementSymbol | "">("");
@@ -450,6 +452,17 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
         </select>
         <button type="button" className="btn ghost" onClick={() => update((s) => ({ ...s, comp: seedFromBase(s.baseUns) }))}>
           Reset to mid-spec
+        </button>
+        <button
+          type="button"
+          className="btn"
+          title="Queue every engine computation for the current composition — point equilibrium, property diagram, Scheil, and the isopleth map run in sequence (the isopleth takes minutes; sections fill in as they finish)."
+          onClick={() => {
+            runAllRef.current?.();
+            document.querySelector(".eq-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          }}
+        >
+          Compute all
         </button>
         <button type="button" className="btn" onClick={exportStudy}>
           Export study
@@ -846,7 +859,12 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
           </div>
 
           <h2 className="studio-h">Phase equilibrium — in-browser CALPHAD engine</h2>
-          <EquilibriumPanel comp={comp} />
+          <EquilibriumPanel
+            comp={comp}
+            onRegisterRunAll={(fn) => {
+              runAllRef.current = fn;
+            }}
+          />
         </div>
       </div>
     </>

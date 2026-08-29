@@ -41,8 +41,8 @@ export function Shell({ children }: { children: React.ReactNode }) {
         <span className="wordmark">
           Alloy<b>ra</b>
         </span>
-        <span className="preview-chip" title="Screening and hypothesis generation only — never qualification, code compliance, or design approval. See the home page for the release boundary.">
-          RESEARCH PREVIEW
+        <span className="preview-chip" title="Alloyra = alloy Research Assistant. Screening and hypothesis generation only — never qualification, code compliance, or design approval. See the home page for the release boundary.">
+          RESEARCH ASSISTANT
         </span>
         <CommandPalette />
         <span className="spacer" />
