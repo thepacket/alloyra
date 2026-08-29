@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type {
-  Composition,
-  EquilibriumResult,
-  ProviderCapabilities,
-} from "@alloyra/core";
-import { calphadProvider } from "../lib/calphad";
+import type { Composition } from "@alloyra/core";
 import { ENGINE_DBS, baseHint } from "../lib/engine";
 import type { EngineResponse } from "../workers/calphadEngine.worker";
 import { LineChart } from "./charts/Line";
@@ -16,31 +11,22 @@ type EngineResult = NonNullable<Extract<EngineResponse, { kind: "point" }>["resu
 type SweepPointUi = { tC: number; phases: { phase: string; fraction: number }[] };
 
 /**
- * Phase-equilibrium panel (M3): the studio's window onto the CALPHAD
- * bridge. Degrades honestly — offline and database-gap states say exactly
- * what is missing and how to fix it, and no number appears without its
- * database named.
+ * Phase-equilibrium panel. All computation is the in-browser CALPHAD
+ * engine (B-501, cross-checked — docs/engine-validation.md): a worker in
+ * THIS tab, nothing leaves the browser, no service to abuse or pay for.
+ * The former hosted pycalphad bridge is retired from the product; the
+ * pycalphad service under services/calphad remains as the offline
+ * validation oracle and an optional self-host.
  */
 
 export function EquilibriumPanel({ comp }: { comp: Composition }) {
-  const [caps, setCaps] = useState<ProviderCapabilities | null>(null);
-  const [dbId, setDbId] = useState("");
-  const [autoNote, setAutoNote] = useState("");
   const [tempC, setTempC] = useState(500);
-  const [running, setRunning] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [result, setResult] = useState<EquilibriumResult | null>(null);
-  const [error, setError] = useState("");
-  // In-browser engine (B-501, experimental) — runs in a worker off the
-  // main thread; cross-checked against the hosted result when comparable.
   const workerRef = useRef<Worker | null>(null);
   const reqIdRef = useRef(0);
   const [engineRunning, setEngineRunning] = useState(false);
   const [engineElapsed, setEngineElapsed] = useState(0);
   const [engineResult, setEngineResult] = useState<EngineResult | null>(null);
   const [engineError, setEngineError] = useState("");
-  const [engineKey, setEngineKey] = useState("");
-  const [hostedKey, setHostedKey] = useState("");
   const [engineDbId, setEngineDbId] = useState(ENGINE_DBS[0]!);
   // Property diagram (B-502): T sweep streamed from the worker.
   const [sweepFrom, setSweepFrom] = useState(400);
@@ -88,26 +74,6 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
   const [mapDb, setMapDb] = useState("");
   const [mapMs, setMapMs] = useState<number | null>(null);
 
-  const refresh = () => {
-    setCaps(null);
-    calphadProvider.capabilities().then(setCaps);
-  };
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(refresh, []);
-
-  const compElements = useMemo(
-    () =>
-      Object.entries(comp)
-        .filter(([, v]) => (v as number) > 0)
-        .map(([el]) => el.toUpperCase()),
-    [comp],
-  );
-
-  const coverage = (systemElements: string[]) =>
-    compElements.filter((el) => !systemElements.includes(el));
-  const covers = (systemElements: string[]) => coverage(systemElements).length === 0;
-
   const dominant = useMemo(() => {
     let best: string | undefined;
     let bestV = -1;
@@ -120,66 +86,14 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     return best;
   }, [comp]);
 
-  // The engine runs with the hosted panel's database when the service is
-  // up (shared selection, shared coverage check); offline it stands alone
-  // with its own catalog, auto-picked by base metal.
-  const engineDb = caps?.available ? dbId : engineDbId;
+  // Database auto-pick by base metal; the user's own selection stands
+  // until the base changes. Coverage gaps surface as the worker's honest
+  // per-run error ("<db> does not cover: X"), never a silent disable.
+  const engineDb = engineDbId;
   useEffect(() => {
-    if (caps?.available) return;
     const pick = ENGINE_DBS.find((id) => baseHint(id) === dominant);
     if (pick) setEngineDbId(pick);
-  }, [caps, dominant]);
-
-  // Database auto-selection: keep the user's choice while it covers the
-  // composition; otherwise pick a covering database (base-metal match
-  // first, then the most specific one) and say why. Never silently leave
-  // "Run" disabled on an incompatible default.
-  useEffect(() => {
-    if (!caps?.available || compElements.length === 0) return;
-    const current = caps.systems.find((s) => s.id === dbId);
-    if (current && covers(current.elements)) return;
-    const covering = caps.systems.filter((s) => covers(s.elements));
-    if (covering.length === 0) {
-      if (!current && caps.systems[0]) setDbId(caps.systems[0].id);
-      setAutoNote("");
-      return;
-    }
-    const pick =
-      covering.find((s) => baseHint(s.id) === dominant) ??
-      [...covering].sort((a, b) => a.elements.length - b.elements.length)[0]!;
-    setDbId(pick.id);
-    setAutoNote(
-      `Auto-selected ${pick.id} — covers all ${compElements.length} elements of this composition` +
-        (baseHint(pick.id) === dominant ? ` (base ${dominant} match).` : "."),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [caps, compElements.join(","), dominant]);
-
-  useEffect(() => {
-    if (!running) return;
-    const t0 = Date.now();
-    setElapsed(0);
-    const iv = setInterval(() => setElapsed(Math.round((Date.now() - t0) / 1000)), 1000);
-    return () => clearInterval(iv);
-  }, [running]);
-
-  const run = async () => {
-    setRunning(true);
-    setError("");
-    setResult(null);
-    try {
-      setResult(
-        await calphadProvider.equilibrium({ databaseId: dbId, compositionWt: comp, tempC }),
-      );
-      setHostedKey(`${dbId}|${tempC}`);
-    } catch (e) {
-      setError(
-        `${e instanceof Error ? e.message : String(e)} — if the service was idle, it may have been waking up and compiling models; running again usually succeeds within a few seconds.`,
-      );
-    } finally {
-      setRunning(false);
-    }
-  };
+  }, [dominant]);
 
   useEffect(() => {
     if (!engineRunning) return;
@@ -206,14 +120,12 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
     setEngineRunning(true);
     setEngineError("");
     setEngineResult(null);
-    const key = `${engineDb}|${tempC}`;
     const onMessage = (ev: MessageEvent<EngineResponse>) => {
       if (ev.data.id !== id || ev.data.kind !== "point") return;
       worker.removeEventListener("message", onMessage);
       setEngineRunning(false);
       if (ev.data.ok && ev.data.result) {
         setEngineResult(ev.data.result);
-        setEngineKey(key);
       } else {
         setEngineError(ev.data.error ?? "Engine failed.");
       }
@@ -471,183 +383,53 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
       .filter((s2) => s2.points.some((p) => p.y > 0.005));
   }, [sweepPoints]);
 
-  // Cross-check: comparable only when both results came from the same
-  // database + temperature. Reports the honest disagreement, not a verdict.
-  const crossCheck = useMemo(() => {
-    if (!result || !engineResult || engineKey === "" || engineKey !== hostedKey) return null;
-    const hosted = new Map(result.phases.map((p) => [p.phase, p.fraction]));
-    const engine = new Map(engineResult.phases.map((p) => [p.phase, p.fraction]));
-    const names = new Set([...hosted.keys(), ...engine.keys()]);
-    let maxDelta = 0;
-    let samePhaseSet = true;
-    for (const n of names) {
-      const a = hosted.get(n) ?? 0;
-      const b = engine.get(n) ?? 0;
-      if (!hosted.has(n) || !engine.has(n)) {
-        if (Math.max(a, b) > 0.005) samePhaseSet = false;
-      }
-      maxDelta = Math.max(maxDelta, Math.abs(a - b));
-    }
-    return { samePhaseSet, maxDelta };
-  }, [result, engineResult, engineKey, hostedKey]);
-
-  const selected = caps?.systems.find((s) => s.id === dbId);
-  const missing = selected ? coverage(selected.elements) : [];
-
   return (
     <div className="calc-card eq-card">
       <div className="calc-top">
         <span className="calc-label">
-          Phase equilibrium{" "}
-          {caps === null ? (
-            <span className="prov estimated">CHECKING…</span>
-          ) : caps.available ? (
-            <span className="prov computed">COMPUTED</span>
-          ) : (
-            <span className="prov estimated">SERVICE OFFLINE</span>
-          )}
+          Phase equilibrium <span className="prov computed">COMPUTED</span>{" "}
+          <span
+            className="prov engine-chip"
+            title="52-equilibrium battery vs pycalphad across all 4 shipped databases — see docs/engine-validation.md in the repository"
+          >
+            IN-BROWSER · CROSS-CHECKED
+          </span>
         </span>
-        <button type="button" className="mini" onClick={refresh}>
-          {caps === null ? "Checking…" : "Retry"}
-        </button>
       </div>
 
-      {caps === null && <div className="calc-src">Checking for a CALPHAD bridge…</div>}
-
-      {caps !== null && !caps.available && (
-        <div className="eq-offline">
-          <div className="eq-offline-title">Phase calculation unavailable</div>
-          <div className="calc-src">
-            {caps.reason === "request failed"
-              ? "The calculation service isn't reachable right now — it may be waking up. Hit Retry in a few seconds. Everything else in the studio works without it."
-              : caps.reason}
-          </div>
-          <details className="eq-howto">
-            <summary>Developers: run a local service instead</summary>
-            <div className="calc-src mono">
-              cd services/calphad && .venv/bin/uvicorn main:app --port 8791
-            </div>
-            <div className="calc-src">
-              When the app runs on localhost it prefers a local bridge at
-              127.0.0.1:8791; deployed visitors use the hosted service
-              automatically and install nothing.
-            </div>
-          </details>
-        </div>
-      )}
-
-      {caps?.available && (
-        <>
-          <div className="eq-controls">
-            <label>Database
-              <select
-                className="hdr-select"
-                value={dbId}
-                onChange={(e) => {
-                  setDbId(e.target.value);
-                  setAutoNote("");
-                }}
-              >
-                {caps.systems.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.id} ({s.elements.join("-")})
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>T (°C)
-              <input className="el-num mono" inputMode="decimal" value={tempC} aria-label="Equilibrium temperature, °C"
-                onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setTempC(n); }} />
-            </label>
-            <button type="button" className="btn" onClick={run} disabled={running || missing.length > 0}>
-              {running ? `Computing… ${elapsed}s` : "Run equilibrium"}
-            </button>
-          </div>
-          {autoNote && <div className="calc-src">{autoNote} Your own selection is kept as long as it stays compatible.</div>}
-          {running && (
-            <div className="calc-src" role="status">
-              Computing equilibrium at {tempC} °C against {selected?.id}… The
-              first calculation for a new alloy system compiles thermodynamic
-              models (up to ~60 s on the hosted service, longer if it was
-              asleep); repeat calculations answer in about a second.
-            </div>
-          )}
-          {missing.length > 0 && (
-            <div className="calc-warn">
-              {selected?.id} does not cover {missing.join(", ")}.{" "}
-              {(() => {
-                const covering = caps.systems.filter((s) => covers(s.elements));
-                return covering.length > 0
-                  ? `A covering database is available: ${covering.map((s) => s.id).join(", ")}.`
-                  : "No loaded database covers this composition — drop a covering .tdb into the service.";
-              })()}
-            </div>
-          )}
-          {error && <div className="calc-warn">{error}</div>}
-          {result && (
-            <div className="eq-result">
-              {result.phases.map((p) => (
-                <div className="eq-phase" key={p.phase}>
-                  <span className="mono eq-phase-name">{p.phase}</span>
-                  <div className="eq-bar"><span style={{ width: `${(p.fraction * 100).toFixed(1)}%` }} /></div>
-                  <span className="mono eq-frac">{(p.fraction * 100).toFixed(1)} %</span>
-                </div>
-              ))}
-              <div className="calc-src">
-                {result.source.citation} @ {result.tempC} °C — {result.note} {result.source.note}
-              </div>
-            </div>
-          )}
-
-        </>
-      )}
-
           <div className="engine-block">
-            <div className="engine-head">
-              <span className="calc-label">
-                In-browser engine <span className="prov engine-chip" title="52-equilibrium battery vs pycalphad across all 4 shipped databases — see docs/engine-validation.md in the repository">CROSS-CHECKED · B-501</span>
-              </span>
-              <button
-                type="button"
-                className="mini"
-                onClick={runEngine}
-                disabled={engineRunning || (caps?.available === true && missing.length > 0)}
-              >
-                {engineRunning ? `Computing… ${engineElapsed}s` : "Run in-browser"}
+            <div className="eq-controls">
+              <label>Database
+                <select
+                  className="hdr-select"
+                  value={engineDbId}
+                  onChange={(e) => setEngineDbId(e.target.value)}
+                  aria-label="Thermodynamic database"
+                >
+                  {ENGINE_DBS.map((id) => (
+                    <option key={id} value={id}>{id}</option>
+                  ))}
+                </select>
+              </label>
+              <label>T (°C)
+                <input className="el-num mono" inputMode="decimal" value={tempC} aria-label="Equilibrium temperature, °C"
+                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setTempC(n); }} />
+              </label>
+              <button type="button" className="btn" onClick={runEngine} disabled={engineRunning}>
+                {engineRunning ? `Computing… ${engineElapsed}s` : "Run equilibrium"}
               </button>
             </div>
-            {!caps?.available && (
-              <div className="eq-controls">
-                <label>Database
-                  <select
-                    className="hdr-select"
-                    value={engineDbId}
-                    onChange={(e) => setEngineDbId(e.target.value)}
-                    aria-label="In-browser engine database"
-                  >
-                    {ENGINE_DBS.map((id) => (
-                      <option key={id} value={id}>{id}</option>
-                    ))}
-                  </select>
-                </label>
-                <label>T (°C)
-                  <input className="el-num mono" inputMode="decimal" value={tempC} aria-label="Equilibrium temperature, °C"
-                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setTempC(n); }} />
-                </label>
-              </div>
-            )}
             <div className="calc-src">
-              Pure-TypeScript CALPHAD engine running in this tab (no server):
-              same TDB, same phase suspensions. Cross-checked against
-              pycalphad on a 52-equilibrium battery over the dataset's
-              mid-specs across all four shipped databases: 45 identical phase
-              sets at ≈0 fraction difference; every disagreement investigated
-              and documented (docs/engine-validation.md) — the worst genuine
-              engine miss is 221 J/mol-atom in a five-phase 500 °C
-              assemblage, and in three Alloy-718 cases the engine found
-              DEEPER minima than the reference solver. The hosted service
-              stays available as a live cross-check, and this engine keeps
-              working when it is not reachable.
+              Pure-TypeScript CALPHAD engine running in THIS tab — your
+              composition never leaves the browser and there is no server
+              behind this button. Cross-checked against pycalphad on a
+              52-equilibrium battery over the dataset's mid-specs across all
+              four shipped databases: 45 identical phase sets at ≈0 fraction
+              difference; every disagreement investigated and documented
+              (docs/engine-validation.md) — the worst genuine engine miss is
+              221 J/mol-atom in a five-phase 500 °C assemblage, and in three
+              Alloy-718 cases the engine found DEEPER minima than the
+              reference solver.
             </div>
             {engineRunning && (
               <div className="calc-src" role="status">
@@ -680,20 +462,6 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                       .join(" · ")}
                   </div>
                 </details>
-                {crossCheck && (
-                  <div className={crossCheck.samePhaseSet && crossCheck.maxDelta < 0.01 ? "engine-check ok" : "engine-check warn"}>
-                    Cross-check vs hosted pycalphad ({engineDb} @ {tempC} °C):{" "}
-                    {crossCheck.samePhaseSet
-                      ? `same phase set, max phase-fraction difference ${(crossCheck.maxDelta * 100).toFixed(2)} %.`
-                      : `PHASE SETS DIFFER — trust the hosted service and treat this engine result as a bug report.`}
-                  </div>
-                )}
-                {!crossCheck && (
-                  <div className="calc-src">
-                    Run the hosted service at the same database and temperature
-                    to cross-check this result.
-                  </div>
-                )}
               </div>
             )}
 
@@ -704,7 +472,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                   type="button"
                   className="mini"
                   onClick={runSweep}
-                  disabled={sweepRunning || (caps?.available === true && missing.length > 0)}
+                  disabled={sweepRunning}
                 >
                   {sweepRunning && sweepProgress
                     ? `Computing ${sweepProgress.done}/${sweepProgress.total}…`
@@ -748,7 +516,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                   type="button"
                   className="mini"
                   onClick={runScheil}
-                  disabled={scheilRunning || (caps?.available === true && missing.length > 0)}
+                  disabled={scheilRunning}
                 >
                   {scheilRunning ? "Solidifying…" : "Run Scheil"}
                 </button>
@@ -843,7 +611,7 @@ export function EquilibriumPanel({ comp }: { comp: Composition }) {
                   type="button"
                   className="mini"
                   onClick={runMap}
-                  disabled={mapRunning || (caps?.available === true && missing.length > 0) || !mapEl}
+                  disabled={mapRunning || !mapEl}
                 >
                   {mapRunning ? `Column ${mapCols}/${mapData?.xs.length ?? 0}…` : "Compute map"}
                 </button>

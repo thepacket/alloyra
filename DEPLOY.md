@@ -1,20 +1,21 @@
 # Deploying to fly.io
 
-Alloyra deploys as TWO Fly apps, so visitors install nothing:
+Alloyra deploys as ONE Fly app, so visitors install nothing and no
+compute runs server-side:
 
 1. **`alloyra`** — the workbench: the Next static export (`apps/web/out/`,
    ~1.5 MB) served by nginx. No secrets, no volumes, no database; user
-   state lives in the browser. `shared-cpu-1x`, 256 MB, suspended when
+   state lives in the browser, and all CALPHAD computation runs in the
+   visitor's tab (web worker). `shared-cpu-1x`, 256 MB, suspended when
    idle.
-2. **`alloyra-calphad`** — the hosted calculation service
-   (`services/calphad/fly.toml`): FastAPI + pycalphad, `shared-cpu-1x`,
-   **1 GB** (pycalphad wants ~300–500 MB RSS), suspended when idle.
-   Stateless — openly redistributable `.tdb` databases bake into the
-   image at build time; per-IP rate limiting on `/equilibrium`;
-   `CALPHAD_CORS_ORIGINS` restricts browsers to the workbench origin.
-   The deployed site calls `https://alloyra-calphad.fly.dev` directly;
-   on localhost the app prefers a local bridge at `127.0.0.1:8791`
-   (override either with `NEXT_PUBLIC_CALPHAD_URL` at build time).
+
+The former **`alloyra-calphad`** hosted calculation service is RETIRED
+(scaled to zero machines) — an always-on public compute endpoint was an
+abuse/cost risk with no remaining product role once the in-browser engine
+was cross-checked (`docs/engine-validation.md`). Its code stays in
+`services/calphad` as the offline validation oracle and can be self-hosted
+from `services/calphad/fly.toml` by anyone who wants a live pycalphad
+second opinion.
 
 ## Files
 
@@ -49,7 +50,6 @@ Deployed at **[alloyra.fly.dev](https://alloyra.fly.dev/)** (single machine,
 
 ```bash
 fly deploy --ha=false --strategy bluegreen                 # workbench
-fly deploy --ha=false --config services/calphad/fly.toml   # calphad service
 ```
 
 Blue-green keeps workbench updates zero-downtime on a single machine: Fly boots one
@@ -67,11 +67,8 @@ Fly's proxy holds most requests rather than failing them.
   which is exactly why `auto_stop_machines = 'suspend'` and
   `min_machines_running = 0` are safe.
 - **The calculation service is hosted.** The CSP's `connect-src` allows
-  `https://alloyra-calphad.fly.dev` plus the loopback addresses used in
-  development. A different service origin must be added to `connect-src`
-  in `deploy/security-headers.conf`, baked in via
-  `NEXT_PUBLIC_CALPHAD_URL`, and allowed in the service's
-  `CALPHAD_CORS_ORIGINS`.
+  nothing — `connect-src 'self'` only: the engine's TDB downloads are
+  same-origin and no external service is called.
 - **CSP allows `'unsafe-inline'`** for scripts and styles: Next's static
   export bootstraps with inline scripts, and React inline style attributes
   drive the score/phase bars. Tightening to hashes is possible but not worth

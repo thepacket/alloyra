@@ -26,25 +26,35 @@ throughout the code).
 
 Backlog: `BACKLOG.md`. Competitive analysis and design v2:
 `docs/competitive-analysis.md`, `docs/design-v2.md`.
-- `packages/calphad` — experimental in-browser CALPHAD engine (backlog
-  B-501): TDB parser, compound-energy-formalism Gibbs energies, binary
-  point equilibrium — fixture-validated against pycalphad, not yet wired
-  into the UI.
-- `services/calphad` — Python microservice wrapping pycalphad behind the
-  `ModelProvider` seam (equilibrium phase fractions). Ships license-vetted
-  assessed databases; see `services/calphad/databases/SOURCES.md`.
+- `packages/calphad` — the in-browser CALPHAD engine (backlog B-501,
+  **cross-checked**): TDB parser, compound-energy-formalism Gibbs
+  energies, multicomponent tangent-plane equilibrium, temperature sweeps,
+  Scheil solidification, and sampled isopleth maps — all in a web worker.
+  Validated against pycalphad on a 52-equilibrium battery across all four
+  shipped databases; see `docs/engine-validation.md`.
+- `services/calphad` — Python pycalphad service. **Not deployed and not
+  required by the product**: it serves as the offline validation oracle
+  for the engine (`services/calphad/scripts/`) and as an optional
+  self-host for anyone who wants a second opinion from pycalphad. Ships
+  license-vetted assessed databases; see
+  `services/calphad/databases/SOURCES.md`.
 
-## CALPHAD bridge
+## Validation oracle (optional, local)
+
+All phase computation in the product runs in the visitor's browser —
+there is no calculation server. To regenerate the engine-validation
+report against pycalphad locally:
 
 ```bash
 cd services/calphad
 uv venv .venv && uv pip install -p .venv/bin/python -e .
-.venv/bin/uvicorn main:app --port 8791
+cd ../../packages/calphad
+node scripts/gen-cases.ts
+(cd ../../services/calphad && .venv/bin/python scripts/crosscheck_oracle.py \
+  ../../packages/calphad/scripts/crosscheck-cases.json \
+  ../../packages/calphad/scripts/crosscheck-oracle.json)
+node scripts/crosscheck.ts   # writes docs/engine-validation.md
 ```
-
-The studio's phase-equilibrium panel finds it via `/api/calphad/*`
-(override the address with `CALPHAD_URL`). Without the service or without
-databases, the panel degrades to an honest offline/no-database state.
 
 ## Rule authoring
 
@@ -74,22 +84,18 @@ Outputs are screening guidance for expert judgment, never design approval.
 
 ## Deployment (fly.io)
 
-Two Fly apps; visitors install nothing:
+One Fly app; visitors install nothing and no compute runs server-side:
 
 - **`alloyra`** — the workbench. `pnpm build` emits `apps/web/out/`
   (~1.5 MB), served by nginx from a `shared-cpu-1x` / 256 MB machine
   that suspends when idle. No server-side code; all user state lives in
-  the visitor's browser.
-- **`alloyra-calphad`** — the hosted calculation service
-  (`services/calphad`): FastAPI + pycalphad on a `shared-cpu-1x` / 1 GB
-  machine, suspend-when-idle, rate-limited, CORS-restricted to the
-  workbench origin. Openly redistributable thermodynamic databases bake
-  into the image. The browser calls it directly over HTTPS; when the app
-  runs on localhost it prefers a local bridge at `127.0.0.1:8791`.
+  the visitor's browser, and all CALPHAD computation runs in the
+  visitor's tab. There is no hosted calculation endpoint to abuse or
+  meter — the former `alloyra-calphad` bridge is retired (its code stays
+  in `services/calphad` as the validation oracle / optional self-host).
 
 ```bash
 fly deploy --ha=false --strategy bluegreen                    # workbench
-fly deploy --ha=false --config services/calphad/fly.toml      # calphad service
 ```
 
 Full details — files, assumptions, CSP configuration, local smoke
