@@ -156,7 +156,13 @@ export function pointEquilibrium(
       for (let i = 0; i < k; i++) y.push(i === dom ? 1 - delta : rest[j++]!);
       return normalizeSub(y);
     };
-    const nBase = opts?.samplesPerPhase ?? Math.min(6000, 600 + 600 * mixDims);
+    // Initial sampling only needs to LOCATE basins (and give the LP a
+    // feasible hull) — convergence is the polish passes' job, so density
+    // stays modest. The old 600+600·mixDims (≤6000) put ~90 % of all
+    // evaluations into this loop for ~0 quality over the polished result
+    // (benchmarked 2026-08-28: identical phase sets and G to 0.1 J at a
+    // quarter of the density, with the final polish pass below).
+    const nBase = opts?.samplesPerPhase ?? Math.min(2500, 220 + 220 * mixDims);
     for (let i = 0; i < nBase; i++) {
       pushSample(model, phaseIdx, model.constituents.map((sub) => subSample(sub.length)));
     }
@@ -184,11 +190,62 @@ export function pointEquilibrium(
     }
   }
 
-  const rounds = opts?.rounds ?? 16;
-  const zoomSamples = opts?.zoomSamples ?? 600;
+
+  const rounds = opts?.rounds ?? 10;
+  const zoomSamples = opts?.zoomSamples ?? 250;
   let lastObjective = Number.POSITIVE_INFINITY;
   let sol = solveTangentLp(pool, target);
   let roundsUsed = 0;
+
+  const planeOf = (duals: number[]) => {
+    const base = duals[duals.length - 1] ?? 0;
+    return (x: number[]): number => {
+      let v = base;
+      for (let j = 0; j < x.length; j++) v += (duals[j] ?? 0) * x[j]!;
+      return v;
+    };
+  };
+
+  // Deterministic polish: multiplicative pattern search descending the
+  // reduced cost rc(y) = g(y) − plane(x(y)) — converges each seed to its
+  // phase's local tangent optimum far faster than random zoom alone.
+  const polish = (
+    model: PhaseModel,
+    y0: number[][],
+    plane: (x: number[]) => number,
+  ): number[][] => {
+    let y = y0.map((sub) => [...sub]);
+    const rcOf = (yy: number[][]): number => {
+      const atoms = model.atomsPerFormula(yy);
+      if (atoms < 1e-9) return Number.POSITIVE_INFINITY;
+      return model.gm(yy, tK) / atoms - plane(rows.map((e) => model.moleFraction(yy, e)));
+    };
+    let best = rcOf(y);
+    let h = 0.4;
+    let evals = 0;
+    while (h > 3e-4 && evals < 900) {
+      let improved = false;
+      for (let s = 0; s < y.length; s++) {
+        if (y[s]!.length < 2) continue;
+        for (let i = 0; i < y[s]!.length; i++) {
+          for (const dir of [1 + h, 1 / (1 + h)]) {
+            const cand = y.map((sub, ss) =>
+              ss === s ? normalizeSub(sub.map((v, j) => (j === i ? clampY(v * dir) : v))) : sub,
+            );
+            const rc = rcOf(cand);
+            evals++;
+            if (rc < best - 1e-10) {
+              best = rc;
+              y = cand;
+              improved = true;
+            }
+          }
+        }
+      }
+      if (!improved) h *= 0.45;
+    }
+    return y;
+  };
 
   for (let round = 0; round < rounds; round++) {
     roundsUsed = round + 1;
@@ -197,11 +254,7 @@ export function pointEquilibrium(
     // within a reduced-cost window of the tangent plane — a phase that
     // narrowly loses at this sampling density (its true optimum unsampled)
     // must be refined too, or the solver locks into the wrong basin.
-    const plane = (x: number[]): number => {
-      let v = sol.duals[sol.duals.length - 1] ?? 0;
-      for (let j = 0; j < x.length; j++) v += (sol.duals[j] ?? 0) * x[j]!;
-      return v;
-    };
+    const plane = planeOf(sol.duals);
     const rcWindow = 4000; // J/mol-atom
     const zoomSeeds = new Set<number>(sol.basis);
     const bestByPhase = new Map<number, { idx: number; rc: number }>();
@@ -213,48 +266,12 @@ export function pointEquilibrium(
     for (const { idx, rc } of bestByPhase.values()) {
       if (rc < rcWindow) zoomSeeds.add(idx);
     }
-    // Deterministic polish: multiplicative pattern search descending the
-    // reduced cost rc(y) = g(y) − plane(x(y)) — converges each seed to its
-    // phase's local tangent optimum far faster than random zoom alone.
-    const polish = (model: PhaseModel, y0: number[][]): number[][] => {
-      let y = y0.map((sub) => [...sub]);
-      const rcOf = (yy: number[][]): number => {
-        const atoms = model.atomsPerFormula(yy);
-        if (atoms < 1e-9) return Number.POSITIVE_INFINITY;
-        return model.gm(yy, tK) / atoms - plane(rows.map((e) => model.moleFraction(yy, e)));
-      };
-      let best = rcOf(y);
-      let h = 0.4;
-      let evals = 0;
-      while (h > 3e-4 && evals < 900) {
-        let improved = false;
-        for (let s = 0; s < y.length; s++) {
-          if (y[s]!.length < 2) continue;
-          for (let i = 0; i < y[s]!.length; i++) {
-            for (const dir of [1 + h, 1 / (1 + h)]) {
-              const cand = y.map((sub, ss) =>
-                ss === s ? normalizeSub(sub.map((v, j) => (j === i ? clampY(v * dir) : v))) : sub,
-              );
-              const rc = rcOf(cand);
-              evals++;
-              if (rc < best - 1e-10) {
-                best = rc;
-                y = cand;
-                improved = true;
-              }
-            }
-          }
-        }
-        if (!improved) h *= 0.45;
-      }
-      return y;
-    };
 
     const sigma = 0.6 * 0.55 ** round;
     for (const bi of zoomSeeds) {
       const base = pool[bi]!;
       const model = models[base.phaseIdx]!;
-      pushSample(model, base.phaseIdx, polish(model, base.y));
+      pushSample(model, base.phaseIdx, polish(model, base.y, plane));
       for (let i = 0; i < zoomSamples; i++) {
         const y = base.y.map((sub) =>
           normalizeSub(
@@ -287,6 +304,24 @@ export function pointEquilibrium(
       rounds: roundsUsed,
       samples: pool.length,
     };
+  }
+
+  // Final polish: converge every basis point against the FINAL tangent
+  // plane and re-solve. This is what lets the initial sampling stay coarse
+  // — under-converged near-duplicates of one phase (LP-degeneracy splits)
+  // collapse onto their common optimum here, and G tightens the last
+  // joule. A few thousand evaluations, bounded.
+  for (let fp = 0; fp < 3; fp++) {
+    const plane = planeOf(sol.duals);
+    for (const bi of new Set(sol.basis)) {
+      const base = pool[bi]!;
+      pushSample(models[base.phaseIdx]!, base.phaseIdx, polish(models[base.phaseIdx]!, base.y, plane));
+    }
+    const next = solveTangentLp(pool, target);
+    if (!next.feasible) break;
+    const improved = sol.objective - next.objective;
+    sol = next;
+    if (improved < 1e-3) break;
   }
 
   // Tangent plane = chemical potentials: G(x) = Σ duals[j]·x_j + duals[m−1],

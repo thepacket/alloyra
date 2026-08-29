@@ -57,58 +57,82 @@ export function buildPhaseModel(
     (p) => p.phase === phase.name && chainMatches(p, constituents),
   );
 
-  /** Product of site fractions selected by a parameter's constituent chain,
-   *  including the Redlich-Kister (y_A − y_B)^order factor for the
-   *  interacting sublattice. Returns 0 when inapplicable. */
-  function chainWeightOf(param: TdbParameter, y: number[][], loneTernary: boolean): number {
-    let w = 1;
-    let rk = 1;
+  /**
+   * Hot-loop compilation: every parameter's constituent chain resolves to
+   * FIXED sublattice indices for this model — do the string searches once
+   * here, never per evaluation. A parameter whose chain cannot resolve
+   * would weigh 0 forever, so it is dropped outright.
+   */
+  type CompiledTerm =
+    | { kind: 1; s: number; i: number } // single species factor
+    | { kind: 2; s: number; ia: number; ib: number; order: number } // binary R-K
+    | { kind: 3; s: number; ia: number; ib: number; ic: number; order: number; lone: boolean }
+    | { kind: 4; s: number; idx: number[] }; // quaternary+ symmetric
+  interface CompiledParam {
+    terms: CompiledTerm[];
+    segments: TdbParameter["segments"];
+  }
+
+  const compileParam = (p: TdbParameter, lone: boolean): CompiledParam | undefined => {
+    const terms: CompiledTerm[] = [];
     for (let s = 0; s < constituents.length; s++) {
-      const specs = param.constituents[s]!;
+      const specs = p.constituents[s]!;
       if (specs.length === 1) {
         const sp = specs[0]!;
-        if (sp === "*") continue; // wildcard: no fraction factor
-        const idx = constituents[s]!.indexOf(sp);
-        if (idx < 0) return 0;
-        w *= y[s]![idx]!;
+        if (sp === "*") continue;
+        const i = constituents[s]!.indexOf(sp);
+        if (i < 0) return undefined;
+        terms.push({ kind: 1, s, i });
       } else if (specs.length === 2) {
         const ia = constituents[s]!.indexOf(specs[0]!);
         const ib = constituents[s]!.indexOf(specs[1]!);
-        if (ia < 0 || ib < 0) return 0;
-        const ya = y[s]![ia]!;
-        const yb = y[s]![ib]!;
-        w *= ya * yb;
-        rk *= (ya - yb) ** param.order;
+        if (ia < 0 || ib < 0) return undefined;
+        terms.push({ kind: 2, s, ia, ib, order: p.order });
       } else if (specs.length === 3) {
-        // Ternary Redlich-Kister-Muggianu (Hillert form): the order index
-        // names a species of the triple; v_i = y_i + (1 − yA − yB − yC)/3
-        // restores symmetry when the triple's fractions don't sum to 1.
-        const ys: number[] = [];
-        for (const sp of specs) {
-          const idx = constituents[s]!.indexOf(sp);
-          if (idx < 0) return 0;
-          ys.push(y[s]![idx]!);
-        }
-        const [ya, yb, yc] = ys as [number, number, number];
-        w *= ya * yb * yc;
-        if (!loneTernary) {
-          if (param.order > 2) return 0;
-          const yi = ys[param.order]!;
-          rk *= yi + (1 - ya - yb - yc) / 3;
-        }
+        const ia = constituents[s]!.indexOf(specs[0]!);
+        const ib = constituents[s]!.indexOf(specs[1]!);
+        const ic = constituents[s]!.indexOf(specs[2]!);
+        if (ia < 0 || ib < 0 || ic < 0) return undefined;
+        if (!lone && p.order > 2) return undefined;
+        terms.push({ kind: 3, s, ia, ib, ic, order: p.order, lone });
       } else {
-        // Quaternary+ interactions: symmetric order-0 only (rare; higher
-        // orders are dropped, recorded via model warnings).
-        if (param.order !== 0) return 0;
+        if (p.order !== 0) return undefined;
+        const idx: number[] = [];
         for (const sp of specs) {
-          const idx = constituents[s]!.indexOf(sp);
-          if (idx < 0) return 0;
-          w *= y[s]![idx]!;
+          const i = constituents[s]!.indexOf(sp);
+          if (i < 0) return undefined;
+          idx.push(i);
         }
+        terms.push({ kind: 4, s, idx });
       }
     }
-    return w * rk;
-  }
+    return { terms, segments: p.segments };
+  };
+
+  const weightOf = (cp: CompiledParam, y: number[][]): number => {
+    let w = 1;
+    for (const t of cp.terms) {
+      if (t.kind === 1) {
+        w *= y[t.s]![t.i]!;
+      } else if (t.kind === 2) {
+        const ya = y[t.s]![t.ia]!;
+        const yb = y[t.s]![t.ib]!;
+        w *= ya * yb * (ya - yb) ** t.order;
+      } else if (t.kind === 3) {
+        const ya = y[t.s]![t.ia]!;
+        const yb = y[t.s]![t.ib]!;
+        const yc = y[t.s]![t.ic]!;
+        w *= ya * yb * yc;
+        if (!t.lone) {
+          const yi = t.order === 0 ? ya : t.order === 1 ? yb : yc;
+          w *= yi + (1 - ya - yb - yc) / 3;
+        }
+      } else {
+        for (const i of t.idx) w *= y[t.s]![i]!;
+      }
+    }
+    return w;
+  };
 
   const gParams = params.filter((p) => p.kind === "G" || p.kind === "L");
   const tcParams = params.filter((p) => p.kind === "TC");
@@ -162,25 +186,48 @@ export function buildPhaseModel(
 
   const magnetic = phase.magnetic;
 
-  const gEntries = gParams.map((p) => ({ p, lone: isLoneSymmetricTernary(p) }));
-  const tcEntries = tcParams.map((p) => ({ p, lone: isLoneSymmetricTernary(p) }));
-  const bmEntries = bmParams.map((p) => ({ p, lone: isLoneSymmetricTernary(p) }));
+  const compile = (list: TdbParameter[]): CompiledParam[] => {
+    const out: CompiledParam[] = [];
+    for (const p of list) {
+      const cp = compileParam(p, isLoneSymmetricTernary(p));
+      if (cp) out.push(cp);
+    }
+    return out;
+  };
+  const gEntries = compile(gParams);
+  const tcEntries = compile(tcParams);
+  const bmEntries = compile(bmParams);
+
+  // Per-T parameter values: T is constant across an entire equilibrium
+  // solve (millions of gm calls), so the piecewise/expression-tree
+  // evaluation collapses to one cached number per parameter per T.
+  let cachedT = Number.NaN;
+  const gVals = new Float64Array(gEntries.length);
+  const tcVals = new Float64Array(tcEntries.length);
+  const bmVals = new Float64Array(bmEntries.length);
+  const refreshT = (t: number): void => {
+    for (let i = 0; i < gEntries.length; i++) gVals[i] = evalPiecewise(gEntries[i]!.segments, t);
+    for (let i = 0; i < tcEntries.length; i++) tcVals[i] = evalPiecewise(tcEntries[i]!.segments, t);
+    for (let i = 0; i < bmEntries.length; i++) bmVals[i] = evalPiecewise(bmEntries[i]!.segments, t);
+    cachedT = t;
+  };
 
   const gm = (y: number[][], t: number): number => {
+    if (t !== cachedT) refreshT(t);
     let g = 0;
     let tc = 0;
     let bmagn = 0;
-    for (const { p, lone } of gEntries) {
-      const w = chainWeightOf(p, y, lone);
-      if (w !== 0) g += w * evalPiecewise(p.segments, t);
+    for (let i = 0; i < gEntries.length; i++) {
+      const w = weightOf(gEntries[i]!, y);
+      if (w !== 0) g += w * gVals[i]!;
     }
-    for (const { p, lone } of tcEntries) {
-      const w = chainWeightOf(p, y, lone);
-      if (w !== 0) tc += w * evalPiecewise(p.segments, t);
+    for (let i = 0; i < tcEntries.length; i++) {
+      const w = weightOf(tcEntries[i]!, y);
+      if (w !== 0) tc += w * tcVals[i]!;
     }
-    for (const { p, lone } of bmEntries) {
-      const w = chainWeightOf(p, y, lone);
-      if (w !== 0) bmagn += w * evalPiecewise(p.segments, t);
+    for (let i = 0; i < bmEntries.length; i++) {
+      const w = weightOf(bmEntries[i]!, y);
+      if (w !== 0) bmagn += w * bmVals[i]!;
     }
     // Ideal sublattice mixing.
     let ideal = 0;

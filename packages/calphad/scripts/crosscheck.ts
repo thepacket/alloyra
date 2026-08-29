@@ -176,8 +176,9 @@ lines.push("");
 // disagreement list.
 const VERDICTS: Record<string, string> = {
   "mc-S31603@700": "repriced: engine's set +9.4 J/mol-atom above pycalphad's — near-degenerate sliver (engine adds 1.2 % SIGMA).",
-  "mc-S32205@500": "repriced: +24.0 J/mol-atom — engine trades CR3NI2SIN for FCC in a 5-phase 500 °C assemblage.",
-  "mc-S17400@500": "repriced: +221.0 J/mol-atom — engine's worst genuine miss (5-phase 500 °C assemblage; missed FCC+G_PHASE+M23C6).",
+  "mc-S30400@1300": "repriced: −0.0 J/mol-atom — EXACT DEGENERACY: the engine's 2.7 % BCC sliver sits at the same energy (two-phase boundary).",
+  "mc-S17400@500": "repriced: +50.1 J/mol-atom — the engine's worst genuine miss (5-phase 500 °C assemblage; misses G_PHASE+M23C6). Was +221 before the 2026-08-28 solver tuning.",
+  "mc-S17400@700": "repriced: −0.3 J/mol-atom — degenerate; the engine's extra SIGMA sliver is marginally deeper.",
   "mc-N07718@650": "repriced: −3.3 J/mol-atom — ENGINE DEEPER; degenerate BCC sliver.",
   "mc-N07718@900": "repriced: −916.3 J/mol-atom — ENGINE DEEPER: pycalphad's own pricing of the engine's DELTA+FCC state beats its free equilibrium; pycalphad solver miss on the GAMMA_DP system.",
   "mc-N07718@1150": "repriced: −1201.2 J/mol-atom — ENGINE DEEPER: pycalphad prices FCC-only at −91215.2 vs its equilibrium −90014.0. Single-phase γ at 1150 °C also matches 718's known solidus (~1260 °C).",

@@ -469,17 +469,18 @@ export function EquilibriumPanel({
               composition never leaves the browser and there is no server
               behind this button. Cross-checked against pycalphad on a
               52-equilibrium battery over the dataset's mid-specs across all
-              four shipped databases: 45 identical phase sets at ≈0 fraction
-              difference; every disagreement investigated and documented
-              (docs/engine-validation.md) — the worst genuine engine miss is
-              221 J/mol-atom in a five-phase 500 °C assemblage, and in three
-              Alloy-718 cases the engine found DEEPER minima than the
-              reference solver.
+              four shipped databases: 44 identical phase sets at ≈0 fraction
+              difference, and every disagreement repriced and documented
+              (docs/engine-validation.md) — two are exact energy
+              degeneracies, the worst genuine engine miss is 50 J/mol-atom
+              in a five-phase 500 °C assemblage, and in three Alloy-718
+              cases the engine found DEEPER minima than the reference
+              solver.
             </div>
             {engineRunning && (
               <div className="calc-src" role="status">
                 Sampling constitutions and refining the tangent plane against{" "}
-                {engineDb} — typically 1–10 s depending on the alloy system.
+                {engineDb} — typically 1–5 s depending on the alloy system.
               </div>
             )}
             {engineError && <div className="calc-warn">{engineError}</div>}
@@ -718,8 +719,8 @@ export function EquilibriumPanel({
                 Coarse-grid design: every cell is an independent light-budget
                 minimization ({mapNX}×{mapNT} = {Math.round(mapNX * mapNT)}{" "}
                 cells, warm-started down each column), then boundaries between
-                differing cells are bisected to ΔT/4. Budget minutes, not
-                seconds: an 8-component steel runs ~1–4 s per cell (simpler
+                differing cells are bisected to ΔT/4. Budget a minute or
+                three: an 8-component steel runs ~0.3–1.5 s per cell (simpler
                 systems are faster). The map fills in column by column and the
                 rest of the studio stays responsive.
               </div>

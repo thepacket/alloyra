@@ -260,7 +260,18 @@ two hand-rolled visuals and no charting layer.
   LIQUID:L suffix, ",,N" bounds — fixed, pycalphad-anchored solder tests
   added; in-browser solder results before this fix were invalid) and a
   pycalphad numpy.str_ TypeError that 500'd the HOSTED service on mc_al
-  compositions (shim deployed). UI chip now CROSS-CHECKED.**
+  compositions (shim deployed). UI chip now CROSS-CHECKED. Solver speed
+  pass (same evening, battery re-certified): parameter chains compile to
+  index form at model build, per-T parameter values cached (the
+  expression-tree walk left the hot loop), initial sampling density cut
+  ~2.5× with a final polish pass against the closing tangent plane that
+  collapses LP-degeneracy splits. Battery wall time 324 s → 116 s
+  (median 2.1 s, worst 6.9 s vs 50 s); quality equal or better — 2205 @
+  500 °C now matches pycalphad's set, 17-4 @ 500 °C miss shrank
+  221 → 50 J/mol-atom, two remaining set diffs are exact degeneracies
+  (repriced ≤0.5 J). A two-stage phase screen was tried and REVERTED:
+  at safe reduced-cost windows it screened almost nothing and cost an
+  extra LP.**
   **UI integration shipped:** the
   studio's equilibrium panel gains an EXPERIMENTAL in-browser run — web
   worker, on-demand TDB fetch from `/tdb/` (hash-synced with the service
