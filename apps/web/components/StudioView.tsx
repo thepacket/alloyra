@@ -456,7 +456,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
         <button
           type="button"
           className="btn"
-          title="Queue every engine computation for the current composition — point equilibrium, property diagram, Scheil, and the isopleth map run in sequence (the isopleth takes minutes; sections fill in as they finish)."
+          title="Run every engine computation for the current composition IN PARALLEL — point equilibrium, property diagram, Scheil, and the isopleth map each get their own worker/core. Sections fill in as they finish; the isopleth map is the long pole at minutes."
           onClick={() => {
             runAllRef.current?.();
             document.querySelector(".eq-card")?.scrollIntoView({ behavior: "smooth", block: "start" });

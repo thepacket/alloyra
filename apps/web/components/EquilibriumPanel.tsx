@@ -28,7 +28,11 @@ export function EquilibriumPanel({
   onRegisterRunAll?: (fn: () => void) => void;
 }) {
   const [tempC, setTempC] = useState(500);
-  const workerRef = useRef<Worker | null>(null);
+  // One dedicated worker PER computation kind: point, sweep, Scheil, and
+  // the isopleth map run on separate cores, so "Compute all" is the MAX of
+  // the four runtimes, not the sum. Each worker parses the TDB once
+  // (per-worker cache) — a few hundred ms, paid once per session.
+  const workersRef = useRef<Map<string, Worker>>(new Map());
   const reqIdRef = useRef(0);
   const [engineRunning, setEngineRunning] = useState(false);
   const [engineElapsed, setEngineElapsed] = useState(0);
@@ -132,19 +136,28 @@ export function EquilibriumPanel({
     return () => clearInterval(iv);
   }, [engineRunning]);
 
-  useEffect(() => () => workerRef.current?.terminate(), []);
+  const getWorker = (kind: string): Worker => {
+    let w = workersRef.current.get(kind);
+    if (!w) {
+      w = new Worker(new URL("../workers/calphadEngine.worker.ts", import.meta.url));
+      workersRef.current.set(kind, w);
+    }
+    return w;
+  };
+
+  useEffect(
+    () => () => {
+      for (const w of workersRef.current.values()) w.terminate();
+    },
+    [],
+  );
 
   const runEngine = () => {
     if (typeof Worker === "undefined") {
       setEngineError("This browser does not support Web Workers.");
       return;
     }
-    if (!workerRef.current) {
-      workerRef.current = new Worker(
-        new URL("../workers/calphadEngine.worker.ts", import.meta.url),
-      );
-    }
-    const worker = workerRef.current;
+    const worker = getWorker("point");
     const id = ++reqIdRef.current;
     setEngineRunning(true);
     setEngineError("");
@@ -176,12 +189,7 @@ export function EquilibriumPanel({
       setSweepError("This browser does not support Web Workers.");
       return;
     }
-    if (!workerRef.current) {
-      workerRef.current = new Worker(
-        new URL("../workers/calphadEngine.worker.ts", import.meta.url),
-      );
-    }
-    const worker = workerRef.current;
+    const worker = getWorker("step");
     const id = ++reqIdRef.current;
     const tempsC: number[] = [];
     const step = Math.max(10, sweepStep);
@@ -253,12 +261,7 @@ export function EquilibriumPanel({
       setScheilError("This browser does not support Web Workers.");
       return;
     }
-    if (!workerRef.current) {
-      workerRef.current = new Worker(
-        new URL("../workers/calphadEngine.worker.ts", import.meta.url),
-      );
-    }
-    const worker = workerRef.current;
+    const worker = getWorker("scheil");
     const id = ++reqIdRef.current;
     setScheilRunning(true);
     setScheilError("");
@@ -330,12 +333,7 @@ export function EquilibriumPanel({
       setMapError("Check the ranges: the varied element and both ranges need lo < hi.");
       return;
     }
-    if (!workerRef.current) {
-      workerRef.current = new Worker(
-        new URL("../workers/calphadEngine.worker.ts", import.meta.url),
-      );
-    }
-    const worker = workerRef.current;
+    const worker = getWorker("map");
     const id = ++reqIdRef.current;
     const xs = Array.from({ length: nX }, (_, i) => mapFrom + (i / (nX - 1)) * (mapTo - mapFrom));
     const tCs = Array.from({ length: nT }, (_, i) => mapTMin + (i / (nT - 1)) * (mapTMax - mapTMin));
@@ -388,10 +386,9 @@ export function EquilibriumPanel({
     });
   };
 
-  // "Compute all": queue every engine computation for the current inputs.
-  // The four requests share one worker, which processes them IN ORDER —
-  // point first (seconds), then sweep, Scheil, and the isopleth map
-  // (minutes); each section streams its own progress as its turn comes.
+  // "Compute all": fire every engine computation for the current inputs.
+  // Each kind has its own worker, so all four run IN PARALLEL on separate
+  // cores — wall time is the slowest job (the isopleth map), not the sum.
   // Sections already running are left alone.
   const runAll = () => {
     if (!engineRunning) runEngine();
