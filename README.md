@@ -103,9 +103,9 @@ tests — are in [DEPLOY.md](DEPLOY.md).
 
 ## License and contributions
 
-MIT — see [LICENSE](LICENSE). Pull requests are **not accepted** and are
-closed automatically: the failure-rule content requires named expert
-review that a PR workflow cannot provide. Forking is welcome.
+MIT — see [LICENSE](LICENSE). Pull requests are welcome; changes to the
+failure-rule content get a careful review, so cite the standard or source
+behind every value. Forking is welcome too.
 
 ## Data policy
 
