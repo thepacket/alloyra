@@ -47,8 +47,12 @@ export function isPrenFamily(family: readonly string[]): boolean {
   return family[0] === "Fe" && family[1] === "stainless";
 }
 
-export function prenForFamily(c: Composition, family: readonly string[]): CalcResult {
+export function prenForFamily(c: Composition, family: readonly string[], requireComplete = false): CalcResult {
   const result = pren(c);
+  if (requireComplete && isPrenFamily(family)) {
+    const missing = missingElements(c, ["Cr", "Mo", "N", "W"]);
+    if (missing.length) return { ...result, value: Number.NaN, inWindow: false, missing, warnings: [`Measured PREN requires reported Cr, Mo, N and W (explicit zero is allowed). Missing: ${missing.join(", ")}. No unreported elements are taken as zero.`] };
+  }
   if (isPrenFamily(family)) return result;
   return {
     ...result,

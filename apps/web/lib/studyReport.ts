@@ -5,9 +5,12 @@ function render(value: unknown, depth = 0): string {
   if (depth > 16) return "[See portable bundle for nested records]";
   if (value === null || typeof value !== "object") return escapeHtml(value);
   if (Array.isArray(value)) return value.length ? `<ol>${value.map((v) => `<li>${render(v, depth + 1)}</li>`).join("")}</ol>` : "None recorded";
-  return `<dl>${Object.entries(value).map(([k, v]) => `<dt>${escapeHtml(label(k))}</dt><dd>${render(v, depth + 1)}</dd>`).join("")}</dl>`;
+  return `<dl>${Object.entries(value).map(([k, v]) => `<dt>${escapeHtml(label(k))}</dt><dd>${k === "basis" ? "Exact input context retained in the portable bundle." : render(v, depth + 1)}</dd>`).join("")}</dl>`;
 }
 const titles: Record<string, string> = {
+  "alloyra.materialRecords.v1": "Measured heat chemistry and test evidence",
+  "alloyra.verification.v1": "Verification action history",
+  "alloyra.verificationResults.v1": "Verification plan at the recorded inputs",
   "alloyra.screeningResults.v1": "Screening outcomes by exact condition",
   "alloyra.comparison.v1": "Comparison inputs and overrides", "alloyra.screening.v1": "Screening stages and chart settings",
   "alloyra.studio.v1": "Studio inputs and provenance", "alloyra.dutyProfiles.v1": "Duty profiles", "alloyra.rulesOverlay.v1": "Rule edits and review history",

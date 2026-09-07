@@ -1,7 +1,8 @@
 "use client";
 import { recordedPostMessage, terminateRecordedWorker } from "../lib/calculationHistory";
 
-import { setStudyItem } from "../lib/workspace";
+import { MATERIAL_RECORDS, measuredCandidate, type MaterialRecord } from "../lib/materialRecords";
+import { getStudyItem, setStudyItem } from "../lib/workspace";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   alloys,
@@ -136,6 +137,7 @@ export function ComparisonView() {
   const [exampleRequested, setExampleRequested] = useState(false);
   const [saveError, setSaveError] = useState(false);
   const [density, setDensity] = useState<"compact" | "comfortable">("compact");
+  const [materialRecords, setMaterialRecords] = useState<MaterialRecord[]>([]);
   const [evidenceId, setEvidenceId] = useState<string | null>(null);
   // Solidification comparison: per-condition Scheil state (session-only —
   // minutes of compute are not silently trusted across dataset changes).
@@ -145,12 +147,13 @@ export function ComparisonView() {
   const scheilReqRef = useRef(0);
 
   useEffect(() => {
+    setMaterialRecords(JSON.parse(getStudyItem(MATERIAL_RECORDS) ?? "[]"));
     setStored(loadStored());
     setProfiles(loadProfiles());
     setOverlay(loadOverlay());
     setExampleRequested(new URLSearchParams(window.location.search).get("example") === "seawater");
     setLoaded(true);
-    const refresh = () => { setStored(loadStored()); setProfiles(loadProfiles()); };
+    const refresh = () => { setMaterialRecords(JSON.parse(getStudyItem(MATERIAL_RECORDS) ?? "[]")); setStored(loadStored()); setProfiles(loadProfiles()); };
     window.addEventListener(STUDY_CHANGED, refresh);
     window.addEventListener("storage", refresh);
     return () => { window.removeEventListener(STUDY_CHANGED, refresh); window.removeEventListener("storage", refresh); };
@@ -197,10 +200,14 @@ export function ComparisonView() {
     const bestKou = cohort.length >= 2 ? Math.min(...cohort) : undefined;
 
     return stored.slots.flatMap((slot) => {
-      const alloy = alloys.find((a) => a.uns === slot.uns);
-      const condition = alloy?.conditions.find((c) => c.id === slot.conditionId);
-      if (!alloy || !condition) return [];
+      const base = alloys.find((a) => a.uns === slot.uns);
+      const referenceCondition = base?.conditions.find((c) => c.id === slot.conditionId);
+      if (!base || !referenceCondition) return [];
+      const record = materialRecords.find((r) => r.id === slot.materialRecordId);
+      if (slot.materialRecordId && !record) return [];
+      const { alloy, condition } = record ? measuredCandidate(base, referenceCondition, record, duty?.tempMaxC ?? null) : { alloy: base, condition: referenceCondition };
       const facts = candidateFacts(alloy, condition);
+      if (record) { facts.compositionBasis = "measured"; facts.specificationComposition = base.composition; }
       const audits = duty ? evaluateRules(facts, duty, rules) : [];
       const kou = kouOf(slot.conditionId);
       const castable = bestKou !== undefined && kou !== undefined && !slot.excluded;
@@ -219,12 +226,12 @@ export function ComparisonView() {
       const rank = duty
         ? rankCandidate(facts, duty, audits, stored.weights, [castability])
         : null;
-      const p = prenForFamily(midpointComposition(alloy.composition), alloy.family);
+      const p = prenForFamily(midpointComposition(alloy.composition), alloy.family, !!record);
       return [{ slot, alloy, condition, facts, audits, rank, castability, pren: p.inWindow ? p.value : null }];
     });
-  }, [stored.slots, stored.weights, stored.castabilityWeight, duty, rules, scheil]);
+  }, [stored.slots, stored.weights, stored.castabilityWeight, duty, rules, scheil, materialRecords]);
 
-  const resultSnapshot = JSON.stringify({ modelVersion: "alloyra-ranking-coverage-v1", inputs: { comparison: stored, duty, rules }, results: rows.map(({ alloy, condition, facts, audits, rank }) => ({ grade: alloy.names[0], condition: condition.name, conditionId: condition.id, facts, audits, rank })) });
+  const resultSnapshot = JSON.stringify({ modelVersion: "alloyra-ranking-coverage-v1", inputs: { comparison: stored, duty, rules, materialRecords: materialRecords.filter((r) => stored.slots.some((s) => s.materialRecordId === r.id)) }, results: rows.map(({ alloy, condition, facts, audits, rank }) => ({ grade: alloy.names[0], condition: condition.name, conditionId: condition.id, facts, audits, rank })) });
   useEffect(() => { if (loaded) { try { setStudyItem("alloyra.comparisonResults.v1", resultSnapshot); } catch { /* Shell reports storage failure */ } } }, [loaded, resultSnapshot]);
 
   const ordered = useMemo(() => {
@@ -341,6 +348,10 @@ export function ComparisonView() {
       if (slot.excluded) continue;
       const st = scheil[slot.conditionId];
       if (st && (st.status === "done" || st.status === "running" || st.status === "queued")) continue;
+      if (slot.materialRecordId) {
+        setScheil((s) => ({ ...s, [slot.conditionId]: { status: "error", points: [], error: "Measured records may contain incomplete chemistry. This mid-spec Scheil comparison is unavailable for measured evidence; no balance or missing elements are inferred." } }));
+        continue;
+      }
       const input = scheilInput(alloy);
       if (!input) {
         setScheil((s) => ({
@@ -533,6 +544,7 @@ export function ComparisonView() {
         </span>
       </div>
 
+      <div className="evidence-workflow-links"><Link href="/records">Add measured material evidence</Link><Link href="/verification">Review verification plan →</Link></div>
       <div className="rule-status-bar" role="status">
         <span className="rsb-counts">
           {reviewedCount} expert-reviewed rule{reviewedCount === 1 ? "" : "s"} ·{" "}
@@ -606,6 +618,11 @@ export function ComparisonView() {
                   {slot.pinned && <span className="pin-flag" title="Pinned by you">PINNED</span>}
                 </div>
                 <div className="cmp-cond">{condition.name} · <span className="mono">{alloy.uns}</span></div>
+                <label className="calc-src">Evidence basis<select className="hdr-select" aria-label={`Evidence basis for ${condition.name}`} value={slot.materialRecordId ?? ""} disabled={scheilQueue} onChange={(e) => {
+                  const id = e.target.value;
+                  setScheil({});
+                  update((s) => ({ ...s, slots: s.slots.map((current) => { if (current.conditionId !== condition.id) return current; const { materialRecordId: _, ...reference } = current; return id ? { ...reference, materialRecordId: id } : reference; }), overrideLog: [...s.overrideLog, `${new Date().toISOString()}: evidence basis for ${condition.id}: ${id || "reference specification"}`] }));
+                }}><option value="">Reference specification</option>{materialRecords.filter((r) => r.uns === slot.uns && r.conditionId === slot.conditionId).map((r) => <option key={r.id} value={r.id}>Measured heat {r.heatId} · {r.source}</option>)}</select></label>
                 <button className="btn ghost evidence-link" onClick={() => setEvidenceId(condition.id)}>Inspect evidence</button>
                 <div className="cmp-actions">
                   <button type="button" className="mini" onClick={() => override(condition.id, "pinned")}>
@@ -701,7 +718,7 @@ export function ComparisonView() {
               );
             })}
 
-            <div className="cmp-rowlabel">PREN (range midpoints; max-only residuals omitted) <span className="prov computed" title="Computed from mid-spec composition">COMPUTED</span></div>
+            <div className="cmp-rowlabel">PREN (selected evidence basis) <span className="prov computed" title="Computed from the selected reference specification or complete reported PREN chemistry">COMPUTED</span></div>
             {ordered.map(({ condition, pren: p }) => (
               <div key={condition.id} className="cmp-cell num mono">
                 {p === null ? "n/a" : p.toFixed(1)}

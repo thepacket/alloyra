@@ -1,6 +1,6 @@
 import { midpointComposition } from "./composition.ts";
 import type { DutyInput } from "./duty.ts";
-import { prenForFamily } from "./calculators/pren.ts";
+import { prenForFamily, isPrenFamily } from "./calculators/pren.ts";
 import type { CandidateFacts, RuleAudit } from "./rules/types.ts";
 
 /**
@@ -124,12 +124,12 @@ export function rankCandidate(
   }
   if (!strengthIncluded && weights.strength > 0) evidenceGaps.push(strengthNote);
 
-  const p = prenForFamily(midpointComposition([...facts.composition]), facts.family);
+  const p = prenForFamily(midpointComposition([...facts.composition]), facts.family, facts.compositionBasis === "measured");
   const corrosionIncluded = p.inWindow && Number.isFinite(p.value);
   const corrosionRaw = corrosionIncluded ? clamp01(p.value / 45) : Number.NaN;
   const corrosionNote = corrosionIncluded
-    ? `PREN ≈ ${p.value.toFixed(1)} / 45. Range midpoints; max-only residuals omitted. Stainless-family screening index, not service-specific corrosion performance.`
-    : "No applicable corrosion index for this composition and family. No neutral score is assigned.";
+    ? `PREN ≈ ${p.value.toFixed(1)} / 45. ${facts.compositionBasis === "measured" ? "Reported measured chemistry; no missing elements filled." : "Range midpoints; max-only residuals omitted."} Stainless-family screening index, not service-specific corrosion performance.`
+    : facts.compositionBasis === "measured" && isPrenFamily(facts.family) && p.missing?.length ? `Measured PREN inputs missing: ${p.missing.join(", ")}. No unreported elements are taken as zero.` : "No applicable corrosion index for this composition and family. No neutral score is assigned.";
   if (!corrosionIncluded && weights.corrosion > 0) evidenceGaps.push(corrosionNote);
 
   // Audit cleanliness — meaningful ONLY when rules actually ran. With

@@ -9,6 +9,8 @@ const items: { href: string; label: string; phase?: string }[] = [
   { href: "/database", label: "Alloy database" },
   { href: "/screening", label: "Staged screening" },
   { href: "/profiles", label: "Duty profiles" },
+  { href: "/records", label: "Material records" },
+  { href: "/verification", label: "Verification plan" },
   { href: "/comparisons", label: "Comparisons" },
   { href: "/rules", label: "Failure rules" },
   { href: "/studio", label: "Composition studio" },

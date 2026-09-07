@@ -1,8 +1,8 @@
-import { wt } from "../composition.ts";
+import { wt, midpointComposition } from "../composition.ts";
 import type { CompositionRange, ElementSymbol } from "../composition.ts";
 import { tensileStressPresent } from "../duty.ts";
 import type { DutyInput } from "../duty.ts";
-import { pren } from "../calculators/pren.ts";
+import { pren, prenForFamily, isPrenFamily } from "../calculators/pren.ts";
 import { specRange } from "../calculators/specRange.ts";
 import type {
   AuditStatus,
@@ -79,13 +79,14 @@ function evalClause(
     case "notFamily":
       return familyMatches(f.family, c.path) ? { r: "miss" } : { r: "hit", because: `alloy is not ${c.path.join(" → ")}` };
     case "specMaxAbove": {
-      const range = f.composition.find((x) => x.element === c.element);
+      const range = (f.specificationComposition ?? f.composition).find((x) => x.element === c.element);
       const max = range?.max;
       return max !== undefined && max > c.above
         ? { r: "hit", because: `spec allows ${c.element} up to ${max} wt% (> ${c.above})` }
         : { r: "miss" };
     }
     case "contentAtLeast": {
+      if (f.compositionBasis === "measured" && !f.composition.some((r) => r.element === c.element)) return { r: "unknown", field: `measured ${c.element} content` };
       const est = estimateContent(f.composition, c.element);
       return est >= c.wtPct
         ? { r: "hit", because: `≈ ${est.toFixed(1)} wt% ${c.element} (≥ ${c.wtPct})` }
@@ -104,6 +105,13 @@ function evalClause(
         ? { r: "miss" }
         : { r: "hit", because: `condition "${f.conditionName}" is not ${c.text}` };
     case "prenBelow": {
+      if (f.compositionBasis === "measured") {
+        if (!isPrenFamily(f.family)) return { r: "miss" };
+        const p = prenForFamily(midpointComposition([...f.composition]), f.family, true);
+        if (p.missing?.length) return { r: "unknown", field: `measured PREN inputs (${p.missing.join(", ")})` };
+        if (!p.inWindow) return { r: "miss" };
+        return p.value < c.value ? { r: "hit", because: `PREN from reported heat chemistry ${p.value.toFixed(1)} below ${c.value}` } : { r: "miss" };
+      }
       // Interval logic over the spec-permitted PREN range: entirely below
       // the threshold → hit; entirely above → miss; crossing → the heat
       // chemistry decides, so the result is indeterminate.

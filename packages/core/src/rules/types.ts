@@ -87,6 +87,9 @@ export interface FailureRule {
 
 /** What the engine knows about one candidate: an alloy IN a condition. */
 export interface CandidateFacts {
+  compositionBasis?: "measured" | "specification";
+  /** Retained separately for predicates about what the grade specification permits. */
+  specificationComposition?: readonly CompositionRange[];
   uns: string;
   name: string;
   family: string[];

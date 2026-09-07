@@ -1,7 +1,9 @@
+import { validateMaterialRecords, MATERIAL_RECORDS } from "./materialRecords";
+import { validateVerification, VERIFICATION } from "./verification";
 import type { Alloy } from "@alloyra/data";
 import { validateRule, type FailureRule } from "@alloyra/core";
 
-export const SLICE_KEYS = ["alloyra.comparison.v1", "alloyra.screening.v1", "alloyra.studio.v1", "alloyra.dutyProfiles.v1", "alloyra.rulesOverlay.v1", "alloyra.engineSettings.v1", "alloyra.calculations.v1", "alloyra.comparisonResults.v1", "alloyra.studioResults.v1", "alloyra.screeningResults.v1"] as const;
+export const SLICE_KEYS = ["alloyra.comparison.v1", "alloyra.screening.v1", "alloyra.studio.v1", "alloyra.dutyProfiles.v1", "alloyra.rulesOverlay.v1", "alloyra.engineSettings.v1", "alloyra.calculations.v1", "alloyra.comparisonResults.v1", "alloyra.studioResults.v1", "alloyra.screeningResults.v1", "alloyra.materialRecords.v1", "alloyra.verification.v1", "alloyra.verificationResults.v1"] as const;
 export type SliceKey = typeof SLICE_KEYS[number];
 export interface StudyReferences {
   datasetVersion: string;
@@ -36,9 +38,13 @@ function requireValue(ok: unknown, message: string): asserts ok { if (!ok) throw
 function validateSlice(key: SliceKey, raw: string): void {
   const v: unknown = JSON.parse(raw);
   const tri = ["yes", "no", "unknown"];
-  if (key === "alloyra.comparison.v1") {
+  if (key === MATERIAL_RECORDS) {
+    validateMaterialRecords(v);
+  } else if (key === VERIFICATION) {
+    validateVerification(v);
+  } else if (key === "alloyra.comparison.v1") {
     requireValue(record(v) && (v.profileId === null || text(v.profileId)) && (v.studyName === undefined || text(v.studyName)) && Array.isArray(v.slots) && v.slots.length <= 6, "Invalid comparison or more than six candidates.");
-    requireValue(v.slots.every((s) => record(s) && text(s.uns) && text(s.conditionId) && typeof s.pinned === "boolean" && typeof s.excluded === "boolean"), "Invalid comparison candidate.");
+    requireValue(v.slots.every((s) => record(s) && text(s.uns) && text(s.conditionId) && (s.materialRecordId === undefined || text(s.materialRecordId)) && typeof s.pinned === "boolean" && typeof s.excluded === "boolean"), "Invalid comparison candidate.");
     requireValue(new Set(v.slots.map((s) => (s as Record<string, unknown>).conditionId)).size === v.slots.length, "Duplicate comparison condition.");
     requireValue(hasNumbers(v.weights, ["strength", "corrosion", "auditCleanliness"]) && Object.values(v.weights as object).every((w) => finite(w) && w >= 0 && w <= 2), "Invalid score weights.");
     requireValue((v.castabilityWeight === undefined || (finite(v.castabilityWeight) && v.castabilityWeight >= 0 && v.castabilityWeight <= 2)) && typeof v.includeDrafts === "boolean" && strings(v.overrideLog), "Invalid comparison settings.");
@@ -104,7 +110,10 @@ export function parseStudyBundle(raw: string): StudyBundle {
   const study = s as unknown as SavedStudy;
   const comparison = JSON.parse(study.slices["alloyra.comparison.v1"] ?? "null");
   const profiles = JSON.parse(study.slices["alloyra.dutyProfiles.v1"] ?? "[]");
+  const records = JSON.parse(study.slices[MATERIAL_RECORDS] ?? "[]");
+  validateMaterialRecords(records, study.references.alloys);
   if (comparison) {
+    for (const slot of comparison.slots) if (slot.materialRecordId) requireValue(records.some((r) => r.id === slot.materialRecordId && r.uns === slot.uns && r.conditionId === slot.conditionId), "Selected measured record is missing or mismatched.");
     requireValue(comparison.profileId === null || profiles.some((p: { id: string }) => p.id === comparison.profileId), "Selected duty is missing from this bundle.");
     for (const slot of comparison.slots) requireValue(study.references.alloys.some((a) => a.uns === slot.uns && a.conditions.some((c) => c.id === slot.conditionId)), "A comparison condition is missing from the source snapshot.");
   }

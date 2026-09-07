@@ -9,6 +9,8 @@ export { STUDY_CHANGED } from "./workspace";
 export interface Slot {
   uns: string;
   conditionId: string;
+  /** Explicit measured evidence; absent selects the reference condition. */
+  materialRecordId?: string;
   pinned: boolean;
   excluded: boolean;
 }

@@ -10,6 +10,7 @@ export function CandidateEvidence({ name, condition, audits, rank, onClose }: {
   return <aside ref={ref} tabIndex={-1} className="candidate-evidence" aria-label={`Evidence for ${name}`} onKeyDown={(e) => { if (e.key === "Escape") onClose(); }}>
     <div className="evidence-heading"><h2>{name}</h2><button className="btn ghost" onClick={onClose}>Close evidence</button></div>
     <p>{condition.name} · {condition.form}</p>
+    {condition.note && <p className="record-source">{condition.note}</p>}
     <h3>Property records</h3>
     {condition.properties.map((p, i) => <p key={i}><strong>{p.property.replace(/_/g, " ")}: {p.value} {p.unit}</strong><br />Tested at {p.testTempC} °C · {p.provenance}<br />{p.source}{p.note ? ` — ${p.note}` : ""}</p>)}
     <h3>Scoring assumptions</h3>

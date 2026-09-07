@@ -14,6 +14,16 @@ beforeEach(() => {
 });
 afterEach(async () => { await Promise.resolve(); vi.unstubAllGlobals(); reloadWorkspace(); });
 describe("portable studies", () => {
+  it("round-trips selected measurements and verification notes; rejects dangling evidence", () => {
+    const b=exportStudyBundle(); const a=b.study.references.alloys[0]!, c=a.conditions[0]!;
+    const r={id:"record-1",createdAt:"2026-09-07",uns:a.uns,conditionId:c.id,heatId:"heat-1",form:"plate",thicknessMm:10,source:"cert-1",chemistry:{Cr:18},tests:[{property:"yield_strength",value:230,unit:"MPa",testTempC:23,source:"test-1"}]};
+    b.study.slices["alloyra.materialRecords.v1"]=JSON.stringify([r]);
+    b.study.slices["alloyra.verification.v1"]=JSON.stringify([{id:"task-1",basis:"inputs-1",candidate:"heat-1",title:"Confirm temperature",action:"Get test report",owner:"Alex",status:"resolved",resolution:"See test-1",updatedAt:"2026-09-07"}]);
+    b.study.slices["alloyra.comparison.v1"]=JSON.stringify({...defaultStored(),slots:[{uns:a.uns,conditionId:c.id,materialRecordId:r.id,pinned:false,excluded:false}]});
+    importStudyBundle(JSON.stringify(b));expect(JSON.parse(getStudyItem("alloyra.verification.v1")!)[0].owner).toBe("Alex");expect(JSON.parse(getStudyItem("alloyra.comparison.v1")!).slots[0].materialRecordId).toBe(r.id);
+    expect(studyReport(activeStudy()!)).toContain("Measured heat chemistry and test evidence");
+    b.study.slices["alloyra.materialRecords.v1"]="[]";expect(()=>parseStudyBundle(JSON.stringify(b))).toThrow(/missing or mismatched/);
+  });
   it("round-trips the shipped reference snapshot and exact conditions", () => {
     const profile = exampleProfile();
     setStudyItem("alloyra.dutyProfiles.v1", JSON.stringify([profile]));

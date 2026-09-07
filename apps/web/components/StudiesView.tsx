@@ -15,7 +15,7 @@ export function StudiesView() {
   const calculations = JSON.parse(study?.slices["alloyra.calculations.v1"] ?? "[]") as CalculationRecord[];
   const stem = `alloyra-${(study?.name ?? "study").replace(/[^a-z0-9]+/gi, "-").slice(0, 70)}`;
   return <><div className="pane-header"><h1>Saved studies</h1><span className="count">{studies.length} in this browser</span></div>
-    <div className="studies-content"><p>Each study keeps its duty profiles, exact condition shortlist, screening stages, rules, studio inputs and recorded calculations. Export a portable bundle to move it to another browser.</p>
+    <div className="studies-content"><p>Each study keeps its duty profiles, exact condition shortlist, screening stages, rules, measured material records, verification actions, studio inputs and recorded calculations. Export a portable bundle to move it to another browser.</p>
     <div className="study-actions"><input aria-label="New study name" placeholder="New study name" value={name} maxLength={120} onChange={(e) => setName(e.target.value)} />
     <button className="btn" onClick={() => perform(() => { createStudy(name); setName(""); })}>Create study</button>
     <button className="btn ghost" disabled={!study} onClick={() => perform(() => { createStudy(name || `${study!.name} copy`, true); setName(""); })}>Duplicate active study</button>

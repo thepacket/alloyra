@@ -166,3 +166,36 @@ fingerprint associates the repository implementation with the archived report;
 it is not a new execution of the 52-case oracle battery. Do not refresh the
 baseline after solver changes without reviewing/regenerating validation evidence.
 The point battery does not establish trajectory or isopleth-boundary coverage.
+
+### Measured material records and verification plans
+
+Material records accept manually entered measurements or UTF-8 CSV (2 MB).
+CSV columns are `heat_id,uns,condition_id,form,thickness_mm,source,kind,name,value,unit,test_temp_c`.
+Each row is one chemistry value (`kind=chemistry`, element symbol, `unit=wt%`,
+blank temperature) or test (`kind=test`, property ID, explicit temperature).
+Supported tests: yield_strength and tensile_strength in MPa, elongation in %,
+and density in g/cm³. Metadata repeats for each heat/condition. Quoted commas,
+newlines, escaped quotes, CRLF and BOM are supported. Blank values, inequalities,
+duplicate element/test points, inconsistent metadata and totals above 100% fail
+validation before anything is saved. Thickness may be explicitly unknown.
+Review the parsed record before saving; source labels are supplied by the user,
+not authenticated certificates. Corrections create a new immutable record.
+
+Comparison selects one record per reference condition. Measured chemistry and
+tests replace the reference values for that candidate; missing values are not
+borrowed from the specification. Yield chooses an exact duty-temperature test
+when present. Measured PREN requires explicit Cr, Mo, N and W (zeros permitted);
+missing terms suppress the index and its score. Content-based rules preserve
+unknown elements, while predicates about specification limits retain the original
+reference specification separately. The existing mid-spec Scheil comparison is
+disabled for measured records: it must not infer missing chemistry or balance.
+
+Verification actions derive from the active duty, shortlist, selected evidence
+and active rules. They request relevant tests/inputs, flag out-of-range measured
+chemistry, and identify mechanisms or draft assumptions needing review. Owners,
+status and resolution evidence are stored as append-only updates. A resolved
+item requires a note; changed underlying inputs reopen it for review. Checking
+an action does not alter data, scores, rule review status or qualification.
+Current plan snapshots, measured records and update history travel with the
+study bundle and readable report. Prior result/plan snapshots retain the inputs
+used when generated; visit the plan after changing inputs to refresh its snapshot.
