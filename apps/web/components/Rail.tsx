@@ -10,6 +10,7 @@ const items: { href: string; label: string; phase?: string }[] = [
   { href: "/screening", label: "Staged screening" },
   { href: "/profiles", label: "Duty profiles" },
   { href: "/records", label: "Material records" },
+  { href: "/decisions", label: "Decision record" },
   { href: "/verification", label: "Verification plan" },
   { href: "/comparisons", label: "Comparisons" },
   { href: "/rules", label: "Failure rules" },

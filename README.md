@@ -199,3 +199,22 @@ an action does not alter data, scores, rule review status or qualification.
 Current plan snapshots, measured records and update history travel with the
 study bundle and readable report. Prior result/plan snapshots retain the inputs
 used when generated; visit the plan after changing inputs to refresh its snapshot.
+
+### Engineering decision records
+
+The Decision record page saves a draft and records immutable revisions. Outcomes
+are a preferred candidate for further work, insufficient evidence to choose, or
+no suitable candidate in the current shortlist. Preference requires an included
+condition; every alternative (including exclusions) needs a disposition. Reviewer,
+rationale and unresolved questions are required. Reviewer identity is self-reported,
+not an authenticated signature or material approval.
+
+Each record freezes study inputs, saved results, source references, measured
+records and verification history. Saved results retain their own calculation
+inputs; recording does not rerun them. Snapshots exclude decision drafts and
+history to avoid recursive growth. Later evidence changes produce a review notice;
+new revisions supersede earlier records without rewriting them. The acknowledgement
+must correspond to the evidence still present at save time. Portable imports validate
+frozen studies and reject recursive snapshots, dangling selections and incomplete
+alternative dispositions before writing storage. Records have individual HTML
+reports and are also included in the full study bundle/report.

@@ -544,7 +544,7 @@ export function ComparisonView() {
         </span>
       </div>
 
-      <div className="evidence-workflow-links"><Link href="/records">Add measured material evidence</Link><Link href="/verification">Review verification plan →</Link></div>
+      <div className="evidence-workflow-links"><Link href="/records">Add measured material evidence</Link><Link href="/verification">Review verification plan →</Link><Link href="/decisions">Record decision →</Link></div>
       <div className="rule-status-bar" role="status">
         <span className="rsb-counts">
           {reviewedCount} expert-reviewed rule{reviewedCount === 1 ? "" : "s"} ·{" "}

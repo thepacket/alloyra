@@ -1,9 +1,10 @@
+import { DECISIONS, DECISION_DRAFT, validateDecisionRecords, validateDecisionDraft } from "./decisions";
 import { validateMaterialRecords, MATERIAL_RECORDS } from "./materialRecords";
 import { validateVerification, VERIFICATION } from "./verification";
 import type { Alloy } from "@alloyra/data";
 import { validateRule, type FailureRule } from "@alloyra/core";
 
-export const SLICE_KEYS = ["alloyra.comparison.v1", "alloyra.screening.v1", "alloyra.studio.v1", "alloyra.dutyProfiles.v1", "alloyra.rulesOverlay.v1", "alloyra.engineSettings.v1", "alloyra.calculations.v1", "alloyra.comparisonResults.v1", "alloyra.studioResults.v1", "alloyra.screeningResults.v1", "alloyra.materialRecords.v1", "alloyra.verification.v1", "alloyra.verificationResults.v1"] as const;
+export const SLICE_KEYS = ["alloyra.comparison.v1", "alloyra.screening.v1", "alloyra.studio.v1", "alloyra.dutyProfiles.v1", "alloyra.rulesOverlay.v1", "alloyra.engineSettings.v1", "alloyra.calculations.v1", "alloyra.comparisonResults.v1", "alloyra.studioResults.v1", "alloyra.screeningResults.v1", "alloyra.materialRecords.v1", "alloyra.verification.v1", "alloyra.verificationResults.v1", "alloyra.decisions.v1", "alloyra.decisionDraft.v1"] as const;
 export type SliceKey = typeof SLICE_KEYS[number];
 export interface StudyReferences {
   datasetVersion: string;
@@ -38,7 +39,11 @@ function requireValue(ok: unknown, message: string): asserts ok { if (!ok) throw
 function validateSlice(key: SliceKey, raw: string): void {
   const v: unknown = JSON.parse(raw);
   const tri = ["yes", "no", "unknown"];
-  if (key === MATERIAL_RECORDS) {
+  if (key === DECISIONS) {
+    validateDecisionRecords(v);
+  } else if (key === DECISION_DRAFT) {
+    validateDecisionDraft(v);
+  } else if (key === MATERIAL_RECORDS) {
     validateMaterialRecords(v);
   } else if (key === VERIFICATION) {
     validateVerification(v);
@@ -108,6 +113,9 @@ export function parseStudyBundle(raw: string): StudyBundle {
     validateSlice(key as SliceKey, value);
   }
   const study = s as unknown as SavedStudy;
+  const decisions = JSON.parse(study.slices[DECISIONS] ?? "[]");
+  validateDecisionRecords(decisions);
+  for (const decision of decisions) parseStudyBundle(JSON.stringify({format:"alloyra-study",schemaVersion:1,exportedAt:decision.recordedAt,study:decision.snapshot}));
   const comparison = JSON.parse(study.slices["alloyra.comparison.v1"] ?? "null");
   const profiles = JSON.parse(study.slices["alloyra.dutyProfiles.v1"] ?? "[]");
   const records = JSON.parse(study.slices[MATERIAL_RECORDS] ?? "[]");

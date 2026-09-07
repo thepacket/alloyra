@@ -6,6 +6,7 @@ import { studyReport } from "../lib/studyReport";
 import { validationCoverage } from "../lib/validation";
 import cases from "../lib/validationCases.json";
 import { recordedPostMessage, terminateRecordedWorker } from "../lib/calculationHistory";
+import { DECISIONS, DECISION_DRAFT, blankDecision, createDecisionRecord, validateDecisionRecords, evidenceChanged } from "../lib/decisions";
 let data: Map<string,string>;
 beforeEach(() => {
   data = new Map(); vi.stubGlobal("window", new EventTarget());
@@ -96,5 +97,48 @@ describe("calculation-specific coverage", () => {
     recordedPostMessage(worker as unknown as Worker,{id:1,kind:"point",dbId:c.db,tdbUrl:"/tdb/test.tdb",compositionWt:c.wt as Record<string,number>,tempC:500});
     terminateRecordedWorker(worker as unknown as Worker);
     expect(JSON.parse(getStudyItem("alloyra.calculations.v1")!)[0].status).toBe("cancelled"); expect(worker.terminate).toHaveBeenCalledOnce();
+  });
+});
+
+describe("engineering decision records",()=>{
+  const prepare=()=>{setStudyItem("alloyra.comparison.v1",JSON.stringify({...defaultStored(),slots:EXAMPLE_SLOTS.slice(0,2)}));return activeStudy()!;};
+  const draft=()=>({...blankDecision(),outcome:"preferred" as const,selectedConditionId:EXAMPLE_SLOTS[0]!.conditionId,reviewer:"Engineer",rationale:"Retain for further tests",unresolved:"Need temperature-specific strength evidence",alternatives:{[EXAMPLE_SLOTS[1]!.conditionId]:"Retain as a backup pending corrosion evidence"}});
+  it("freezes evidence and reports later changes without changing the original",()=>{
+    const study=prepare(),r=createDecisionRecord(study,draft());const saved=JSON.stringify(r);
+    expect(evidenceChanged(r,study)).toBe(false);
+    study.slices["alloyra.comparison.v1"]=JSON.stringify({...defaultStored(),slots:EXAMPLE_SLOTS.slice(0,1)});
+    expect(evidenceChanged(r,study)).toBe(true);expect(JSON.stringify(r)).toBe(saved);
+  });
+  it("excludes drafts and prior decisions from snapshots and stale detection",()=>{
+    const study=prepare(),r=createDecisionRecord(study,draft());
+    study.slices[DECISION_DRAFT]=JSON.stringify(draft());study.slices[DECISIONS]=JSON.stringify([r]);
+    expect(evidenceChanged(r,study)).toBe(false);
+    const revision=createDecisionRecord(study,draft(),[r]);expect(revision.supersedes).toBe(r.id);
+    expect(revision.snapshot.slices[DECISIONS]).toBeUndefined();expect(revision.snapshot.slices[DECISION_DRAFT]).toBeUndefined();validateDecisionRecords([r,revision]);
+  });
+  it("requires an eligible selection and a disposition for every alternative",()=>{
+    const study=prepare();expect(()=>createDecisionRecord(study,{...draft(),alternatives:{}})).toThrow(/alternative/);
+    const c=JSON.parse(study.slices["alloyra.comparison.v1"]!);c.slots[0].excluded=true;study.slices["alloyra.comparison.v1"]=JSON.stringify(c);
+    expect(()=>createDecisionRecord(study,draft())).toThrow(/non-excluded/);
+  });
+  it("can explicitly defer a decision without selecting a material",()=>{
+    const study=activeStudy()!;const r=createDecisionRecord(study,{...draft(),outcome:"insufficient-evidence",selectedConditionId:"",alternatives:{}});
+    expect(r.selected).toBeNull();expect(r.outcome).toBe("insufficient-evidence");validateDecisionRecords([r]);
+  });
+  it("requires reviewer, rationale and an explicit unresolved-question statement",()=>{
+    const study=prepare();for(const field of ["reviewer","rationale","unresolved"]){expect(()=>createDecisionRecord(study,{...draft(),[field]:""})).toThrow(/reviewer/);}
+  });
+  it("round-trips decision evidence even after the current shortlist changes",()=>{
+    const study=prepare(),r=createDecisionRecord(study,draft());setStudyItem(DECISIONS,JSON.stringify([r]));setStudyItem("alloyra.comparison.v1",JSON.stringify(defaultStored()));
+    const bundle=exportStudyBundle();importStudyBundle(JSON.stringify(bundle));const restored=JSON.parse(getStudyItem(DECISIONS)!)[0];expect(restored).toEqual(r);expect(evidenceChanged(restored,activeStudy()!)).toBe(true);
+  });
+  it("rejects recursive and invalid frozen snapshots before importing",()=>{
+    const study=prepare(),r=createDecisionRecord(study,draft()),b=exportStudyBundle();r.snapshot.slices[DECISIONS]="[]";b.study.slices[DECISIONS]=JSON.stringify([r]);
+    expect(()=>parseStudyBundle(JSON.stringify(b))).toThrow(/Recursive/);
+    delete r.snapshot.slices[DECISIONS];r.snapshot.slices["alloyra.materialRecords.v1"]="[{}]";b.study.slices[DECISIONS]=JSON.stringify([r]);
+    const before=JSON.stringify(readWorkspace());expect(()=>importStudyBundle(JSON.stringify(b))).toThrow();expect(JSON.stringify(readWorkspace())).toBe(before);
+  });
+  it("escapes decision text in readable reports",()=>{
+    const study=prepare(),r=createDecisionRecord(study,{...draft(),reviewer:"<script>unsafe</script>"});study.slices[DECISIONS]=JSON.stringify([r]);const report=studyReport(study);expect(report).toContain("&lt;script&gt;unsafe");expect(report).not.toContain("<script>");
   });
 });
