@@ -1,3 +1,5 @@
+
+import { getStudyItem, setStudyItem } from "./workspace";
 import { validateRule, type FailureRule } from "@alloyra/core";
 import { failureRules, RULESET_VERSION } from "@alloyra/data";
 
@@ -49,7 +51,7 @@ export function logChange(
 
 export function loadOverlay(): RuleOverlay {
   try {
-    const raw = localStorage.getItem(STORE);
+    const raw = getStudyItem(STORE);
     if (!raw) return emptyOverlay();
     const o = { ...emptyOverlay(), ...(JSON.parse(raw) as RuleOverlay) };
     // Backward-compat: overlays saved before review statuses existed.
@@ -72,7 +74,7 @@ export function loadOverlay(): RuleOverlay {
 
 export function saveOverlay(o: RuleOverlay): void {
   try {
-    localStorage.setItem(STORE, JSON.stringify(o));
+    setStudyItem(STORE, JSON.stringify(o));
   } catch {
     /* session-only */
   }

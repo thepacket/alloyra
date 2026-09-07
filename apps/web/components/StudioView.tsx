@@ -1,5 +1,8 @@
 "use client";
 
+import { downloadStudy } from "../lib/studyReport";
+import { getStudyItem, setStudyItem, exportStudyBundle } from "../lib/workspace";
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { alloys, DATASET_VERSION } from "@alloyra/data";
 import { EquilibriumPanel } from "./EquilibriumPanel";
@@ -18,7 +21,9 @@ import {
   midpointComposition,
   msAndrews,
   nearestGrades,
-  pren,
+  prenForFamily,
+  blankStrengthInputs, restoreStrengthInputs, strengthValue, strengthInputsReady, setStrengthValue,
+  type StrengthInputs, type StrengthKey, type InputOrigin,
   wrc1992,
   type CalcResult,
   type Composition,
@@ -48,29 +53,13 @@ interface StudioState {
   baseUns: string;
   comp: Partial<Record<ElementSymbol, number>>;
   prices: Partial<Record<ElementSymbol, number>>;
+  compositionOrigins: Partial<Record<ElementSymbol, InputOrigin>>;
+  lmpOrigins: Partial<Record<"tempC" | "hours" | "C", InputOrigin>>;
   lmp: { tempC: number; hours: number; C: number };
-  /** Strengthening-model inputs (B-105/B-107) — user-owned, cited seeds. */
-  strength: {
-    /** ASTM E112 grain-size number; null = unknown (honesty default). */
-    grainAstm: number | null;
-    hp: { sigma0: number; ky: number };
-    holl: { K: number; n: number };
-    orowan: { fPct: number; dNm: number; matrix: string; G: number; b: number };
-  };
+  strength: StrengthInputs;
 }
 
-function defaultStrength(): StudioState["strength"] {
-  const al = MATRIX_CONSTANTS.Al!;
-  return {
-    grainAstm: null,
-    // Literature-typical ferritic-steel seeds (Hall 1951/Petch 1953 lineage) —
-    // user-owned, verify for your alloy class.
-    hp: { sigma0: 70, ky: 600 },
-    // Annealed-austenitic-like fit seeds (Dieter ch. 8 order of magnitude).
-    holl: { K: 1400, n: 0.45 },
-    orowan: { fPct: 2, dNm: 10, matrix: "Al", G: al.shearModulusGPa, b: al.burgersNm },
-  };
-}
+const defaultStrength = blankStrengthInputs;
 
 function seedFromBase(uns: string): Partial<Record<ElementSymbol, number>> {
   const alloy = alloys.find((a) => a.uns === uns);
@@ -90,6 +79,8 @@ function defaultState(): StudioState {
     baseUns: "S31603",
     comp: seedFromBase("S31603"),
     prices: {},
+    compositionOrigins: {},
+    lmpOrigins: {},
     lmp: { tempC: 600, hours: 100_000, C: 20 },
     strength: defaultStrength(),
   };
@@ -97,13 +88,15 @@ function defaultState(): StudioState {
 
 function loadState(): StudioState {
   try {
-    const raw = localStorage.getItem(STORE);
+    const raw = getStudyItem(STORE);
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw) as StudioState;
     return {
       ...defaultState(),
       ...parsed,
-      strength: { ...defaultStrength(), ...(parsed.strength ?? {}) },
+      strength: restoreStrengthInputs(parsed.strength),
+      compositionOrigins: parsed.compositionOrigins ?? Object.fromEntries(Object.keys(parsed.comp ?? {}).map((el) => [el, "unverified"])),
+      lmpOrigins: parsed.lmpOrigins ?? { tempC: "unverified", hours: "unverified", C: "unverified" },
     };
   } catch {
     return defaultState();
@@ -139,7 +132,7 @@ function CalcCard({
           {label} <span className="prov computed">COMPUTED</span>
         </span>
         <span className="calc-value">
-          {r.missing?.length
+          {(r.missing?.length || !Number.isFinite(r.value))
             ? "unknown"
             : r.inWindow
               ? `${r.value.toFixed(1)}${r.unit ? ` ${r.unit}` : ""}`
@@ -220,7 +213,7 @@ export function StudioView() {
     setState((s) => {
       const next = mut(s);
       try {
-        localStorage.setItem(STORE, JSON.stringify(next));
+        setStudyItem(STORE, JSON.stringify(next));
       } catch {
         /* session-only */
       }
@@ -229,6 +222,7 @@ export function StudioView() {
   };
 
   const bal = balanceElement(state.baseUns);
+  const baseAlloy = alloys.find((a) => a.uns === state.baseUns);
   const othersSum = useMemo(
     () =>
       (Object.entries(state.comp) as [ElementSymbol, number][])
@@ -251,14 +245,14 @@ export function StudioView() {
   const results = useMemo(() => {
     const w = wrc1992(comp);
     return {
-      pren: pren(comp),
+      pren: prenForFamily(comp, baseAlloy?.family ?? []),
       wrc: w,
       ce: ceIIW(comp),
       ms: msAndrews(comp),
       md30: md30Nohara(
         comp,
-        state.strength.grainAstm != null
-          ? { grainSizeAstm: state.strength.grainAstm }
+        strengthInputsReady(state.strength, ["grainAstm"])
+          ? { grainSizeAstm: state.strength.grainAstm! }
           : undefined,
       ),
       lmp: larsonMiller(state.lmp.tempC, state.lmp.hours, state.lmp.C),
@@ -272,58 +266,63 @@ export function StudioView() {
       ),
       cost: elementCost(comp, state.prices),
     };
-  }, [comp, bal, state.lmp, state.prices, state.strength.grainAstm]);
+  }, [comp, bal, baseAlloy, state.lmp, state.prices, state.strength]);
 
-  // Strengthening models (B-105): user-owned parameters, cited seeds; each
-  // card sweeps its own governing variable so no value stands naked.
   const st = state.strength;
-  const dUm = st.grainAstm != null ? astmToMicrons(st.grainAstm) : undefined;
-  const hpRes =
-    dUm !== undefined
-      ? hallPetch({ dUm, sigma0MPa: st.hp.sigma0, kyMPaSqrtUm: st.hp.ky })
-      : undefined;
+  const dUm = strengthInputsReady(st, ["grainAstm"]) ? astmToMicrons(st.grainAstm!) : undefined;
+  const hpReady = strengthInputsReady(st, ["grainAstm", "sigma0", "ky"]);
+  const holReady = strengthInputsReady(st, ["K", "n"]);
+  const matrixMismatch = st.orowan.matrix !== "" && st.orowan.matrix !== "custom" && (
+    st.orowan.matrix !== bal || (st.orowan.matrix === "Fe" && baseAlloy?.family[1] === "stainless"
+      && ["austenitic", "super-austenitic", "duplex"].includes(baseAlloy.family[2] ?? ""))
+  );
+  const orReady = strengthInputsReady(st, ["fPct", "dNm", "G", "b"])
+    && st.orowan.matrix !== "" && !matrixMismatch;
+  const pending = (r: CalcResult, keys: string[], note: string): CalcResult => ({
+    ...r, value: Number.NaN, inWindow: false, warnings: [note + " Required: " + keys.join(", ")],
+  });
+  const hpRaw = hallPetch({ dUm: dUm ?? Number.NaN, sigma0MPa: st.hp.sigma0 ?? Number.NaN, kyMPaSqrtUm: st.hp.ky ?? Number.NaN });
+  const hpRes = hpReady ? hpRaw : pending(hpRaw, ["grain size / σ0 / k_y"], "Enter or review grain size and material-specific σ0 and k_y.");
+  const hol = hollomon({ kMPa: st.holl.K ?? Number.NaN, n: st.holl.n ?? Number.NaN });
+  if (!holReady) hol.utsEng = pending(hol.utsEng, ["K / n"], "Enter or review K and n fitted to tensile data for this material and condition.");
+  const orRaw = ashbyOrowan({ volumeFraction: (st.orowan.fPct ?? Number.NaN) / 100,
+    particleDiameterNm: st.orowan.dNm ?? Number.NaN, shearModulusGPa: st.orowan.G ?? Number.NaN, burgersNm: st.orowan.b ?? Number.NaN });
+  const orRes = orReady ? orRaw : pending(orRaw, ["matrix / f / X / G / b"], matrixMismatch
+    ? "Selected matrix constants do not match the base grade’s matrix. Select custom and enter appropriate constants."
+    : "Choose a matrix and enter or review its constants, particle fraction and diameter.");
   const hpSweep: SP[] = [];
-  for (let i = 0; i <= 40; i++) {
-    const d = 1 + (i / 40) * 119; // 1–120 µm
-    const r = hallPetch({ dUm: d, sigma0MPa: st.hp.sigma0, kyMPaSqrtUm: st.hp.ky });
+  if (hpReady) for (let i = 0; i <= 40; i++) {
+    const d = 1 + (i / 40) * 119;
+    const r = hallPetch({ dUm: d, sigma0MPa: st.hp.sigma0!, kyMPaSqrtUm: st.hp.ky! });
     hpSweep.push({ x: d, value: r.value, inWindow: r.inWindow });
   }
-  const hol = hollomon({ kMPa: st.holl.K, n: st.holl.n });
   const holSweep: SP[] = [];
-  {
-    const eMax = Math.min(0.7, Math.max(0.1, st.holl.n * 1.6));
-    for (let i = 1; i <= 40; i++) {
-      const e = (i / 40) * eMax;
-      holSweep.push({
-        x: e,
-        value: hol.flowStress(e),
-        // Beyond ε_u = n the specimen necks — the curve is extrapolation.
-        inWindow: e <= st.holl.n,
-      });
-    }
+  if (holReady && hol.utsEng.inWindow) for (let i = 1; i <= 40; i++) {
+    const e = (i / 40) * Math.min(0.7, Math.max(0.1, st.holl.n! * 1.6));
+    holSweep.push({ x: e, value: hol.flowStress(e), inWindow: e <= st.holl.n! });
   }
-  const orRes = ashbyOrowan({
-    volumeFraction: st.orowan.fPct / 100,
-    particleDiameterNm: st.orowan.dNm,
-    shearModulusGPa: st.orowan.G,
-    burgersNm: st.orowan.b,
-  });
   const orSweep: SP[] = [];
-  for (let i = 0; i <= 40; i++) {
-    const x = 2 + (i / 40) * 58; // 2–60 nm
-    const r = ashbyOrowan({
-      volumeFraction: st.orowan.fPct / 100,
-      particleDiameterNm: x,
-      shearModulusGPa: st.orowan.G,
-      burgersNm: st.orowan.b,
-    });
+  if (orReady) for (let i = 0; i <= 40; i++) {
+    const x = 2 + (i / 40) * 58;
+    const r = ashbyOrowan({ volumeFraction: st.orowan.fPct! / 100, particleDiameterNm: x,
+      shearModulusGPa: st.orowan.G!, burgersNm: st.orowan.b! });
     orSweep.push({ x, value: r.value, inWindow: r.inWindow });
   }
-  const setStrength = (mut: (s: StudioState["strength"]) => StudioState["strength"]) =>
+  const setStrength = (mut: (s: StrengthInputs) => StrengthInputs) =>
     update((s) => ({ ...s, strength: mut(s.strength) }));
+  const input = (key: StrengthKey, label: string) => (
+    <label key={key}>{label}
+      <input className="el-num mono" inputMode="decimal" value={strengthValue(st, key) ?? ""}
+        aria-label={label} placeholder="—" onChange={(e) => {
+          const value = e.target.value.trim() === "" ? null : Number(e.target.value);
+          if (value === null || Number.isFinite(value)) setStrength((s) => setStrengthValue(s, key, value));
+        }} />
+      <span className="input-origin">{strengthValue(st, key) === null ? "not entered" : st.origins[key] ?? "unverified — review"}</span>
+    </label>
+  );
 
   const setElement = (el: ElementSymbol, v: number) =>
-    update((s) => ({ ...s, comp: { ...s.comp, [el]: v } }));
+    update((s) => ({ ...s, comp: { ...s.comp, [el]: v }, compositionOrigins: { ...s.compositionOrigins, [el]: "user-entered" } }));
 
   const removeElement = (el: ElementSymbol) =>
     update((s) => {
@@ -332,43 +331,10 @@ export function StudioView() {
       return { ...s, comp: next };
     });
 
-  const exportStudy = () => {
-    const rows = (Object.entries(comp) as [ElementSymbol, number][])
-      .map(([el, v]) => `<tr><td>${el}</td><td>${el === bal ? `${v} (balance)` : v}</td></tr>`)
-      .join("");
-    const calcRow = (label: string, r: CalcResult) =>
-      `<tr><td>${label}</td><td>${r.missing?.length ? `unknown (missing: ${r.missing.join(", ")})` : r.inWindow ? `${r.value.toFixed(1)} ${r.unit}` : "n/a (out of validity window)"}</td><td><code>${r.formula}</code></td><td>${r.source.citation}</td><td>${r.warnings.join("; ") || "—"}</td></tr>`;
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Alloyra composition study</title>
-<style>body{font-family:Georgia,serif;max-width:60rem;margin:2rem auto;color:#1b2129;line-height:1.5}
-h1{font-family:Arial;letter-spacing:.02em}table{border-collapse:collapse;width:100%;margin:.75rem 0}
-td,th{border:1px solid #ccc;padding:4px 10px;font-size:14px;text-align:left}code{font-size:12px}
-.meta{color:#5a6472;font-size:13px}.warn{color:#a65b1f}</style></head><body>
-<h1>Alloyra composition study</h1>
-<p class="meta">Base grade: ${state.baseUns} · dataset ${DATASET_VERSION} · exported ${new Date().toISOString()}<br>
-All derived values are COMPUTED from the stated composition via the cited empirical relations — verify before design use.</p>
-<h2>Composition (wt %)</h2><table>${rows}</table>
-<h2>Derived quantities</h2>
-<table><tr><th>Quantity</th><th>Value</th><th>Formula</th><th>Source</th><th>Warnings</th></tr>
-${calcRow("PREN", results.pren)}${calcRow("WRC-1992 Creq", results.wrc.creq)}${calcRow("WRC-1992 Nieq", results.wrc.nieq)}
-${calcRow("CE(IIW)", results.ce)}${calcRow("Ms (Andrews)", results.ms)}${calcRow("Md30 (Nohara)", results.md30)}
-${calcRow(`LMP @ ${state.lmp.tempC} °C / ${state.lmp.hours} h (C=${state.lmp.C})`, results.lmp)}
-${hpRes ? calcRow(`Hall-Petch σy (ν=${st.grainAstm}, σ0=${st.hp.sigma0}, k_y=${st.hp.ky})`, hpRes) : ""}
-${calcRow(`Hollomon UTS (K=${st.holl.K} MPa, n=${st.holl.n})`, hol.utsEng)}
-${calcRow(`Ashby-Orowan Δσ (f=${st.orowan.fPct} vol%, X=${st.orowan.dNm} nm, ${st.orowan.matrix})`, orRes)}</table>
-<h2>Nearest standard grades (composition conformance only — not product qualification)</h2>
-<table><tr><th>Grade</th><th>Conforms to ranges?</th><th>Violations (normalized distance)</th></tr>
-${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms ? "yes" : `no (Σ ${m.distance.toFixed(2)})`}</td><td>${m.violations.slice(0, 5).map((v) => `${v.element}: ${v.detail}`).join("; ") || "—"}</td></tr>`).join("")}</table>
-<h2>Element cost roll-up</h2>
-<p>≈ ${results.cost.perKg.toFixed(2)} per kg on the user's price table (raw-element basis; excludes melt/processing).${results.cost.unpriced.length ? ` <span class="warn">Unpriced: ${results.cost.unpriced.join(", ")}.</span>` : ""}</p>
-</body></html>`;
-    const blob = new Blob([html], { type: "text/html" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `alloyra-study-${state.baseUns}-${Date.now()}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const studioSnapshot = JSON.stringify({ modelVersion: "alloyra-empirical-v1", inputs: { ...state, balancedComposition: comp }, results: { ...results, hallPetch: hpRes, hollomon: hol, orowan: orRes } });
+  useEffect(() => { if (loaded) { try { setStudyItem("alloyra.studioResults.v1", studioSnapshot); setStudyItem(STORE, JSON.stringify(state)); } catch { /* Shell reports storage failure */ } } }, [loaded, studioSnapshot]);
+  const [section, setSection] = useState("composition");
+  const exportStudy = () => downloadStudy(JSON.stringify(exportStudyBundle(), null, 2), "alloyra-study.json", "application/json");
 
   if (!loaded) return null;
 
@@ -417,7 +383,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
   };
   const sweeps = sweepEl
     ? {
-        pren: sweepFor((c) => pren(c)),
+        pren: sweepFor((c) => prenForFamily(c, baseAlloy?.family ?? [])),
         ce: sweepFor((c) => ceIIW(c)),
         ms: sweepFor((c) => msAndrews(c)),
         md30: sweepFor((c) => md30Nohara(c)),
@@ -441,6 +407,8 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
               ...s,
               baseUns: e.target.value,
               comp: seedFromBase(e.target.value),
+              compositionOrigins: {},
+              strength: { ...s.strength, origins: {} },
             }))
           }
         >
@@ -450,7 +418,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             </option>
           ))}
         </select>
-        <button type="button" className="btn ghost" onClick={() => update((s) => ({ ...s, comp: seedFromBase(s.baseUns) }))}>
+        <button type="button" className="btn ghost" onClick={() => update((s) => ({ ...s, comp: seedFromBase(s.baseUns), compositionOrigins: {} }))}>
           Reset to mid-spec
         </button>
         <button
@@ -458,6 +426,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
           className="btn"
           title="Run every engine computation for the current composition IN PARALLEL — point equilibrium, property diagram, Scheil, and the isopleth map each get their own worker/core. Sections fill in as they finish; the isopleth map is the long pole at minutes."
           onClick={() => {
+            setSection("thermodynamics");
             runAllRef.current?.();
             document.querySelector(".eq-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
           }}
@@ -469,15 +438,17 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
         </button>
       </div>
 
-      <div className="split">
+      <div className="studio-tabs" role="group" aria-label="Studio section">{["composition", "empirical", "thermodynamics"].map((v) => <button className="btn ghost" key={v} aria-pressed={section === v} onClick={() => setSection(v)}>{v === "composition" ? "Composition & cost" : v === "empirical" ? "Empirical models" : "Thermodynamics"}</button>)}</div>
+      <div className={`split studio-section-${section}`}>
         <div className="studio-left">
-          <h2 className="studio-h">Composition (wt %) — seeded at mid-spec, residuals at half-max</h2>
+          <h2 className="studio-h">Composition (wt %) — range midpoints, residuals at half-max</h2>
+          <p className="calc-src">{editableElements.map((el) => `${el}: ${state.compositionOrigins[el] ?? "assumed"}`).join(" · ")}</p>
           {editableElements.map((el) => {
             const max = sliderMax(el, state.baseUns);
             const v = state.comp[el] ?? 0;
             return (
               <div className="el-row" key={el}>
-                <span className="el-sym mono">{el}</span>
+                <span className="el-sym mono" title={state.compositionOrigins[el] ?? "assumed range midpoint / half-max"}>{el}</span>
                 <input
                   type="range"
                   min={0}
@@ -492,6 +463,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
                   inputMode="decimal"
                   value={v}
                   aria-label={`${el} content, numeric entry (wt%)`}
+                  title={`Input origin: ${state.compositionOrigins[el] ?? "assumed"}`}
                   onChange={(e) => {
                     const n = Number(e.target.value);
                     if (Number.isFinite(n) && n >= 0) setElement(el, n);
@@ -532,7 +504,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             </select>
           </div>
 
-          <h2 className="studio-h">Element prices — Alloyra ships no price data; enter your procurement figures (R-4.5)</h2>
+          <h2 className="studio-h">Element prices — Alloyra ships no price data; enter your procurement figures</h2>
           <div className="price-grid">
             {(Object.keys(comp) as ElementSymbol[]).map((el) => (
               <label className="price-item" key={el}>
@@ -558,8 +530,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             ))}
           </div>
           <div className="storage-note">
-            Studio session and prices are saved in this browser only — Export
-            study produces the shareable record.
+            Studio inputs and prices are saved with the active study. Export study downloads its portable bundle; readable reports are available in Saved studies.
           </div>
           <div className="cost-line">
             {Object.values(state.prices).every((v) => v === undefined) ? (
@@ -579,7 +550,8 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
         </div>
 
         <div className="studio-right">
-          <h2 className="studio-h">Nearest standard grades — spec conformance first (R-4.4)</h2>
+          <div className="studio-empirical">
+          <h2 className="studio-h">Nearest standard grades — spec conformance first</h2>
           <div className="match-row">
             {results.matches.map((m, i) => (
               <div className={`match ${i === 0 ? "best" : ""}`} key={m.uns}>
@@ -606,7 +578,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
           </div>
 
           <div className="studio-h sweep-head">
-            <span>Derived quantities — greyed means outside the model's validated window (R-4.3)</span>
+            <span>Derived quantities — validity and assumptions</span>
             <label className="sweep-pick">
               sweep vs
               <select
@@ -623,6 +595,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
               </select>
             </label>
           </div>
+          <p className="calc-src">Composition starts at range midpoints with max-only residuals at half their limits (ASSUMED); edits are user-entered. Comparison PREN omits max-only residuals. This convention can change the index; neither is a measured heat chemistry.</p>
           <div className="calc-grid">
             <CalcCard
               label="PREN"
@@ -646,131 +619,62 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             />
           </div>
 
-          <h2 className="studio-h">
-            Strengthening models — mechanism calculators with user-owned parameters (B-105)
-          </h2>
-          <div className="strength-inputs">
-            <label className="sweep-pick">
-              grain size ν (ASTM E112)
-              <input
-                className="el-num mono"
-                inputMode="decimal"
-                value={st.grainAstm ?? ""}
-                placeholder="—"
-                aria-label="Grain size, ASTM E112 number"
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  setStrength((x) => ({
-                    ...x,
-                    grainAstm: e.target.value === "" || !Number.isFinite(n) ? null : n,
-                  }));
-                }}
-              />
-            </label>
-            <span className="calc-src">
-              {dUm !== undefined
-                ? `≈ ${dUm.toFixed(1)} µm mean diameter — feeds Hall-Petch and the Md30 grain-size term.`
-                : "Unknown until you enter it (never assumed) — feeds Hall-Petch and the Md30 grain-size term."}
-            </span>
-          </div>
-          <div className="calc-grid">
-            {hpRes ? (
-              <CalcCard
-                label="Hall-Petch σy"
-                r={hpRes}
-                spark={<SweepSpark points={hpSweep} currentX={dUm ?? 0} element="d" unit="µm" />}
-              />
-            ) : (
-              <div className="calc-card out">
-                <div className="calc-top">
-                  <span className="calc-label">
-                    Hall-Petch σy <span className="prov computed">COMPUTED</span>
-                  </span>
-                  <span className="calc-value">unknown</span>
-                </div>
-                <div className="calc-formula mono">σy = σ0 + k_y·d^(−1/2)</div>
-                <div className="calc-warn">Enter a grain size (ν) above to compute.</div>
-              </div>
-            )}
-            <CalcCard
-              label="Hollomon UTS + Considère"
-              r={hol.utsEng}
-              spark={<SweepSpark points={holSweep} currentX={st.holl.n} element="ε true" unit="(εu = n)" />}
-            />
-            <CalcCard
-              label="Ashby-Orowan Δσ"
-              r={orRes}
-              spark={<SweepSpark points={orSweep} currentX={st.orowan.dNm} element="X" unit="nm" />}
-            />
-          </div>
+          <h2 className="studio-h">Strengthening models — material-specific inputs</h2>
+          <p className="calc-src">No material-specific fit or particle parameters are assumed. Enter values for the selected grade and condition. Changing the base grade retains values for review and pauses these predictions.</p>
           <div className="strength-params">
             <div className="lmp-inputs">
-              <label>σ0 (MPa)
-                <input className="el-num mono" inputMode="decimal" value={st.hp.sigma0} aria-label="Hall-Petch friction stress, MPa"
-                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, hp: { ...x.hp, sigma0: n } })); }} />
-              </label>
-              <label>k_y (MPa·√µm)
-                <input className="el-num mono" inputMode="decimal" value={st.hp.ky} aria-label="Hall-Petch locking parameter"
-                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, hp: { ...x.hp, ky: n } })); }} />
-              </label>
-              <label>K (MPa)
-                <input className="el-num mono" inputMode="decimal" value={st.holl.K} aria-label="Hollomon strength coefficient K, MPa"
-                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, holl: { ...x.holl, K: n } })); }} />
-              </label>
-              <label>n
-                <input className="el-num mono" inputMode="decimal" value={st.holl.n} aria-label="Hollomon strain-hardening exponent n"
-                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, holl: { ...x.holl, n } })); }} />
-              </label>
-              <label>matrix
-                <select className="hdr-select" value={st.orowan.matrix} aria-label="Orowan matrix (sets G and b seeds)"
+              {input("grainAstm", "Grain size, ASTM E112 number")}
+              {input("sigma0", "Hall-Petch friction stress, MPa")}
+              {input("ky", "Hall-Petch locking parameter, MPa·√µm")}
+              {input("K", "Hollomon strength coefficient K, MPa")}
+              {input("n", "Hollomon strain-hardening exponent n")}
+              <label>Orowan matrix
+                <select className="hdr-select" value={st.orowan.matrix} aria-label="Orowan matrix"
                   onChange={(e) => {
-                    const m = e.target.value;
-                    const c = MATRIX_CONSTANTS[m];
-                    setStrength((x) => ({
-                      ...x,
-                      orowan: c ? { ...x.orowan, matrix: m, G: c.shearModulusGPa, b: c.burgersNm } : { ...x.orowan, matrix: m },
+                    const matrix = e.target.value;
+                    const c = MATRIX_CONSTANTS[matrix];
+                    setStrength((x) => ({ ...x,
+                      orowan: { ...x.orowan, matrix, G: c?.shearModulusGPa ?? null, b: c?.burgersNm ?? null },
+                      origins: { ...x.origins, G: c ? "assumed" : "unverified", b: c ? "assumed" : "unverified" },
                     }));
                   }}>
-                  {Object.keys(MATRIX_CONSTANTS).map((m) => (
-                    <option key={m} value={m}>{m}</option>
-                  ))}
+                  <option value="">— choose matrix —</option>
+                  <option value="custom">Custom — enter appropriate G and b</option>
+                  {Object.entries(MATRIX_CONSTANTS).map(([m, c]) => <option key={m} value={m}>{c.note}</option>)}
                 </select>
               </label>
-              <label>f (vol %)
-                <input className="el-num mono" inputMode="decimal" value={st.orowan.fPct} aria-label="Precipitate volume fraction, percent"
-                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, orowan: { ...x.orowan, fPct: n } })); }} />
-              </label>
-              <label>X (nm)
-                <input className="el-num mono" inputMode="decimal" value={st.orowan.dNm} aria-label="Mean particle diameter, nanometres"
-                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, orowan: { ...x.orowan, dNm: n } })); }} />
-              </label>
-              <label>G (GPa)
-                <input className="el-num mono" inputMode="decimal" value={st.orowan.G} aria-label="Shear modulus, GPa"
-                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, orowan: { ...x.orowan, G: n } })); }} />
-              </label>
-              <label>b (nm)
-                <input className="el-num mono" inputMode="decimal" value={st.orowan.b} aria-label="Burgers vector, nanometres"
-                  onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) setStrength((x) => ({ ...x, orowan: { ...x.orowan, b: n } })); }} />
-              </label>
+              {input("fPct", "Precipitate volume fraction, percent")}
+              {input("dNm", "Mean particle diameter, nanometres")}
+              {input("G", "Shear modulus, GPa")}
+              {input("b", "Burgers vector, nanometres")}
             </div>
-            <div className="calc-src">
-              Parameters are yours: σ0/k_y are material-class fits, K/n come
-              from a fit to your tensile data (uniform elongation ≈{" "}
-              {Number.isFinite(hol.uniformElongationPct) ? hol.uniformElongationPct.toFixed(0) : "—"}{" "}
-              % engineering at the current n), and G/b seeds are
-              literature-typical for the chosen matrix. Increments do not add
-              linearly — superposition is mechanism-dependent.
-            </div>
+            {matrixMismatch && <p className="calc-warn" role="status">Matrix mismatch: the selected constants do not describe {baseAlloy?.names[0]}. Orowan output is paused.</p>}
+            {Object.keys(MATRIX_CONSTANTS).includes(st.orowan.matrix) && <p className="calc-src">G/b preset: {MATRIX_CONSTANTS[st.orowan.matrix]?.note}. These assumed reference values have no per-value citation attached. Review or replace them before computing; they are not measurements of this grade.</p>}
+            {(["grainAstm", "sigma0", "ky", "K", "n", "fPct", "dNm", "G", "b"] as StrengthKey[]).some((k) => strengthValue(st, k) !== null && (!st.origins[k] || st.origins[k] === "unverified" || st.origins[k] === "assumed")) && <div className="assumption-review">
+              <p>Assumed or unverified values need review; saved values may include defaults from an earlier session. Check their applicability before using them.</p>
+              <button type="button" className="btn ghost" onClick={() => setStrength((s) => ({ ...s, origins: Object.fromEntries(
+                (["grainAstm", "sigma0", "ky", "K", "n", "fPct", "dNm", "G", "b"] as StrengthKey[])
+                  .filter((k) => strengthValue(s, k) !== null).map((k) => [k, s.origins[k] === "sourced" ? "sourced" : "user-entered"])
+              ) }))}>I reviewed these parameters for this material</button>
+            </div>}
+          </div>
+          <div className="calc-grid">
+            <CalcCard label="Hall-Petch σy" r={hpRes}
+              spark={hpReady && <SweepSpark points={hpSweep} currentX={dUm ?? 0} element="d" unit="µm" />} />
+            <CalcCard label="Hollomon UTS + Considère" r={hol.utsEng}
+              spark={holReady && <SweepSpark points={holSweep} currentX={st.holl.n ?? 0} element="ε true" unit="(εu = n)" />} />
+            <CalcCard label="Ashby-Orowan Δσ" r={orRes}
+              spark={orReady && <SweepSpark points={orSweep} currentX={st.orowan.dNm ?? 0} element="X" unit="nm" />} />
           </div>
 
-          <div className="flow-curve-panel">
+          {holReady && hol.utsEng.inWindow && <div className="flow-curve-panel">
             <span className="calc-label">
               Flow curve — Hollomon fit <span className="prov computed">COMPUTED</span>
             </span>
             <LineChart
               series={(() => {
-                const K = st.holl.K;
-                const n = Math.max(0.01, Math.min(0.6, st.holl.n));
+                const K = st.holl.K!;
+                const n = Math.max(0.01, Math.min(0.6, st.holl.n!));
                 const pts = 40;
                 const trueS: { x: number; y: number }[] = [];
                 const engS: { x: number; y: number }[] = [];
@@ -792,9 +696,9 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
               yMin={0}
               yFmt={(y) => `${y.toFixed(0)} MPa`}
               hoverHint="hover to read stress at a strain"
-              footnote={`σ_true = K·ε^n with YOUR K = ${st.holl.K} MPa, n = ${st.holl.n} (fit constants, not measurements). Drawn over the UNIFORM range only — the curve ends at the Considère point ε_true = n (necking onset); post-necking response is not modeled. Engineering curve: σ_eng = σ_true·e^(−ε_true).`}
+              footnote={`σ_true = K·ε^n with user-entered K = ${st.holl.K} MPa, n = ${st.holl.n} (fit constants, not measurements). Drawn over the UNIFORM range only — the curve ends at the Considère point ε_true = n (necking onset); post-necking response is not modeled. Engineering curve: σ_eng = σ_true·e^(−ε_true).`}
             />
-          </div>
+          </div>}
 
           <div className="wrc-and-lmp">
             <WrcDiagram
@@ -812,18 +716,19 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
                 </span>
               </div>
               <div className="calc-formula mono">{results.lmp.formula}</div>
+              <p className="calc-src">Scenario inputs: T {state.lmpOrigins.tempC ?? "assumed"} · t {state.lmpOrigins.hours ?? "assumed"} · C {state.lmpOrigins.C ?? "assumed"}. This correlation does not predict the selected alloy’s life.</p>
               <div className="lmp-inputs">
                 <label>T (°C)
                   <input className="el-num mono" inputMode="decimal" value={state.lmp.tempC}
-                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) update((s) => ({ ...s, lmp: { ...s.lmp, tempC: n } })); }} />
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) update((s) => ({ ...s, lmp: { ...s.lmp, tempC: n }, lmpOrigins: { ...s.lmpOrigins, tempC: "user-entered" } })); }} />
                 </label>
                 <label>t (h)
                   <input className="el-num mono" inputMode="decimal" value={state.lmp.hours}
-                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) update((s) => ({ ...s, lmp: { ...s.lmp, hours: n } })); }} />
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) update((s) => ({ ...s, lmp: { ...s.lmp, hours: n }, lmpOrigins: { ...s.lmpOrigins, hours: "user-entered" } })); }} />
                 </label>
                 <label>C
                   <input className="el-num mono" inputMode="decimal" value={state.lmp.C}
-                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) update((s) => ({ ...s, lmp: { ...s.lmp, C: n } })); }} />
+                    onChange={(e) => { const n = Number(e.target.value); if (Number.isFinite(n)) update((s) => ({ ...s, lmp: { ...s.lmp, C: n }, lmpOrigins: { ...s.lmpOrigins, C: "user-entered" } })); }} />
                 </label>
               </div>
               <div className="calc-src">
@@ -858,6 +763,8 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
             </div>
           </div>
 
+          </div>
+          <div className="studio-thermodynamics">
           <h2 className="studio-h">Phase equilibrium — in-browser CALPHAD engine</h2>
           <EquilibriumPanel
             comp={comp}
@@ -865,6 +772,7 @@ ${results.matches.map((m) => `<tr><td>${m.name} (${m.uns})</td><td>${m.conforms 
               runAllRef.current = fn;
             }}
           />
+          </div>
         </div>
       </div>
     </>

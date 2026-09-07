@@ -1,7 +1,10 @@
 "use client";
+import { recordedPostMessage, terminateRecordedWorker } from "../lib/calculationHistory";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Composition } from "@alloyra/core";
+import { getStudyItem, setStudyItem } from "../lib/workspace";
+import { validationCoverage } from "../lib/validation";
 import { ENGINE_DBS, baseHint } from "../lib/engine";
 import type { EngineResponse } from "../workers/calphadEngine.worker";
 import { LineChart } from "./charts/Line";
@@ -27,7 +30,10 @@ export function EquilibriumPanel({
   /** Hands the parent a "queue every computation" trigger (Compute all). */
   onRegisterRunAll?: (fn: () => void) => void;
 }) {
-  const [tempC, setTempC] = useState(500);
+  const [saved] = useState<Record<string, string | number>>(() => { try { return JSON.parse(getStudyItem("alloyra.engineSettings.v1") ?? "{}"); } catch { return {}; } });
+  const initialNumber = (key: string, fallback: number): number => typeof saved[key] === "number" ? saved[key] as number : fallback;
+  const initialString = (key: string, fallback: string): string => typeof saved[key] === "string" ? saved[key] as string : fallback;
+  const [tempC, setTempC] = useState(initialNumber("tempC", 500));
   // One dedicated worker PER computation kind: point, sweep, Scheil, and
   // the isopleth map run on separate cores, so "Compute all" is the MAX of
   // the four runtimes, not the sum. Each worker parses the TDB once
@@ -38,7 +44,7 @@ export function EquilibriumPanel({
   const [engineElapsed, setEngineElapsed] = useState(0);
   const [engineResult, setEngineResult] = useState<EngineResult | null>(null);
   const [engineError, setEngineError] = useState("");
-  const [engineDbId, setEngineDbId] = useState(ENGINE_DBS[0]!);
+  const [engineDbId, setEngineDbId] = useState(initialString("engineDbId", ENGINE_DBS[0]!));
   // Staleness keys (honesty): engine results are run-on-demand snapshots.
   // Each run records the inputs it was computed WITH; when the live inputs
   // drift, the result stays visible (before/after comparison is useful)
@@ -48,17 +54,17 @@ export function EquilibriumPanel({
   const [scheilRunKey, setScheilRunKey] = useState("");
   const [mapRunKey, setMapRunKey] = useState("");
   // Property diagram (B-502): T sweep streamed from the worker.
-  const [sweepFrom, setSweepFrom] = useState(400);
-  const [sweepTo, setSweepTo] = useState(1500);
-  const [sweepStep, setSweepStep] = useState(100);
+  const [sweepFrom, setSweepFrom] = useState(initialNumber("sweepFrom", 400));
+  const [sweepTo, setSweepTo] = useState(initialNumber("sweepTo", 1500));
+  const [sweepStep, setSweepStep] = useState(initialNumber("sweepStep", 100));
   const [sweepRunning, setSweepRunning] = useState(false);
   const [sweepProgress, setSweepProgress] = useState<{ done: number; total: number } | null>(null);
   const [sweepPoints, setSweepPoints] = useState<SweepPointUi[]>([]);
   const [sweepError, setSweepError] = useState("");
   const [sweepDb, setSweepDb] = useState("");
   // Scheil solidification (B-504).
-  const [scheilStart, setScheilStart] = useState(1550);
-  const [scheilDT, setScheilDT] = useState(5);
+  const [scheilStart, setScheilStart] = useState(initialNumber("scheilStart", 1550));
+  const [scheilDT, setScheilDT] = useState(initialNumber("scheilDT", 5));
   const [scheilRunning, setScheilRunning] = useState(false);
   const [scheilPoints, setScheilPoints] = useState<
     { tC: number; fractionSolid: number; liquidX: Record<string, number> }[]
@@ -74,13 +80,13 @@ export function EquilibriumPanel({
   const [scheilError, setScheilError] = useState("");
   const [scheilDb, setScheilDb] = useState("");
   // Isopleth map (B-503): sampled phase-set grid vs composition & T.
-  const [mapEl, setMapEl] = useState("");
-  const [mapFrom, setMapFrom] = useState(0);
-  const [mapTo, setMapTo] = useState(4);
-  const [mapTMin, setMapTMin] = useState(600);
-  const [mapTMax, setMapTMax] = useState(1500);
-  const [mapNX, setMapNX] = useState(13);
-  const [mapNT, setMapNT] = useState(19);
+  const [mapEl, setMapEl] = useState(initialString("mapEl", ""));
+  const [mapFrom, setMapFrom] = useState(initialNumber("mapFrom", 0));
+  const [mapTo, setMapTo] = useState(initialNumber("mapTo", 4));
+  const [mapTMin, setMapTMin] = useState(initialNumber("mapTMin", 600));
+  const [mapTMax, setMapTMax] = useState(initialNumber("mapTMax", 1500));
+  const [mapNX, setMapNX] = useState(initialNumber("mapNX", 13));
+  const [mapNT, setMapNT] = useState(initialNumber("mapNT", 19));
   const [mapRunning, setMapRunning] = useState(false);
   const [mapCols, setMapCols] = useState(0);
   const [mapData, setMapData] = useState<{
@@ -105,6 +111,9 @@ export function EquilibriumPanel({
     return best;
   }, [comp]);
 
+  const settings = JSON.stringify({ engineDbId, tempC, sweepFrom, sweepTo, sweepStep, scheilStart, scheilDT, mapEl, mapFrom, mapTo, mapTMin, mapTMax, mapNX, mapNT });
+  useEffect(() => { try { setStudyItem("alloyra.engineSettings.v1", settings); } catch { /* central error */ } }, [settings]);
+
   const compKey = useMemo(() => JSON.stringify(comp), [comp]);
 
   // Database auto-pick by base metal; the user's own selection stands
@@ -123,7 +132,9 @@ export function EquilibriumPanel({
       composition/settings. Run again to refresh.
     </div>
   );
+  const firstPick = useRef(true);
   useEffect(() => {
+    if (firstPick.current) { firstPick.current = false; if (saved.engineDbId) return; }
     const pick = ENGINE_DBS.find((id) => baseHint(id) === dominant);
     if (pick) setEngineDbId(pick);
   }, [dominant]);
@@ -147,7 +158,7 @@ export function EquilibriumPanel({
 
   useEffect(
     () => () => {
-      for (const w of workersRef.current.values()) w.terminate();
+      for (const w of workersRef.current.values()) terminateRecordedWorker(w);
     },
     [],
   );
@@ -174,7 +185,7 @@ export function EquilibriumPanel({
       }
     };
     worker.addEventListener("message", onMessage);
-    worker.postMessage({
+    recordedPostMessage(worker, {
       id,
       kind: "point",
       dbId: engineDb,
@@ -221,7 +232,7 @@ export function EquilibriumPanel({
       }
     };
     worker.addEventListener("message", onMessage);
-    worker.postMessage({
+    recordedPostMessage(worker, {
       id,
       kind: "step",
       dbId: engineDb,
@@ -284,7 +295,7 @@ export function EquilibriumPanel({
       }
     };
     worker.addEventListener("message", onMessage);
-    worker.postMessage({
+    recordedPostMessage(worker, {
       id,
       kind: "scheil",
       dbId: engineDb,
@@ -369,7 +380,7 @@ export function EquilibriumPanel({
       }
     };
     worker.addEventListener("message", onMessage);
-    worker.postMessage({
+    recordedPostMessage(worker, {
       id,
       kind: "map",
       dbId: engineDb,
@@ -437,7 +448,7 @@ export function EquilibriumPanel({
             className="prov engine-chip"
             title="52-equilibrium battery vs pycalphad across all 4 shipped databases — see docs/engine-validation.md in the repository"
           >
-            IN-BROWSER · CROSS-CHECKED
+            IN-BROWSER
           </span>
         </span>
       </div>
@@ -465,17 +476,8 @@ export function EquilibriumPanel({
               </button>
             </div>
             <div className="calc-src">
-              Pure-TypeScript CALPHAD engine running in THIS tab — your
-              composition never leaves the browser and there is no server
-              behind this button. Cross-checked against pycalphad on a
-              52-equilibrium battery over the dataset's mid-specs across all
-              four shipped databases: 44 identical phase sets at ≈0 fraction
-              difference, and every disagreement repriced and documented
-              (docs/engine-validation.md) — two are exact energy
-              degeneracies, the worst genuine engine miss is 50 J/mol-atom
-              in a five-phase 500 °C assemblage, and in three Alloy-718
-              cases the engine found DEEPER minima than the reference
-              solver.
+              {validationCoverage(comp as Record<string, number>, engineDb, tempC)} <a href="/validation/engine-validation.md" target="_blank" rel="noreferrer">Read validation report</a>
+              <p>Sweeps, Scheil trajectories and isopleth boundaries are not validated by the point-equilibrium battery. Each run stores its inputs, outputs, engine fingerprint and coverage in <a href="/studies">Saved studies</a>.</p>
             </div>
             {engineRunning && (
               <div className="calc-src" role="status">
@@ -660,7 +662,7 @@ export function EquilibriumPanel({
               <div className="engine-head">
                 <span className="calc-label">
                   Isopleth — phase-set map vs composition &amp; T{" "}
-                  <span className="prov engine-chip">SAMPLED · B-503</span>
+                  <span className="prov engine-chip">SAMPLED</span>
                 </span>
                 <button
                   type="button"

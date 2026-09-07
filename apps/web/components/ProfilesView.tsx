@@ -1,5 +1,6 @@
 "use client";
 
+import { selectStudyDuty } from "../lib/comparison";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -38,7 +39,7 @@ function num(v: string): number | null {
 export function ProfilesView() {
   const router = useRouter();
   const params = useSearchParams();
-  const returnTo = params.get("from") === "comparisons" ? "/comparisons" : null;
+  const returnTo = params.get("from") === "comparisons" ? "/comparisons" : params.get("from") === "screening" ? "/screening" : null;
   const [profiles, setProfiles] = useState<DutyProfile[]>([]);
   const [draft, setDraft] = useState<DutyProfile>(blank());
   const [loaded, setLoaded] = useState(false);
@@ -90,6 +91,7 @@ export function ProfilesView() {
     };
     persist([record, ...profiles.filter((p) => p.id !== draft.id)]);
     setDraft(record);
+    selectStudyDuty(record);
     if (returnTo) router.push(returnTo);
   };
 
@@ -103,7 +105,7 @@ export function ProfilesView() {
         <span className="count">{loaded ? `${profiles.length} saved` : ""}</span>
         <span style={{ flex: 1 }} />
         {returnTo && (
-          <span className="save-hint">Saving returns you to the comparison</span>
+          <span className="save-hint">Saving selects this duty and continues the study</span>
         )}
         {!draft.name.trim() && (
           <span className="save-hint" id="save-hint">
@@ -189,7 +191,7 @@ export function ProfilesView() {
           </fieldset>
 
           <fieldset>
-            <legend>Thermal duty — R-1.1</legend>
+            <legend>Thermal duty</legend>
             <div className="frow">
               <div className="field">
                 <label htmlFor="t-min">Min service temp (°C)</label>
@@ -210,7 +212,7 @@ export function ProfilesView() {
           </fieldset>
 
           <fieldset>
-            <legend>Mechanical duty — R-1.2</legend>
+            <legend>Mechanical duty</legend>
             <div className="frow">
               <div className="field">
                 <label htmlFor="m-load">Load type</label>
@@ -242,7 +244,7 @@ export function ProfilesView() {
           </fieldset>
 
           <fieldset>
-            <legend>Environment chemistry — R-1.3</legend>
+            <legend>Environment chemistry</legend>
             <div className="frow">
               <div className="field">
                 <label htmlFor="c-med">Medium</label>
@@ -279,7 +281,7 @@ export function ProfilesView() {
           </fieldset>
 
           <fieldset>
-            <legend>System context — R-1.4</legend>
+            <legend>System context</legend>
             <div className="frow">
               <div className="field">
                 <label htmlFor="x-galv">Galvanic couple (mating metal)</label>
@@ -315,7 +317,7 @@ export function ProfilesView() {
           </fieldset>
 
           <fieldset>
-            <legend>Constraints — R-1.6</legend>
+            <legend>Constraints</legend>
             <div className="frow">
               <div className="field">
                 <label htmlFor="k-cost">Max cost (per kg, your currency)</label>

@@ -1,3 +1,5 @@
+
+import { getStudyItem, setStudyItem } from "./workspace";
 import type { DutyInput, LmeContact, LoadType, Medium, TriState } from "@alloyra/core";
 
 /**
@@ -68,7 +70,7 @@ function tri(v: unknown): TriState {
 /** Load with forward-compatible migration for older saved shapes. */
 export function loadProfiles(): DutyProfile[] {
   try {
-    const raw = JSON.parse(localStorage.getItem(PROFILE_STORE) ?? "[]") as DutyProfile[];
+    const raw = JSON.parse(getStudyItem(PROFILE_STORE) ?? "[]") as DutyProfile[];
     return raw.map((p) => ({
       ...p,
       mechanical: { ...p.mechanical, loadType: p.mechanical.loadType ?? "unknown" },
@@ -93,7 +95,7 @@ export function loadProfiles(): DutyProfile[] {
 
 export function saveProfiles(profiles: DutyProfile[]): void {
   try {
-    localStorage.setItem(PROFILE_STORE, JSON.stringify(profiles));
+    setStudyItem(PROFILE_STORE, JSON.stringify(profiles));
   } catch {
     /* storage unavailable — session-only */
   }

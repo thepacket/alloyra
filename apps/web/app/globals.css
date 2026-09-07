@@ -493,7 +493,7 @@ table.kv td.num { text-align: right; font-family: var(--font-mono); font-size: 1
 .weight .mono { font-size: 10.5px; color: var(--accent); font-variant-numeric: tabular-nums; }
 
 .cmp-scroll { flex: 1; min-height: 0; overflow: auto; padding: 14px; }
-.cmp-grid { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); min-width: max-content; }
+.cmp-grid { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); min-width: 0; }
 .cmp-corner, .cmp-head, .cmp-rowlabel, .cmp-cell { background: var(--panel); padding: 9px 12px; }
 .cmp-corner { background: var(--panel-2); }
 .cmp-rowlabel {
@@ -1123,3 +1123,47 @@ table.data tbody tr.selected { box-shadow: inset 2px 0 0 var(--accent); }
 .chart-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 6px; }
 .legend-item { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
 .legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+/* Active study stays visible while each instrument panel scrolls independently. */
+.work-area { grid-area: main; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+.work-area > .main { flex: 1; min-height: 0; }
+.study-bar { display: flex; align-items: center; gap: 14px; padding: 8px 14px; background: var(--panel-2); border-bottom: 1px solid var(--line-strong); color: var(--muted); flex-shrink: 0; flex-wrap: wrap; }
+.study-bar label { display: flex; align-items: center; gap: 8px; color: var(--ink); }
+.study-bar input { width: 200px; max-width: 50vw; background: var(--bg); border: 1px solid var(--line-strong); border-radius: 4px; padding: 5px 8px; color: var(--ink); font: inherit; }
+.study-duty { flex: 1; min-width: 110px; max-width: 360px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.home-actions > a:not(.btn) { color: var(--accent); }
+.home-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; margin: 20px 0 10px; }
+.workflow-notice { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; background: var(--accent-wash); flex-shrink: 0; }
+.workflow-notice span { flex: 1; min-width: 200px; }
+.score-status { display: block; font-size: 12px; color: var(--muted); margin: 4px 0 8px; }
+.score-status.partial { color: var(--straw); }
+.property-temp { display: block; color: var(--muted); font-size: 12px; margin-top: 5px; }
+.evidence-gaps { margin: 10px 0; padding-left: 18px; color: var(--straw); font-size: 12px; }
+.evidence-gaps li + li { margin-top: 8px; }
+.evidence-details { font-size: 12px; color: var(--muted); }
+.evidence-details summary { color: var(--accent); cursor: pointer; }
+.input-origin { display: block; font-size: 11px; color: var(--straw); }
+.strength-params .lmp-inputs label { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; max-width: 260px; }
+.assumption-review { padding: 10px; background: var(--straw-wash); border: 1px solid var(--straw); margin: 12px 0; }
+@media (max-width: 767px) {
+  .study-bar { gap: 8px; padding: 8px; font-size: 12px; }
+  .study-bar .study-duty { max-width: none; }
+  .study-bar label { width: 100%; }
+  .study-bar input { width: 100%; max-width: none; }
+}
+
+.cmp-grid { width: 100%; }
+.cmp-cell, .cmp-head { min-width: 0; overflow-wrap: anywhere; }
+.cmp-rowlabel { flex-wrap: wrap; }
+.cmp-head, .cmp-corner { position: sticky; top: 0; z-index: 2; }
+.cmp-cell .breakdown td:last-child { white-space: nowrap; padding-left: 6px; }
+.cmp-cell .score-num { font-size: 20px; }
+
+/* Study workflow and comfortable evidence reading. */
+.studies-content{padding:24px;max-width:1200px}.study-actions,.studio-tabs{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:16px 0}.study-actions input[type=file]{max-width:220px;display:block;margin-top:6px}.study-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin:24px 0}.study-list article{border:1px solid var(--line);padding:18px;border-radius:8px}.study-list h2{font-size:18px}.study-report{width:100%;height:70vh;border:1px solid var(--line);background:white}.storage-error{padding:12px;background:#493b24;color:#fff}.studio-tabs{padding:0 20px}.studio-tabs [aria-pressed=true]{background:var(--steel);color:white}.studio-section-composition .studio-right,.studio-section-empirical .studio-left,.studio-section-thermodynamics .studio-left,.studio-section-empirical .studio-thermodynamics,.studio-section-thermodynamics .studio-empirical{display:none}.split[class*=studio-section]{grid-template-columns:1fr}.split[class*=studio-section] .studio-left{max-width:900px;width:100%}.tradeoff-panel{margin:12px 20px;border:1px solid var(--line);border-radius:6px}.tradeoff-panel summary{cursor:pointer;padding:14px;font-weight:600}.tradeoff-content{padding:0 16px 16px}.tradeoff-list li,.sensitivity-ranges li{margin:10px 0;line-height:1.6}.tradeoff-list p{margin:4px 0}.cmp-scroll.comfortable td,.cmp-scroll.comfortable th{padding:16px!important;line-height:1.6}.candidate-evidence{position:fixed;right:0;top:0;bottom:0;z-index:90;width:min(560px,100vw);padding:24px;overflow-y:auto;background:var(--bg);border-left:1px solid var(--line);box-shadow:-12px 0 45px #0008;line-height:1.65}.candidate-evidence p{overflow-wrap:anywhere}.candidate-evidence details{border-top:1px solid var(--line);padding:12px 0}.candidate-evidence summary{cursor:pointer}.evidence-heading{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.evidence-heading h2{font-size:20px}.cond{scroll-margin-top:140px}
+@media(min-width:768px){.shell.rail-collapsed{grid-template-columns:0 minmax(0,1fr)}.rail-collapsed .rail-holder{visibility:hidden;overflow:hidden}}
+@media(max-width:767px){.rail-toggle{display:none}.studies-content{padding:16px}.studio-tabs{gap:6px}.candidate-evidence{padding:18px}.study-actions{align-items:stretch;flex-direction:column}.tradeoff-panel{margin:10px}}
+
+.studies-content{min-height:0;overflow-y:auto;flex:1}.cmp-scroll.comfortable .cmp-head,.cmp-scroll.comfortable .cmp-cell,.cmp-scroll.comfortable .cmp-rowlabel{padding:16px;line-height:1.6}.tradeoff-panel{flex:none;max-height:50vh;overflow:auto}.studio-tabs{flex:none}.split[class*=studio-section]{grid-template-columns:none}.studio-section-composition .studio-left{border-right:0}.studio-h{font-size:11px;color:var(--muted)}
+
+.study-actions>input{background:var(--panel);border:1px solid var(--line);border-radius:5px;color:var(--ink);padding:9px 12px;font:inherit}.evidence-link{margin:8px 0}.study-actions input::file-selector-button{background:var(--panel-3);color:var(--ink);border:1px solid var(--line);border-radius:4px;padding:5px 9px}.saved-calculations{margin:24px 0}.saved-calculations article{border-top:1px solid var(--line);padding:12px 0}.saved-calculations pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:320px;overflow:auto;font-size:11px}

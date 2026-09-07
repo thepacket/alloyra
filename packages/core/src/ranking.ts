@@ -1,6 +1,6 @@
 import { midpointComposition } from "./composition.ts";
 import type { DutyInput } from "./duty.ts";
-import { pren } from "./calculators/pren.ts";
+import { prenForFamily } from "./calculators/pren.ts";
 import type { CandidateFacts, RuleAudit } from "./rules/types.ts";
 
 /**
@@ -55,6 +55,11 @@ export interface RankResult {
   contributions: Contribution[];
   /** 0–100, weighted mean of raws. NaN when every weight is zero. */
   score: number;
+  /** Weighted share of requested criteria with usable inputs; not confidence. */
+  coveragePercent: number;
+  /** Partial results are inspectable but must not be automatically ranked. */
+  scoreComplete: boolean;
+  evidenceGaps: string[];
 }
 
 const clamp01 = (x: number) => Math.max(0, Math.min(1, x));
@@ -66,12 +71,22 @@ export function rankCandidate(
   weights: Weights = DEFAULT_WEIGHTS,
   extra: readonly ExtraCriterion[] = [],
 ): RankResult {
+  const safeWeight = (w: number) => Number.isFinite(w) && w > 0 ? w : 0;
+  weights = { strength: safeWeight(weights.strength), corrosion: safeWeight(weights.corrosion), auditCleanliness: safeWeight(weights.auditCleanliness) };
+  extra = extra.map((c) => ({ ...c, weight: safeWeight(c.weight), included: c.included && Number.isFinite(c.raw) }));
   const eliminationReasons: string[] = [];
+  const evidenceGaps: string[] = [];
+  // A single-temperature record is not a temperature-dependent property.
+  // No unvalidated tolerance or extrapolation is silently introduced.
+  const strengthIncluded = facts.yieldMPa !== undefined && Number.isFinite(facts.yieldMPa)
+    && facts.yieldMPa > 0 && facts.yieldTestTempC !== undefined
+    && Number.isFinite(facts.yieldTestTempC) && duty.tempMaxC !== null
+    && duty.tempMaxC === facts.yieldTestTempC;
 
   // Hard constraint: yield below design stress.
   if (
     duty.designStressMPa !== null &&
-    facts.yieldMPa !== undefined &&
+    strengthIncluded && facts.yieldMPa !== undefined &&
     facts.yieldMPa < duty.designStressMPa
   ) {
     eliminationReasons.push(
@@ -91,29 +106,31 @@ export function rankCandidate(
   // Strength margin.
   let strengthRaw: number;
   let strengthNote: string;
-  if (facts.yieldMPa === undefined) {
-    strengthRaw = 0;
-    strengthNote = "No yield value for this condition — scored 0, not guessed.";
+  if (!strengthIncluded) {
+    strengthRaw = Number.NaN;
+    strengthNote = facts.yieldMPa === undefined || !Number.isFinite(facts.yieldMPa) || facts.yieldMPa <= 0
+      ? "No usable yield value for this condition."
+      : facts.yieldTestTempC === undefined || !Number.isFinite(facts.yieldTestTempC)
+        ? "Yield test temperature is undocumented."
+        : duty.tempMaxC === null
+          ? "Service temperature is unspecified; yield applicability cannot be checked."
+          : `Yield is recorded at ${facts.yieldTestTempC} °C; duty is ${duty.tempMaxC} °C. Supply yield data at the duty temperature; no extrapolation is applied.`;
   } else if (duty.designStressMPa !== null && duty.designStressMPa > 0) {
-    strengthRaw = clamp01(1 - duty.designStressMPa / facts.yieldMPa);
-    strengthNote = `Margin: 1 − σ_design/σ_y = 1 − ${duty.designStressMPa}/${facts.yieldMPa}.`;
+    strengthRaw = clamp01(1 - duty.designStressMPa / facts.yieldMPa!);
+    strengthNote = `Margin: 1 − σ_design/σ_y = 1 − ${duty.designStressMPa}/${facts.yieldMPa}, at ${facts.yieldTestTempC} °C. Screening only; not a design allowable.`;
   } else {
-    strengthRaw = clamp01(facts.yieldMPa / 1000);
-    strengthNote = "No design stress given — normalized σ_y / 1000 MPa.";
+    strengthRaw = clamp01(facts.yieldMPa! / 1000);
+    strengthNote = `No positive design stress given — normalized σ_y / 1000 MPa at ${facts.yieldTestTempC} °C; not a stress margin.`;
   }
+  if (!strengthIncluded && weights.strength > 0) evidenceGaps.push(strengthNote);
 
-  // Corrosion index — honest scope: PREN where applicable, else neutral-void.
-  const p = pren(midpointComposition([...facts.composition]));
-  let corrosionRaw: number;
-  let corrosionNote: string;
-  if (p.inWindow) {
-    corrosionRaw = clamp01(p.value / 45);
-    corrosionNote = `PREN ≈ ${p.value.toFixed(1)} (mid-spec) / 45. Screening index only.`;
-  } else {
-    corrosionRaw = 0.5;
-    corrosionNote =
-      "No corrosion index available for this family — neutral 0.5; apply expert judgment.";
-  }
+  const p = prenForFamily(midpointComposition([...facts.composition]), facts.family);
+  const corrosionIncluded = p.inWindow && Number.isFinite(p.value);
+  const corrosionRaw = corrosionIncluded ? clamp01(p.value / 45) : Number.NaN;
+  const corrosionNote = corrosionIncluded
+    ? `PREN ≈ ${p.value.toFixed(1)} / 45. Range midpoints; max-only residuals omitted. Stainless-family screening index, not service-specific corrosion performance.`
+    : "No applicable corrosion index for this composition and family. No neutral score is assigned.";
+  if (!corrosionIncluded && weights.corrosion > 0) evidenceGaps.push(corrosionNote);
 
   // Audit cleanliness — meaningful ONLY when rules actually ran. With
   // zero rules the criterion is N/A and drops out of the weighted mean
@@ -142,18 +159,18 @@ export function rankCandidate(
       label: "Strength margin",
       raw: strengthRaw,
       weight: weights.strength,
-      points: strengthRaw * weights.strength,
+      points: strengthIncluded ? strengthRaw * weights.strength : 0,
       note: strengthNote,
-      included: true,
+      included: strengthIncluded,
     },
     {
       criterion: "corrosion",
       label: "Corrosion index",
       raw: corrosionRaw,
       weight: weights.corrosion,
-      points: corrosionRaw * weights.corrosion,
+      points: corrosionIncluded ? corrosionRaw * weights.corrosion : 0,
       note: corrosionNote,
-      included: true,
+      included: corrosionIncluded,
     },
     {
       criterion: "auditCleanliness",
@@ -189,7 +206,22 @@ export function rankCandidate(
       ? (included.reduce((s, c) => s + c.points, 0) / wSum) * 100
       : Number.NaN;
 
+  const requested = contributions.filter((c) => c.weight > 0);
+  const requestedWeight = requested.reduce((sum, c) => sum + c.weight, 0);
+  const auditIncomplete = audits.some((a) => a.status === "indeterminate");
+  const coveredWeight = requested.reduce((sum, c) => sum + (
+    c.included && !(c.criterion === "auditCleanliness" && auditIncomplete) ? c.weight : 0
+  ), 0);
+  if (weights.auditCleanliness > 0 && (!auditIncluded || auditIncomplete)) {
+    evidenceGaps.push(!auditIncluded ? "Failure audit not run — no active rules."
+      : "Failure audit has unresolved inputs: " + [...new Set(audits.flatMap((a) => a.unchecked))].join(", "));
+  }
+  for (const c of extra) if (c.weight > 0 && !c.included) evidenceGaps.push(c.note);
+
   return {
+    coveragePercent: requestedWeight > 0 ? coveredWeight / requestedWeight * 100 : 0,
+    scoreComplete: requestedWeight > 0 && coveredWeight === requestedWeight && Number.isFinite(score),
+    evidenceGaps,
     eliminated: eliminationReasons.length > 0,
     eliminationReasons,
     contributions,

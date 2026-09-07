@@ -4,7 +4,7 @@ export { midpointComposition, missingElements, wt } from "./composition.ts";
 export type { SpecRangeResult } from "./calculators/specRange.ts";
 export { specRange } from "./calculators/specRange.ts";
 export type { CalcResult } from "./calculators/types.ts";
-export { pren, type PrenVariant } from "./calculators/pren.ts";
+export { pren, prenForFamily, isPrenFamily, type PrenVariant } from "./calculators/pren.ts";
 export { wrc1992, type Wrc1992Result } from "./calculators/wrc1992.ts";
 export { ceIIW } from "./calculators/carbonEquivalent.ts";
 export { msAndrews } from "./calculators/msAndrews.ts";
@@ -80,3 +80,7 @@ export {
   matchesMicroQuery,
   microstructureHaystack,
 } from "./microstructure.ts";
+
+export { blankStrengthInputs, restoreStrengthInputs, strengthValue, strengthInputsReady, setStrengthValue, type StrengthInputs, type StrengthKey, type InputOrigin } from "./strengthInputs.ts";
+
+export { weightSensitivity, type SensitivityCandidate, type SensitivitySlice } from "./sensitivity.ts";

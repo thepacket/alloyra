@@ -113,3 +113,56 @@ Only redistributable values: standards' published minimums (`spec-min`) or
 clearly flagged `estimated` typicals. Nothing from licensed databases.
 Every value carries provenance and a citation; `computed` values always show
 their formula and validity window.
+
+## Study workflow and evidence coverage
+
+The active study name, selected duty and shortlist follow the user between
+workbench pages. Saving a duty selects it for the active study; the home
+page links directly to screening and the seawater example. The Saved studies page creates, duplicates and switches independent studies.
+Existing single-study browser data migrates without removing the legacy recovery keys.
+
+Comparison performance is a weighted summary of available criteria.
+Input coverage is reported separately and is **not** a confidence or
+validation percentage. Partial results retain their shortlist order;
+only candidates with complete requested criteria are automatically ranked.
+PREN is limited to stainless-family candidates across screening, comparison
+and studio. A single-temperature yield record contributes to the duty score
+or stress elimination only when its test temperature matches the duty
+temperature exactly. Other temperatures are evidence gaps; no tolerance,
+interpolation or extrapolation is assumed. Rule flags remain independent.
+
+Strengthening fit and particle inputs start empty. Older stored parameters
+are preserved as unverified; entering or explicitly reviewing them enables
+applicable calculations. Changing the base grade requires renewed review.
+Matrix presets are labeled assumed until reviewed, and incompatible presets
+block Orowan output. Composition and LMP scenario input origins are shown in
+the studio and carried into portable bundles and readable reports.
+
+### Condition screening, trade-offs and portable records
+
+Screening operates on all 29 alloy conditions rather than 27 grades. Property
+lookups, chart identities, rationale reports and comparison handoff preserve
+the exact condition; a missing property never falls back to another condition.
+The comparison includes reference-relative trade-offs and a sampled 0–2 weight
+sensitivity plot. Incomplete evidence suppresses preferred-candidate claims.
+Density controls, collapsible navigation, a keyboard-accessible evidence drawer,
+and three studio sections make detailed work easier to read.
+
+A versioned `alloyra-study` JSON bundle contains study inputs, reference snapshots,
+rule overlays/history, score and screening snapshots, empirical outputs and
+recorded worker requests/responses. Import validates before an atomic storage
+write and creates a new study. A different reference snapshot remains available
+for report/export, with live calculation panes disabled to avoid silently mixing
+reference versions. Historical outputs are reviewed in Saved studies; live panes
+recompute on demand. Each result snapshot carries its own inputs.
+
+Worker runs retain outputs on completion/error/cancellation, with periodic
+progress saves and the originating study ID. Browser termination can leave an
+incomplete record. Runs include solver/worker and TDB SHA-256 fingerprints;
+`apps/web/scripts/engine-manifest.mjs` refreshes them at build time. Validation
+coverage matches the archived 2026-08-29 report by database, normalized composition
+and exact temperature. Changed fingerprints suppress coverage. The baseline
+fingerprint associates the repository implementation with the archived report;
+it is not a new execution of the 52-case oracle battery. Do not refresh the
+baseline after solver changes without reviewing/regenerating validation evidence.
+The point battery does not establish trajectory or isopleth-boundary coverage.

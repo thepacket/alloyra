@@ -1,4 +1,4 @@
-import type { Alloy } from "@alloyra/data";
+import type { ScreeningCandidate } from "@alloyra/data";
 import {
   describeStage,
   type ScreenResult,
@@ -35,7 +35,7 @@ const fmtCell = (v: number | undefined, unit?: string): string =>
     : `${Math.abs(v) >= 100 ? v.toFixed(0) : Math.abs(v) >= 1 ? v.toFixed(1) : v.toFixed(3)}${unit ? ` ${unit}` : ""}`;
 
 export function buildScreeningReport(
-  result: ScreenResult<Alloy>,
+  result: ScreenResult<ScreeningCandidate>,
   datasetVersion: string,
 ): string {
   const stages = result.ran;
@@ -75,7 +75,7 @@ export function buildScreeningReport(
     lines.push("");
     for (const c of out) {
       const last = c.outcomes[c.outcomes.length - 1]!;
-      lines.push(`- **${c.candidate.names[0]}** (${c.candidate.uns}): ${last.reason}`);
+      lines.push(`- **${c.candidate.names[0]} — ${c.candidate.condition.name}** (${c.candidate.uns}; ${c.candidate.condition.id}): ${last.reason}`);
     }
     lines.push("");
   }
@@ -86,13 +86,13 @@ export function buildScreeningReport(
   if (survivors.length > 0) {
     const propDefs = propIds.map((id) => screenProperty(id)!);
     lines.push(
-      `| UNS | Name | Family |${propDefs.map((p) => ` ${p.label}${p.unit ? ` (${p.unit})` : ""} |`).join("")}`,
+      `| UNS | Name | Condition | Form | Family |${propDefs.map((p) => ` ${p.label}${p.unit ? ` (${p.unit})` : ""} |`).join("")}`,
     );
-    lines.push(`|---|---|---|${propDefs.map(() => "---|").join("")}`);
+    lines.push(`|---|---|---|---|---|${propDefs.map(() => "---|").join("")}`);
     for (const c of survivors) {
       const a = c.candidate;
       lines.push(
-        `| ${a.uns} | ${a.names[0]} | ${a.family.join(" → ")} |${propDefs
+        `| ${a.uns} | ${a.names[0]} | ${a.condition.name} | ${a.condition.form} | ${a.family.join(" → ")} |${propDefs
           .map((p) => ` ${fmtCell(p.get(a))} |`)
           .join("")}`,
       );
@@ -108,7 +108,7 @@ export function buildScreeningReport(
       lines.push("");
       for (const c of keptUnknown) {
         for (const o of c.outcomes.filter((o) => o.passed && o.reason.includes("KEPT"))) {
-          lines.push(`- **${c.candidate.names[0]}** (${c.candidate.uns}), stage ${o.stageNumber}: ${o.reason}`);
+          lines.push(`- **${c.candidate.names[0]} — ${c.candidate.condition.name}** (${c.candidate.uns}; ${c.candidate.condition.id}), stage ${o.stageNumber}: ${o.reason}`);
         }
       }
     }
@@ -117,6 +117,13 @@ export function buildScreeningReport(
   }
   lines.push("");
 
+  lines.push("## Candidate property records");
+  lines.push("");
+  for (const { candidate: a } of result.candidates) {
+    lines.push(`- **${a.names[0]} — ${a.condition.name}** (${a.condition.id}): ` +
+      a.condition.properties.map((p) => `${p.property}: ${p.value} ${p.unit} at ${p.testTempC} °C [${p.provenance}; ${p.source}]`).join("; "));
+  }
+  lines.push("");
   lines.push("## Method & provenance");
   lines.push("");
   for (const id of propIds) {

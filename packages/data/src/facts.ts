@@ -12,7 +12,10 @@ export function candidateFacts(alloy: Alloy, condition: Condition): CandidateFac
     conditionName: condition.name,
     composition: alloy.composition,
   };
-  if (yieldRec) facts.yieldMPa = yieldRec.value;
+  if (yieldRec) {
+    facts.yieldMPa = yieldRec.value;
+    facts.yieldTestTempC = yieldRec.testTempC;
+  }
   if (alloy.solidusK !== undefined) facts.solidusK = alloy.solidusK;
   return facts;
 }

@@ -94,6 +94,8 @@ export interface CandidateFacts {
   conditionName: string;
   /** Best available yield for the condition; caller labels its provenance. */
   yieldMPa?: number;
+  /** Test temperature of the yield record; absent means unverified. */
+  yieldTestTempC?: number;
   composition: readonly CompositionRange[];
   /** Approximate solidus, K (estimated) — powers the creep-regime clause. */
   solidusK?: number;

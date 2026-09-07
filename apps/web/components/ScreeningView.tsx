@@ -1,8 +1,10 @@
 "use client";
 
+import { getStudyItem, setStudyItem } from "../lib/workspace";
+
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
-import { alloys, DATASET_VERSION, RULESET_VERSION, type Alloy } from "@alloyra/data";
+import { alloys, DATASET_VERSION, conditionCandidates, type ScreeningCandidate } from "@alloyra/data";
 import {
   describeStage,
   screenCandidates,
@@ -16,6 +18,7 @@ import {
   SCREEN_PROPERTY_META,
   screenProperty,
 } from "../lib/screeningProps";
+import { loadStored as loadComparison, saveComparison } from "../lib/comparison";
 import { buildScreeningReport, referencedProperties } from "../lib/screeningReport";
 
 /**
@@ -33,6 +36,7 @@ interface StoredScreening {
 }
 
 const STORE = "alloyra.screening.v1";
+const candidates = conditionCandidates(alloys);
 const FAMILY_ROOTS = ["Fe", "Al", "Ti", "Ni", "Cu"];
 
 const defaultStored = (): StoredScreening => ({
@@ -44,7 +48,7 @@ const defaultStored = (): StoredScreening => ({
 
 function loadStored(): StoredScreening {
   try {
-    const raw = localStorage.getItem(STORE);
+    const raw = getStudyItem(STORE);
     if (!raw) return defaultStored();
     return { ...defaultStored(), ...(JSON.parse(raw) as StoredScreening) };
   } catch {
@@ -118,6 +122,7 @@ export function ScreeningView() {
   const [stored, setStored] = useState<StoredScreening>(defaultStored());
   const [loaded, setLoaded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [handoffError, setHandoffError] = useState("");
 
   useEffect(() => {
     setStored(loadStored());
@@ -128,7 +133,7 @@ export function ScreeningView() {
     setStored((s) => {
       const next = mut(s);
       try {
-        localStorage.setItem(STORE, JSON.stringify(next));
+        setStudyItem(STORE, JSON.stringify(next));
       } catch {
         /* session-only */
       }
@@ -192,15 +197,15 @@ export function ScreeningView() {
 
   const result = useMemo(
     () =>
-      screenCandidates(alloys, stored.stages, {
-        resolve: (a: Alloy, pid: string) => screenProperty(pid)?.get(a),
-        familyOf: (a: Alloy) => a.family,
+      screenCandidates(candidates, stored.stages, {
+        resolve: (a: ScreeningCandidate, pid: string) => screenProperty(pid)?.get(a),
+        familyOf: (a: ScreeningCandidate) => a.family,
         properties: SCREEN_PROPERTY_META,
       }),
     [stored.stages],
   );
-  const byUns = useMemo(
-    () => new Map(result.candidates.map((c) => [c.candidate.uns, c])),
+  const byCondition = useMemo(
+    () => new Map(result.candidates.map((c) => [c.candidate.condition.id, c])),
     [result],
   );
   const survivors = result.candidates.filter((c) => c.eliminatedAt === undefined);
@@ -211,16 +216,16 @@ export function ScreeningView() {
 
   const chartPoints: ScatterPoint[] = useMemo(
     () =>
-      alloys
+      candidates
         .map((a): ScatterPoint | undefined => {
           const x = xDef.get(a);
           const y = yDef.get(a);
           if (x === undefined || y === undefined) return undefined;
-          const c = byUns.get(a.uns);
+          const c = byCondition.get(a.condition.id);
           return {
-            id: a.uns,
-            label: a.names[0] ?? a.uns,
-            sub: a.uns,
+            id: a.condition.id,
+            label: `${a.names[0] ?? a.uns} — ${a.condition.name}`,
+            sub: `${a.uns} · ${a.condition.form}`,
             x,
             y,
             color: FAMILY_COLOR[a.family[0] ?? ""] ?? "var(--accent)",
@@ -228,7 +233,7 @@ export function ScreeningView() {
           };
         })
         .filter((p): p is ScatterPoint => p !== undefined),
-    [byUns, xDef, yDef],
+    [byCondition, xDef, yDef],
   );
 
   // Region stages drawn on the chart when their axes match the current view.
@@ -264,6 +269,9 @@ export function ScreeningView() {
     [result],
   );
 
+  const screeningSnapshot = JSON.stringify({ modelVersion: "alloyra-condition-screening-v1", inputs: { ...stored }, results: { funnel: result.funnel, candidates: result.candidates.map(({ candidate, ...outcome }) => ({ grade: candidate.names[0], condition: candidate.condition.name, conditionId: candidate.condition.id, ...outcome })) } });
+  useEffect(() => { if (loaded) { try { setStudyItem("alloyra.screeningResults.v1", screeningSnapshot); setStudyItem(STORE, JSON.stringify(stored)); } catch { /* central storage error */ } } }, [loaded, screeningSnapshot]);
+
   const copyReport = async () => {
     try {
       await navigator.clipboard.writeText(report);
@@ -284,37 +292,16 @@ export function ScreeningView() {
     URL.revokeObjectURL(url);
   };
 
-  // Handoff: survivors become comparison slots (first documented condition
-  // of each — the comparison shows and lets you change the condition).
+  // The exact condition that survived becomes the comparison candidate.
   const sendToComparison = () => {
-    const picks = survivors.slice(0, 6);
-    try {
-      const raw = localStorage.getItem("alloyra.comparison.v1");
-      const existing = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
-      const slots = picks
-        .map((c) => {
-          const cond = c.candidate.conditions[0];
-          return cond
-            ? { uns: c.candidate.uns, conditionId: cond.id, pinned: false, excluded: false }
-            : undefined;
-        })
-        .filter((s) => s !== undefined);
-      const overrideLog = [
-        ...((existing.overrideLog as string[] | undefined) ?? []),
-        `${new Date().toISOString()} — loaded ${slots.length} screening survivors (first documented condition of each; change conditions as needed)`,
-      ];
-      localStorage.setItem(
-        "alloyra.comparison.v1",
-        JSON.stringify({
-          datasetVersion: DATASET_VERSION,
-          rulesetVersion: RULESET_VERSION,
-          ...existing,
-          slots,
-          overrideLog,
-        }),
-      );
-    } catch {
-      /* session-only */
+    if (survivors.length === 0 || survivors.length > 6) return;
+    const previous = loadComparison();
+    const slots = survivors.map(({ candidate: a }) => ({ uns: a.uns, conditionId: a.condition.id, pinned: false, excluded: false }));
+    if (!saveComparison({ ...previous, slots,
+      overrideLog: [...previous.overrideLog, `${new Date().toISOString()} — loaded ${slots.length} screening survivors with their exact conditions: ${slots.map((s) => s.conditionId).join(", ")}`],
+    })) {
+      setHandoffError("Could not save the shortlist. Export the screening report before leaving this page.");
+      return;
     }
     router.push("/comparisons");
   };
@@ -328,7 +315,7 @@ export function ScreeningView() {
       <div className="pane-header">
         <h1>Staged screening</h1>
         <span className="count">
-          {survivors.length} of {alloys.length} survive · data {DATASET_VERSION}
+          {survivors.length} of {candidates.length} conditions survive · data {DATASET_VERSION}
         </span>
         <span style={{ flex: 1 }} />
         <div className="funnel mono" aria-label="Screening funnel">
@@ -499,7 +486,10 @@ export function ScreeningView() {
               points={chartPoints}
               xAxis={{ label: `${xDef.label}${xDef.unit ? ` (${xDef.unit})` : ""}` }}
               yAxis={{ label: `${yDef.label}${yDef.unit ? ` (${yDef.unit})` : ""}` }}
-              onPick={(uns) => router.push(`/database?sel=${uns}`)}
+              onPick={(id) => {
+                const a = candidates.find((c) => c.condition.id === id);
+                if (a) router.push(`/database?sel=${encodeURIComponent(a.uns)}#condition-${encodeURIComponent(id)}`);
+              }}
               regions={chartRegions}
               onBrush={onBrush}
               height={380}
@@ -512,6 +502,7 @@ export function ScreeningView() {
               <tr>
                 <th>UNS</th>
                 <th>Name</th>
+                <th>Condition / form</th>
                 <th>Family</th>
                 {propIds.map((id) => {
                   const p = screenProperty(id)!;
@@ -531,12 +522,13 @@ export function ScreeningView() {
                 const out = c.eliminatedAt !== undefined;
                 const last = c.outcomes[c.outcomes.length - 1];
                 return (
-                  <tr key={a.uns} className={out ? "screened-out" : ""}>
+                  <tr key={a.condition.id} className={out ? "screened-out" : ""}>
                     <td className="mono">
                       <span className="fam-dot" style={{ background: FAMILY_COLOR[a.family[0] ?? ""] ?? "var(--accent)" }} />
                       {a.uns}
                     </td>
                     <td>{a.names[0]}</td>
+                    <td>{a.condition.name}<span className="property-temp">{a.condition.form}</span></td>
                     <td className="dim">{a.family.join(" / ")}</td>
                     {propIds.map((id) => {
                       const v = screenProperty(id)!.get(a);
@@ -563,6 +555,7 @@ export function ScreeningView() {
             </tbody>
           </table>
 
+          {handoffError && <p role="alert" className="calc-warn">{handoffError}</p>}
           <div className="report-block">
             <div className="engine-head">
               <span className="calc-label">Rationale report</span>
@@ -582,7 +575,7 @@ export function ScreeningView() {
                     ? "The comparison holds up to 6 candidates — add a stage to narrow further."
                     : survivors.length === 0
                       ? "No survivors to send."
-                      : "Replace the comparison's candidates with these survivors (first documented condition of each)."
+                      : "Replace the comparison's candidates with these exact alloy–condition survivors."
                 }
               >
                 Send {survivors.length} survivor{survivors.length === 1 ? "" : "s"} to comparison

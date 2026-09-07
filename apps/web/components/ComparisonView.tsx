@@ -1,16 +1,17 @@
 "use client";
+import { recordedPostMessage, terminateRecordedWorker } from "../lib/calculationHistory";
 
+import { setStudyItem } from "../lib/workspace";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   alloys,
   candidateFacts,
   DATASET_VERSION,
-  RULESET_VERSION,
 } from "@alloyra/data";
 import {
   evaluateRules,
   midpointComposition,
-  pren,
+  prenForFamily,
   rankCandidate,
   type ExtraCriterion,
   type RuleAudit,
@@ -18,9 +19,10 @@ import {
 } from "@alloyra/core";
 import type { EngineResponse } from "../workers/calphadEngine.worker";
 import { ENGINE_DBS, baseHint, engineDbForBase, scheilStartCFor } from "../lib/engine";
+import { TradeoffPanel } from "./TradeoffPanel";
+import { CandidateEvidence } from "./CandidateEvidence";
 import { LineChart } from "./charts/Line";
 import {
-  blankProfile,
   dutyFromProfile,
   loadProfiles,
   saveProfiles,
@@ -30,84 +32,7 @@ import Link from "next/link";
 import { activeRules, effectiveRuleList, emptyOverlay, loadOverlay, rulesetLabel, type RuleOverlay } from "../lib/rules";
 import { ProvenanceChip } from "./ProvenanceChip";
 
-/** One comparison slot: an alloy IN a condition, plus expert overrides (R-3.4). */
-interface Slot {
-  uns: string;
-  conditionId: string;
-  pinned: boolean;
-  excluded: boolean;
-}
-
-interface StoredComparison {
-  profileId: string | null;
-  slots: Slot[];
-  weights: Weights;
-  /** Weight of the Scheil-derived castability criterion (B-504 follow-through). */
-  castabilityWeight: number;
-  /** Draft (unreviewed) rules run only on visible opt-in — default off. */
-  includeDrafts: boolean;
-  /** Append-only audit trail of expert overrides (R-3.4). */
-  overrideLog: string[];
-  datasetVersion: string;
-  rulesetVersion: string;
-}
-
-const STORE = "alloyra.comparison.v1";
-const MAX_SLOTS = 6;
-
-/**
- * First-run example study (external review, 2026-08-28): one click shows
- * the full workflow — a sample duty, candidates, and the draft-rule opt-in
- * — without weakening any production default. Everything it creates is
- * labeled EXAMPLE and behaves like normal user data (editable, deletable).
- */
-const EXAMPLE_PROFILE_NAME = "EXAMPLE — seawater pump housing (welded)";
-
-function exampleProfile(): DutyProfile {
-  const p = blankProfile();
-  p.name = EXAMPLE_PROFILE_NAME;
-  p.savedAt = new Date().toISOString();
-  p.thermal = { minC: 5, nomC: 25, maxC: 45 };
-  p.mechanical = { loadType: "sustained", designStressMPa: 120, rRatio: null, cycles: null };
-  p.chemistry = { medium: "immersion", chloridePpm: 19000, pH: 8.1, h2sKpa: 0, ammonia: "no" };
-  p.context = {
-    galvanicCouple: "",
-    crevices: "yes",
-    welded: "yes",
-    cathodicProtection: "no",
-    lmeContact: "none",
-  };
-  p.constraints = { maxCostPerKg: null, route: "wrought" };
-  return p;
-}
-
-const EXAMPLE_SLOTS: Slot[] = [
-  { uns: "S32205", conditionId: "s32205-annealed-plate", pinned: false, excluded: false },
-  { uns: "S32750", conditionId: "s32750-annealed-plate", pinned: false, excluded: false },
-  { uns: "S31603", conditionId: "s31603-annealed-plate", pinned: false, excluded: false },
-  { uns: "N06625", conditionId: "n06625-annealed-plate", pinned: false, excluded: false },
-];
-
-const defaultStored = (): StoredComparison => ({
-  profileId: null,
-  slots: [],
-  weights: { strength: 1, corrosion: 1, auditCleanliness: 1 },
-  castabilityWeight: 1,
-  includeDrafts: false,
-  overrideLog: [],
-  datasetVersion: DATASET_VERSION,
-  rulesetVersion: RULESET_VERSION,
-});
-
-function loadStored(): StoredComparison {
-  try {
-    const raw = localStorage.getItem(STORE);
-    if (!raw) return defaultStored();
-    return { ...defaultStored(), ...(JSON.parse(raw) as StoredComparison) };
-  } catch {
-    return defaultStored();
-  }
-}
+import { defaultStored, loadStored, saveComparison, EXAMPLE_PROFILE_NAME, EXAMPLE_SLOTS, exampleProfile, MAX_SLOTS, STUDY_CHANGED, type StoredComparison } from "../lib/comparison";
 
 const sevRank = { disqualifying: 0, serious: 1, caution: 2 } as const;
 
@@ -173,7 +98,7 @@ function AuditList({ audits, rulesRan }: { audits: RuleAudit[]; rulesRan: number
     );
   const unchecked = [...new Set(audits.flatMap((a) => a.unchecked))];
   if (flagged.length === 0 && unchecked.length === 0) {
-    return <div className="audit-clear">No rule hits for this duty</div>;
+    return <div className="audit-unchecked">No hits among the active rules. This does not establish coverage of all failure modes for this family.</div>;
   }
   return (
     <div className="audit-list">
@@ -208,6 +133,10 @@ export function ComparisonView() {
   const [overlay, setOverlay] = useState<RuleOverlay>(emptyOverlay());
   const [loaded, setLoaded] = useState(false);
   const [adding, setAdding] = useState("");
+  const [exampleRequested, setExampleRequested] = useState(false);
+  const [saveError, setSaveError] = useState(false);
+  const [density, setDensity] = useState<"compact" | "comfortable">("compact");
+  const [evidenceId, setEvidenceId] = useState<string | null>(null);
   // Solidification comparison: per-condition Scheil state (session-only —
   // minutes of compute are not silently trusted across dataset changes).
   const [scheil, setScheil] = useState<Record<string, ScheilSlotState>>({});
@@ -219,10 +148,15 @@ export function ComparisonView() {
     setStored(loadStored());
     setProfiles(loadProfiles());
     setOverlay(loadOverlay());
+    setExampleRequested(new URLSearchParams(window.location.search).get("example") === "seawater");
     setLoaded(true);
+    const refresh = () => { setStored(loadStored()); setProfiles(loadProfiles()); };
+    window.addEventListener(STUDY_CHANGED, refresh);
+    window.addEventListener("storage", refresh);
+    return () => { window.removeEventListener(STUDY_CHANGED, refresh); window.removeEventListener("storage", refresh); };
   }, []);
 
-  useEffect(() => () => scheilWorkerRef.current?.terminate(), []);
+  useEffect(() => () => terminateRecordedWorker(scheilWorkerRef.current), []);
 
   const rules = useMemo(
     () => activeRules(overlay, { includeDrafts: stored.includeDrafts }),
@@ -239,15 +173,9 @@ export function ComparisonView() {
   }, [overlay]);
 
   const update = (mut: (s: StoredComparison) => StoredComparison) => {
-    setStored((s) => {
-      const next = mut(s);
-      try {
-        localStorage.setItem(STORE, JSON.stringify(next));
-      } catch {
-        /* session-only */
-      }
-      return next;
-    });
+    const next = mut(stored);
+    setStored(next);
+    setSaveError(!saveComparison(next));
   };
 
   const profile = profiles.find((p) => p.id === stored.profileId);
@@ -279,8 +207,8 @@ export function ComparisonView() {
       const castability: ExtraCriterion = {
         id: "castability",
         label: "Castability (Kou)",
-        raw: castable ? bestKou / kou : Number.NaN,
-        weight: stored.castabilityWeight,
+        raw: castable ? (kou === 0 ? 1 : bestKou / kou) : Number.NaN,
+        weight: bestKou === undefined ? 0 : stored.castabilityWeight,
         note: castable
           ? `Kou index ${kou.toFixed(0)} K vs best ${bestKou.toFixed(0)} K in this comparison — raw = best/own. Comparative between these candidates only, from mid-spec Scheil (in-browser engine).`
           : kou === undefined
@@ -291,10 +219,13 @@ export function ComparisonView() {
       const rank = duty
         ? rankCandidate(facts, duty, audits, stored.weights, [castability])
         : null;
-      const p = pren(midpointComposition(alloy.composition));
-      return [{ slot, alloy, condition, facts, audits, rank, pren: p.inWindow ? p.value : null }];
+      const p = prenForFamily(midpointComposition(alloy.composition), alloy.family);
+      return [{ slot, alloy, condition, facts, audits, rank, castability, pren: p.inWindow ? p.value : null }];
     });
   }, [stored.slots, stored.weights, stored.castabilityWeight, duty, rules, scheil]);
+
+  const resultSnapshot = JSON.stringify({ modelVersion: "alloyra-ranking-coverage-v1", inputs: { comparison: stored, duty, rules }, results: rows.map(({ alloy, condition, facts, audits, rank }) => ({ grade: alloy.names[0], condition: condition.name, conditionId: condition.id, facts, audits, rank })) });
+  useEffect(() => { if (loaded) { try { setStudyItem("alloyra.comparisonResults.v1", resultSnapshot); } catch { /* Shell reports storage failure */ } } }, [loaded, resultSnapshot]);
 
   const ordered = useMemo(() => {
     return [...rows].sort((a, b) => {
@@ -303,7 +234,9 @@ export function ComparisonView() {
       const ae = a.rank?.eliminated ? 1 : 0;
       const be = b.rank?.eliminated ? 1 : 0;
       if (ae !== be) return ae - be;
-      return (b.rank?.score ?? 0) - (a.rank?.score ?? 0);
+      // Partial evidence must not win a ranking by dropping weak criteria.
+      if (a.rank?.scoreComplete !== b.rank?.scoreComplete) return a.rank?.scoreComplete ? -1 : 1;
+      return a.rank?.scoreComplete && b.rank?.scoreComplete ? b.rank.score - a.rank.score : 0;
     });
   }, [rows]);
 
@@ -381,7 +314,7 @@ export function ComparisonView() {
         }
       };
       worker.addEventListener("message", onMessage);
-      worker.postMessage({
+      recordedPostMessage(worker, {
         id,
         kind: "scheil",
         dbId: db,
@@ -479,6 +412,7 @@ export function ComparisonView() {
   }, [rows, scheil]);
 
   const loadExample = () => {
+    setExampleRequested(false);
     const existing = loadProfiles();
     let profile = existing.find((p) => p.name === EXAMPLE_PROFILE_NAME);
     if (!profile) {
@@ -489,6 +423,7 @@ export function ComparisonView() {
     const id = profile.id;
     update((s) => ({
       ...s,
+      studyName: EXAMPLE_PROFILE_NAME,
       profileId: id,
       slots: EXAMPLE_SLOTS,
       includeDrafts: true,
@@ -503,8 +438,18 @@ export function ComparisonView() {
 
   return (
     <>
+      {exampleRequested && <div className="workflow-notice">
+        <strong>Explore the seawater example</strong>
+        <span>Loads a sample duty, four candidates and draft rules. Replaces the active shortlist; saved duty profiles remain available.</span>
+        <button className="btn" onClick={loadExample}>Load seawater example</button>
+        <button className="btn ghost" onClick={() => setExampleRequested(false)}>Keep current study</button>
+      </div>}
+      {saveError && <p className="calc-warn" role="alert">Browser storage is unavailable. Changes remain in this view only.</p>}
       <div className="pane-header">
         <h1>Comparison</h1>
+        <label className="inline-label">Density <select className="hdr-select" aria-label="Comparison density" value={density} onChange={(e) => setDensity(e.target.value as "compact" | "comfortable")}>
+          <option value="compact">Compact</option><option value="comfortable">Comfortable</option>
+        </select></label>
         <span className="count">
           rules {rulesetLabel(overlay)} · data {DATASET_VERSION}
         </span>
@@ -548,7 +493,7 @@ export function ComparisonView() {
       </div>
 
       <div className="weights-bar">
-        <span className="wlabel">Score weights (R-3.1 — yours to set):</span>
+        <span className="wlabel">Score weights:</span>
         {(
           [
             ["strength", "Strength margin"],
@@ -584,7 +529,7 @@ export function ComparisonView() {
           <span className="mono">{stored.castabilityWeight.toFixed(2)}</span>
         </label>
         <span className="score-eq mono">
-          score = Σ(wᵢ·rawᵢ)/Σwᵢ × 100 over available criteria
+          Performance = weighted available criteria · partial results are not ranked
         </span>
       </div>
 
@@ -649,8 +594,9 @@ export function ComparisonView() {
       )}
 
       {profile && ordered.length > 0 && (
-        <div className="cmp-scroll">
-          <div className="cmp-grid" style={{ gridTemplateColumns: `160px repeat(${ordered.length}, minmax(210px, 1fr))` }}>
+        <div className={`cmp-scroll ${density}`}>
+          {duty && <TradeoffPanel candidates={rows.filter((r) => !r.slot.excluded && r.rank).map((r) => ({ id: r.condition.id, name: `${r.alloy.names[0]} — ${r.condition.name}`, facts: r.facts, audits: r.audits, rank: r.rank!, extra: [r.castability] }))} duty={duty} weights={stored.weights} />}
+          <div className="cmp-grid" style={{ gridTemplateColumns: `150px repeat(${ordered.length}, minmax(${density === "compact" ? 210 : 310}px, 1fr))`, minWidth: 150 + ordered.length * (density === "compact" ? 211 : 311) }}>
             {/* Header row */}
             <div className="cmp-corner" />
             {ordered.map(({ slot, alloy, condition, rank }) => (
@@ -660,6 +606,7 @@ export function ComparisonView() {
                   {slot.pinned && <span className="pin-flag" title="Pinned by you">PINNED</span>}
                 </div>
                 <div className="cmp-cond">{condition.name} · <span className="mono">{alloy.uns}</span></div>
+                <button className="btn ghost evidence-link" onClick={() => setEvidenceId(condition.id)}>Inspect evidence</button>
                 <div className="cmp-actions">
                   <button type="button" className="mini" onClick={() => override(condition.id, "pinned")}>
                     {slot.pinned ? "Unpin" : "Pin"}
@@ -674,7 +621,7 @@ export function ComparisonView() {
               </div>
             ))}
 
-            <div className="cmp-rowlabel">Score</div>
+            <div className="cmp-rowlabel">Performance</div>
             {ordered.map(({ slot, condition, rank }) => (
               <div key={condition.id} className={`cmp-cell score ${slot.excluded ? "excluded" : ""}`}>
                 {slot.excluded ? (
@@ -688,8 +635,9 @@ export function ComparisonView() {
                   </div>
                 ) : rank ? (
                   <>
-                    <span className="score-num">{rank.score.toFixed(0)}</span>
-                    <div className="score-bar"><span style={{ width: `${Math.max(0, Math.min(100, rank.score))}%` }} /></div>
+                    <span className="score-num">{Number.isFinite(rank.score) ? rank.score.toFixed(0) : "—"}</span>
+                    <span className={rank.scoreComplete ? "score-status" : "score-status partial"}>{rank.scoreComplete ? "Complete criteria" : "Partial · not ranked"}</span>
+                    {Number.isFinite(rank.score) && <div className="score-bar"><span style={{ width: `${Math.max(0, Math.min(100, rank.score))}%` }} /></div>}
                     <table className="breakdown">
                       <tbody>
                         {rank.contributions.map((c) => (
@@ -707,6 +655,16 @@ export function ComparisonView() {
               </div>
             ))}
 
+            <div className="cmp-rowlabel">Evidence coverage</div>
+            {ordered.map(({ condition, rank }) => <div key={condition.id} className="cmp-cell">
+              <strong>{rank?.coveragePercent.toFixed(0)}% of weighted criteria</strong>
+              <p className="calc-src">Input coverage, not confidence or expert validation.</p>
+              {rank && rank.evidenceGaps.length > 0 && <ul className="evidence-gaps">{rank.evidenceGaps.map((gap) => <li key={gap}>{gap}</li>)}</ul>}
+              <details className="evidence-details"><summary>Inspect assumptions and contributions</summary>
+                {rank?.contributions.map((c) => <p key={c.criterion}><strong>{c.label}:</strong> {c.note}</p>)}
+              </details>
+            </div>)}
+
             <div className="cmp-rowlabel">σy (MPa)</div>
             {ordered.map(({ condition, facts }) => {
               const rec = condition.properties.find((p) => p.property === "yield_strength");
@@ -716,6 +674,7 @@ export function ComparisonView() {
                     <>
                       <span className="mono">{facts.yieldMPa}</span>{" "}
                       <ProvenanceChip p={rec.provenance} title={rec.source} />
+                      <span className="property-temp">Tested at {rec.testTempC} °C</span>
                     </>
                   ) : (
                     "—"
@@ -733,6 +692,7 @@ export function ComparisonView() {
                     <>
                       <span className="mono">{rec.value}</span>{" "}
                       <ProvenanceChip p={rec.provenance} title={rec.source} />
+                      <span className="property-temp">Tested at {rec.testTempC} °C</span>
                     </>
                   ) : (
                     "—"
@@ -741,7 +701,7 @@ export function ComparisonView() {
               );
             })}
 
-            <div className="cmp-rowlabel">PREN (mid-spec) <span className="prov computed" title="Computed from mid-spec composition">COMPUTED</span></div>
+            <div className="cmp-rowlabel">PREN (range midpoints; max-only residuals omitted) <span className="prov computed" title="Computed from mid-spec composition">COMPUTED</span></div>
             {ordered.map(({ condition, pren: p }) => (
               <div key={condition.id} className="cmp-cell num mono">
                 {p === null ? "n/a" : p.toFixed(1)}
@@ -835,7 +795,7 @@ export function ComparisonView() {
               });
             })()}
 
-            <div className="cmp-rowlabel">Failure audit &amp; evidence gaps</div>
+            <div className="cmp-rowlabel" id="failure-audit">Failure audit &amp; unresolved risks</div>
             {ordered.map(({ condition, audits }) => (
               <div key={condition.id} className="cmp-cell">
                 <AuditList audits={audits} rulesRan={rules.length} />
@@ -859,8 +819,8 @@ export function ComparisonView() {
 
           <div className="cmp-foot">
             Flags inform expert judgment — Alloyra never claims a part is safe
-            or will fail (R-5.4). Hover any flag for mechanism, evidence, and
-            mitigations. This comparison is saved in this browser only.
+            or will fail. Hover any flag for mechanism, evidence, and
+            mitigations, or open Inspect evidence for keyboard-accessible details. This comparison is saved in this browser only.
             {stored.overrideLog.length > 0 && (
               <details className="override-log">
                 <summary>
@@ -879,6 +839,10 @@ export function ComparisonView() {
           </div>
         </div>
       )}
+      {(() => {
+        const selected = rows.find((r) => r.condition.id === evidenceId);
+        return selected ? <CandidateEvidence name={selected.alloy.names[0] ?? selected.alloy.uns} condition={selected.condition} audits={selected.audits} rank={selected.rank} onClose={() => setEvidenceId(null)} /> : null;
+      })()}
     </>
   );
 }

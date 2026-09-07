@@ -1,0 +1,10 @@
+{
+  "version": "alloyra-calphad-1",
+  "codeSha256": "b36d1d0c290469edd0554488d8eedd2af103c19405ea694f4b6b3de2a4de5d4e",
+  "dbHashes": {
+    "NIST-solder": "56a0b25021f5dd4d2efbb9ed89ad8ad06929796e963c40ede857fcc9f72df8f3",
+    "mc_al_v2.032.pycalphad": "54624a7b064106333d541d2a5e81d972d8a83a549f6ecee8ead2aa66900d6d20",
+    "mc_fe_v2.059.pycalphad": "467211ab854400ac6d247bdfb97069d37e021cfced6b8dbb30c0334b74ee1508",
+    "mc_ni_v2.034.pycalphad": "73e349f0bf946b0be4b57ef22bb0fd66ada9fe1a7ff5f6b7037de3ca03d7c8ec"
+  }
+}

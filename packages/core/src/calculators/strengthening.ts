@@ -41,13 +41,13 @@ export function hallPetch(inputs: {
     formula: "σy = σ0 + k_y·d^(−1/2)",
     source: {
       citation: "Hall (1951), Proc. Phys. Soc. B 64, 747; Petch (1953), J. Iron Steel Inst. 174, 25",
-      note: "σ0 and k_y are material-class fits (literature-typical seeds — verify for your alloy and condition); classical scaling holds from ~100 µm down to ~1 µm.",
+      note: "σ0 and k_y must come from fits for the selected material and condition; classical scaling holds from ~100 µm down to ~1 µm.",
     },
   };
   const warnings: string[] = [];
   let inWindow = true;
-  if (!(dUm > 0)) {
-    return { ...base, value: Number.NaN, inWindow: false, warnings: ["Grain size must be positive."] };
+  if (![dUm, sigma0MPa, kyMPaSqrtUm].every(Number.isFinite) || !(dUm > 0) || sigma0MPa < 0 || kyMPaSqrtUm < 0) {
+    return { ...base, value: Number.NaN, inWindow: false, warnings: ["Enter finite parameters: positive grain size and non-negative σ0 and k_y."] };
   }
   if (dUm < 1) {
     inWindow = false;
@@ -79,12 +79,12 @@ export function hollomon(inputs: { kMPa: number; n: number }): {
     formula: "σ = K·εⁿ; ε_u = n (Considère); UTS_eng = K·nⁿ·e^(−n)",
     source: {
       citation: "Hollomon (1945), Trans. AIME 162, 268; Dieter, Mechanical Metallurgy, 3rd ed. (1986), ch. 8",
-      note: "K, n are fits to YOUR tensile data over a stated strain range; the power law rarely holds below ~1 % or beyond necking. Considère assumes rate-insensitive, uniform deformation.",
+      note: "K, n must be fitted to material-specific tensile data over a stated strain range; the power law rarely holds below ~1 % or beyond necking. Considère assumes rate-insensitive, uniform deformation.",
     },
   };
   const warnings: string[] = [];
   let inWindow = true;
-  if (!(kMPa > 0) || !(n > 0)) {
+  if (![kMPa, n].every(Number.isFinite) || !(kMPa > 0) || !(n > 0)) {
     return {
       utsEng: { ...base, value: Number.NaN, inWindow: false, warnings: ["K and n must be positive."] },
       uniformElongationPct: Number.NaN,
@@ -145,8 +145,8 @@ export function ashbyOrowan(inputs: {
   };
   const warnings: string[] = [];
   let inWindow = true;
-  if (!(f > 0) || !(particleDiameterNm > 0)) {
-    return { ...base, value: Number.NaN, inWindow: false, warnings: ["Volume fraction and particle diameter must be positive."] };
+  if (![f, particleDiameterNm, shearModulusGPa, burgersNm].every(Number.isFinite) || !(f > 0) || !(particleDiameterNm > 0) || !(shearModulusGPa > 0) || !(burgersNm > 0)) {
+    return { ...base, value: Number.NaN, inWindow: false, warnings: ["Volume fraction, particle diameter, shear modulus and Burgers vector must be finite and positive."] };
   }
   if (f > 0.3) {
     inWindow = false;

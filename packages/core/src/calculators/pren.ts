@@ -41,3 +41,18 @@ export function pren(c: Composition, variant: PrenVariant = "N16"): CalcResult {
   }
   return { ...base, value, inWindow, warnings };
 }
+
+/** Shared family boundary for grade-based screening, ranking and studio. */
+export function isPrenFamily(family: readonly string[]): boolean {
+  return family[0] === "Fe" && family[1] === "stainless";
+}
+
+export function prenForFamily(c: Composition, family: readonly string[]): CalcResult {
+  const result = pren(c);
+  if (isPrenFamily(family)) return result;
+  return {
+    ...result,
+    inWindow: false,
+    warnings: [...result.warnings, "PREN is not supported for this alloy family; no corrosion resistance is inferred."],
+  };
+}

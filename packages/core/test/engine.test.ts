@@ -35,6 +35,7 @@ const facts: CandidateFacts = {
   conditionId: "c",
   conditionName: "Annealed",
   yieldMPa: 205,
+  yieldTestTempC: 23,
   composition: [
     { element: "Cr", min: 17.5, max: 19.5 },
     { element: "Ni", min: 8, max: 10.5 },
@@ -135,7 +136,7 @@ describe("estimateContent", () => {
 
 describe("ranking", () => {
   it("eliminates when yield < design stress, with a stated reason (R-3.2)", () => {
-    const r = rankCandidate(facts, { ...baseDuty, designStressMPa: 300 }, []);
+    const r = rankCandidate(facts, { ...baseDuty, tempMaxC: 23, designStressMPa: 300 }, []);
     expect(r.eliminated).toBe(true);
     expect(r.eliminationReasons[0]).toMatch(/below the design stress/);
   });
@@ -149,7 +150,7 @@ describe("ranking", () => {
   });
 
   it("itemizes contributions; audit criterion is N/A with zero rules run", () => {
-    const r = rankCandidate(facts, { ...baseDuty, designStressMPa: 100 }, [], DEFAULT_WEIGHTS);
+    const r = rankCandidate(facts, { ...baseDuty, tempMaxC: 23, designStressMPa: 100 }, [], DEFAULT_WEIGHTS);
     expect(r.eliminated).toBe(false);
     expect(r.contributions).toHaveLength(3);
     const strength = r.contributions.find((c) => c.criterion === "strength");
@@ -182,7 +183,7 @@ describe("ranking", () => {
   });
 
   it("extra criteria fold into the weighted mean; N/A extras drop out", () => {
-    const duty = { ...baseDuty, designStressMPa: 100 };
+    const duty = { ...baseDuty, tempMaxC: 23, designStressMPa: 100 };
     const base = rankCandidate(facts, duty, []);
     const withExtra = rankCandidate(facts, duty, [], DEFAULT_WEIGHTS, [
       { id: "castability", label: "Castability (Kou)", raw: 0.5, weight: 1, note: "test", included: true },
@@ -207,7 +208,7 @@ describe("ranking", () => {
   });
 
   it("extra raws are clamped to 0–1 — a runaway ratio cannot dominate", () => {
-    const duty = { ...baseDuty, designStressMPa: 100 };
+    const duty = { ...baseDuty, tempMaxC: 23, designStressMPa: 100 };
     const r = rankCandidate(facts, duty, [], DEFAULT_WEIGHTS, [
       { id: "x", label: "x", raw: 7, weight: 1, note: "", included: true },
     ]);
@@ -227,12 +228,15 @@ describe("scoring invariants (release-gate checks)", () => {
     expect(withHit.score).toBeLessThan(withoutHit.score);
   });
 
-  it("missing yield data cannot improve the score", () => {
+  it("missing yield data removes coverage and prevents automatic ranking", () => {
     const { yieldMPa: _drop, ...rest } = facts;
     const noYield = rest as CandidateFacts;
-    const a = rankCandidate(facts, dutyKnown, []);
-    const b = rankCandidate(noYield, dutyKnown, []);
-    expect(b.score).toBeLessThanOrEqual(a.score);
+    const duty = { ...dutyKnown, tempMaxC: 23 };
+    const a = rankCandidate(facts, duty, []);
+    const b = rankCandidate(noYield, duty, []);
+    expect(b.coveragePercent).toBeLessThan(a.coveragePercent);
+    expect(b.scoreComplete).toBe(false);
+    expect(b.contributions.find((c) => c.criterion === "strength")?.included).toBe(false);
   });
 
   it("an indeterminate audit scores below a clear one", () => {

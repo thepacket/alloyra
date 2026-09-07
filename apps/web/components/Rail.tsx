@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const items: { href: string; label: string; phase?: string }[] = [
+  { href: "/studies", label: "Saved studies" },
+  { href: "/", label: "Study overview" },
   { href: "/database", label: "Alloy database" },
   { href: "/screening", label: "Staged screening" },
   { href: "/profiles", label: "Duty profiles" },
@@ -21,7 +23,7 @@ export function Rail() {
         <Link
           key={it.href}
           href={it.href}
-          className={pathname.startsWith(it.href) ? "active" : ""}
+          className={(it.href === "/" ? pathname === "/" : pathname.startsWith(it.href)) ? "active" : ""}
         >
           <span>{it.label}</span>
           {it.phase && <span className="phase">{it.phase}</span>}

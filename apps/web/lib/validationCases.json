@@ -1,0 +1,761 @@
+{
+  "reportDate": "2026-08-29",
+  "cases": [
+    {
+      "id": "mc-S31603",
+      "db": "mc_fe_v2.059.pycalphad",
+      "uns": "S31603",
+      "name": "316L",
+      "wt": {
+        "C": 0.015,
+        "Mn": 1,
+        "Si": 0.375,
+        "Cr": 17,
+        "Ni": 12,
+        "Mo": 2.5,
+        "N": 0.05,
+        "Fe": 67.06
+      },
+      "tempsC": [
+        500,
+        700,
+        900,
+        1100,
+        1300
+      ]
+    },
+    {
+      "id": "mc-S30400",
+      "db": "mc_fe_v2.059.pycalphad",
+      "uns": "S30400",
+      "name": "304",
+      "wt": {
+        "C": 0.035,
+        "Mn": 1,
+        "Si": 0.375,
+        "Cr": 18.5,
+        "Ni": 9.25,
+        "N": 0.05,
+        "Fe": 70.79
+      },
+      "tempsC": [
+        500,
+        700,
+        900,
+        1100,
+        1300
+      ]
+    },
+    {
+      "id": "mc-S32205",
+      "db": "mc_fe_v2.059.pycalphad",
+      "uns": "S32205",
+      "name": "2205",
+      "wt": {
+        "C": 0.015,
+        "Mn": 1,
+        "Si": 0.5,
+        "Cr": 22.5,
+        "Ni": 5.5,
+        "Mo": 3.25,
+        "N": 0.17,
+        "Fe": 67.065
+      },
+      "tempsC": [
+        500,
+        700,
+        900,
+        1100,
+        1300
+      ]
+    },
+    {
+      "id": "mc-S32750",
+      "db": "mc_fe_v2.059.pycalphad",
+      "uns": "S32750",
+      "name": "2507 super duplex",
+      "wt": {
+        "C": 0.015,
+        "Mn": 0.6,
+        "Si": 0.4,
+        "Cr": 25,
+        "Ni": 7,
+        "Mo": 4,
+        "N": 0.28,
+        "Fe": 62.705
+      },
+      "tempsC": [
+        500,
+        700,
+        900,
+        1100,
+        1300
+      ]
+    },
+    {
+      "id": "mc-S41000",
+      "db": "mc_fe_v2.059.pycalphad",
+      "uns": "S41000",
+      "name": "410",
+      "wt": {
+        "C": 0.11499999999999999,
+        "Mn": 0.5,
+        "Si": 0.5,
+        "Cr": 12.5,
+        "Ni": 0.375,
+        "Fe": 86.01
+      },
+      "tempsC": [
+        500,
+        700,
+        900,
+        1100,
+        1300
+      ]
+    },
+    {
+      "id": "mc-S17400",
+      "db": "mc_fe_v2.059.pycalphad",
+      "uns": "S17400",
+      "name": "17-4 PH",
+      "wt": {
+        "C": 0.035,
+        "Mn": 0.5,
+        "Si": 0.5,
+        "Cr": 16.25,
+        "Ni": 4,
+        "Cu": 4,
+        "Nb": 0.3,
+        "Fe": 74.415
+      },
+      "tempsC": [
+        500,
+        700,
+        900,
+        1100,
+        1300
+      ]
+    },
+    {
+      "id": "mc-N06625",
+      "db": "mc_ni_v2.034.pycalphad",
+      "uns": "N06625",
+      "name": "Alloy 625",
+      "wt": {
+        "Cr": 21.5,
+        "Mo": 9,
+        "Nb": 3.6500000000000004,
+        "Fe": 2.5,
+        "Ni": 63.35
+      },
+      "tempsC": [
+        650,
+        900,
+        1150
+      ]
+    },
+    {
+      "id": "mc-N07718",
+      "db": "mc_ni_v2.034.pycalphad",
+      "uns": "N07718",
+      "name": "Alloy 718",
+      "wt": {
+        "Ni": 52.5,
+        "Cr": 19,
+        "Nb": 5.125,
+        "Mo": 3.05,
+        "Ti": 0.8999999999999999,
+        "Al": 0.5,
+        "C": 0.04,
+        "Fe": 18.885
+      },
+      "tempsC": [
+        650,
+        900,
+        1150
+      ]
+    },
+    {
+      "id": "mc-N10276",
+      "db": "mc_ni_v2.034.pycalphad",
+      "uns": "N10276",
+      "name": "Alloy C-276",
+      "wt": {
+        "Cr": 15.5,
+        "Mo": 16,
+        "W": 3.75,
+        "Fe": 5.5,
+        "Co": 1.25,
+        "C": 0.005,
+        "Ni": 57.995
+      },
+      "tempsC": [
+        650,
+        900,
+        1150
+      ]
+    },
+    {
+      "id": "mc-A96061",
+      "db": "mc_al_v2.032.pycalphad",
+      "uns": "A96061",
+      "name": "6061",
+      "wt": {
+        "Si": 0.6000000000000001,
+        "Fe": 0.35,
+        "Cu": 0.275,
+        "Mn": 0.075,
+        "Mg": 1,
+        "Cr": 0.19499999999999998,
+        "Zn": 0.125,
+        "Ti": 0.075,
+        "Al": 97.305
+      },
+      "tempsC": [
+        200,
+        400,
+        550
+      ]
+    },
+    {
+      "id": "mc-A97075",
+      "db": "mc_al_v2.032.pycalphad",
+      "uns": "A97075",
+      "name": "7075",
+      "wt": {
+        "Si": 0.2,
+        "Fe": 0.25,
+        "Cu": 1.6,
+        "Mn": 0.15,
+        "Mg": 2.5,
+        "Cr": 0.23,
+        "Zn": 5.6,
+        "Ti": 0.1,
+        "Al": 89.37
+      },
+      "tempsC": [
+        200,
+        400,
+        550
+      ]
+    },
+    {
+      "id": "mc-A95083",
+      "db": "mc_al_v2.032.pycalphad",
+      "uns": "A95083",
+      "name": "5083",
+      "wt": {
+        "Mg": 4.45,
+        "Mn": 0.7,
+        "Cr": 0.15,
+        "Si": 0.2,
+        "Fe": 0.2,
+        "Al": 94.3
+      },
+      "tempsC": [
+        200,
+        400,
+        550
+      ]
+    },
+    {
+      "id": "solder-sac305",
+      "db": "NIST-solder",
+      "uns": "-",
+      "name": "SAC305 (Sn-3.0Ag-0.5Cu)",
+      "wt": {
+        "Ag": 3,
+        "Cu": 0.5,
+        "Sn": 96.5
+      },
+      "tempsC": [
+        120,
+        200
+      ]
+    },
+    {
+      "id": "solder-sn37pb",
+      "db": "NIST-solder",
+      "uns": "-",
+      "name": "Sn-37Pb eutectic",
+      "wt": {
+        "Pb": 37,
+        "Sn": 63
+      },
+      "tempsC": [
+        120,
+        200
+      ]
+    }
+  ],
+  "results": [
+    {
+      "name": "316L",
+      "tempC": 500,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+CR3NI2SIN+FCC_A1+LAVES_PHASE+SIGMA",
+      "referenceSet": "BCC_A2+CR3NI2SIN+FCC_A1+LAVES_PHASE+SIGMA",
+      "maxFractionDeviation": "0.01 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "316L",
+      "tempC": 700,
+      "setsAgree": false,
+      "engineSet": "FCC_A1+LAVES_PHASE+SIGMA",
+      "referenceSet": "FCC_A1+LAVES_PHASE",
+      "maxFractionDeviation": "1.22 %",
+      "energyDifference": "0.3"
+    },
+    {
+      "name": "316L",
+      "tempC": 900,
+      "setsAgree": true,
+      "engineSet": "FCC_A1",
+      "referenceSet": "FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.6"
+    },
+    {
+      "name": "316L",
+      "tempC": 1100,
+      "setsAgree": true,
+      "engineSet": "FCC_A1",
+      "referenceSet": "FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "7.3"
+    },
+    {
+      "name": "316L",
+      "tempC": 1300,
+      "setsAgree": true,
+      "engineSet": "FCC_A1",
+      "referenceSet": "FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "7.8"
+    },
+    {
+      "name": "304",
+      "tempC": 500,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+CR3NI2SIN+FCC_A1+M23C6+SIGMA",
+      "referenceSet": "BCC_A2+CR3NI2SIN+FCC_A1+M23C6+SIGMA",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "304",
+      "tempC": 700,
+      "setsAgree": true,
+      "engineSet": "FCC_A1+M23C6+SIGMA",
+      "referenceSet": "FCC_A1+M23C6+SIGMA",
+      "maxFractionDeviation": "0.04 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "304",
+      "tempC": 900,
+      "setsAgree": true,
+      "engineSet": "FCC_A1",
+      "referenceSet": "FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.2"
+    },
+    {
+      "name": "304",
+      "tempC": 1100,
+      "setsAgree": true,
+      "engineSet": "FCC_A1",
+      "referenceSet": "FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "1.3"
+    },
+    {
+      "name": "304",
+      "tempC": 1300,
+      "setsAgree": false,
+      "engineSet": "BCC_A2+FCC_A1",
+      "referenceSet": "FCC_A1",
+      "maxFractionDeviation": "2.74 %",
+      "energyDifference": "5.8"
+    },
+    {
+      "name": "2205",
+      "tempC": 500,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+CR3NI2SIN+HCP_A3+LAVES_PHASE+SIGMA",
+      "referenceSet": "BCC_A2+CR3NI2SIN+HCP_A3+LAVES_PHASE+SIGMA",
+      "maxFractionDeviation": "0.48 %",
+      "energyDifference": "0.7"
+    },
+    {
+      "name": "2205",
+      "tempC": 700,
+      "setsAgree": true,
+      "engineSet": "FCC_A1+HCP_A3+LAVES_PHASE+SIGMA",
+      "referenceSet": "FCC_A1+HCP_A3+LAVES_PHASE+SIGMA",
+      "maxFractionDeviation": "0.02 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "2205",
+      "tempC": 900,
+      "setsAgree": true,
+      "engineSet": "FCC_A1+HCP_A3+SIGMA",
+      "referenceSet": "FCC_A1+HCP_A3+SIGMA",
+      "maxFractionDeviation": "0.05 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "2205",
+      "tempC": 1100,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+FCC_A1",
+      "referenceSet": "BCC_A2+FCC_A1",
+      "maxFractionDeviation": "0.33 %",
+      "energyDifference": "0.4"
+    },
+    {
+      "name": "2205",
+      "tempC": 1300,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+FCC_A1",
+      "referenceSet": "BCC_A2+FCC_A1",
+      "maxFractionDeviation": "0.22 %",
+      "energyDifference": "0.2"
+    },
+    {
+      "name": "2507 super duplex",
+      "tempC": 500,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+CR3NI2SIN+FCC_A1+HCP_A3+LAVES_PHASE+SIGMA",
+      "referenceSet": "BCC_A2+CR3NI2SIN+FCC_A1+HCP_A3+LAVES_PHASE+SIGMA",
+      "maxFractionDeviation": "0.09 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "2507 super duplex",
+      "tempC": 700,
+      "setsAgree": true,
+      "engineSet": "FCC_A1+HCP_A3+LAVES_PHASE+SIGMA",
+      "referenceSet": "FCC_A1+HCP_A3+LAVES_PHASE+SIGMA",
+      "maxFractionDeviation": "0.01 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "2507 super duplex",
+      "tempC": 900,
+      "setsAgree": true,
+      "engineSet": "FCC_A1+HCP_A3+SIGMA",
+      "referenceSet": "FCC_A1+HCP_A3+SIGMA",
+      "maxFractionDeviation": "0.03 %",
+      "energyDifference": "0.3"
+    },
+    {
+      "name": "2507 super duplex",
+      "tempC": 1100,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+FCC_A1+SIGMA",
+      "referenceSet": "BCC_A2+FCC_A1+SIGMA",
+      "maxFractionDeviation": "0.31 %",
+      "energyDifference": "0.4"
+    },
+    {
+      "name": "2507 super duplex",
+      "tempC": 1300,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+FCC_A1",
+      "referenceSet": "BCC_A2+FCC_A1",
+      "maxFractionDeviation": "1.23 %",
+      "energyDifference": "2.0"
+    },
+    {
+      "name": "410",
+      "tempC": 500,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+M23C6",
+      "referenceSet": "BCC_A2+M23C6",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "410",
+      "tempC": 700,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+M23C6",
+      "referenceSet": "BCC_A2+M23C6",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "410",
+      "tempC": 900,
+      "setsAgree": true,
+      "engineSet": "FCC_A1",
+      "referenceSet": "FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.1"
+    },
+    {
+      "name": "410",
+      "tempC": 1100,
+      "setsAgree": true,
+      "engineSet": "FCC_A1",
+      "referenceSet": "FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "410",
+      "tempC": 1300,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+FCC_A1",
+      "referenceSet": "BCC_A2+FCC_A1",
+      "maxFractionDeviation": "0.03 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "17-4 PH",
+      "tempC": 500,
+      "setsAgree": false,
+      "engineSet": "BCC_A2+FCC_A1+SIGMA",
+      "referenceSet": "BCC_A2+FCC_A1+G_PHASE+M23C6+SIGMA",
+      "maxFractionDeviation": "2.65 %",
+      "energyDifference": "51.9"
+    },
+    {
+      "name": "17-4 PH",
+      "tempC": 700,
+      "setsAgree": false,
+      "engineSet": "BCC_A2+FCC_A1+SIGMA",
+      "referenceSet": "BCC_A2+FCC_A1",
+      "maxFractionDeviation": "3.06 %",
+      "energyDifference": "0.1"
+    },
+    {
+      "name": "17-4 PH",
+      "tempC": 900,
+      "setsAgree": true,
+      "engineSet": "FCC_A1",
+      "referenceSet": "FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "17-4 PH",
+      "tempC": 1100,
+      "setsAgree": true,
+      "engineSet": "FCC_A1",
+      "referenceSet": "FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.2"
+    },
+    {
+      "name": "17-4 PH",
+      "tempC": 1300,
+      "setsAgree": true,
+      "engineSet": "BCC_A2+FCC_A1",
+      "referenceSet": "BCC_A2+FCC_A1",
+      "maxFractionDeviation": "4.63 %",
+      "energyDifference": "4.2"
+    },
+    {
+      "name": "Alloy 625",
+      "tempC": 650,
+      "setsAgree": true,
+      "engineSet": "DELTA+FCC_A1+P_PHASE",
+      "referenceSet": "DELTA+FCC_A1+P_PHASE",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "Alloy 625",
+      "tempC": 900,
+      "setsAgree": true,
+      "engineSet": "DELTA+FCC_A1",
+      "referenceSet": "DELTA+FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "Alloy 625",
+      "tempC": 1150,
+      "setsAgree": true,
+      "engineSet": "FCC_A1",
+      "referenceSet": "FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "Alloy 718",
+      "tempC": 650,
+      "setsAgree": false,
+      "engineSet": "BCC_A2+DELTA+FCC_A1+GAMMA_PRIME+M23C6+SIGMA",
+      "referenceSet": "DELTA+FCC_A1+GAMMA_PRIME+M23C6+SIGMA",
+      "maxFractionDeviation": "1.41 %",
+      "energyDifference": "3.3"
+    },
+    {
+      "name": "Alloy 718",
+      "tempC": 900,
+      "setsAgree": false,
+      "engineSet": "DELTA+FCC_A1",
+      "referenceSet": "GAMMA_DP+GAMMA_PRIME+SIGMA",
+      "maxFractionDeviation": "89.08 %",
+      "energyDifference": "916.3"
+    },
+    {
+      "name": "Alloy 718",
+      "tempC": 1150,
+      "setsAgree": false,
+      "engineSet": "FCC_A1",
+      "referenceSet": "GAMMA_DP+LIQUID+SIGMA",
+      "maxFractionDeviation": "100.00 %",
+      "energyDifference": "1200.3"
+    },
+    {
+      "name": "Alloy C-276",
+      "tempC": 650,
+      "setsAgree": false,
+      "engineSet": "FCC_A1+GAMMA_PRIME+MU_PHASE+P_PHASE",
+      "referenceSet": "FCC_A1+GAMMA_PRIME+MU_PHASE",
+      "maxFractionDeviation": "8.35 %",
+      "energyDifference": "91.1"
+    },
+    {
+      "name": "Alloy C-276",
+      "tempC": 900,
+      "setsAgree": true,
+      "engineSet": "FCC_A1+GAMMA_PRIME+MU_PHASE",
+      "referenceSet": "FCC_A1+GAMMA_PRIME+MU_PHASE",
+      "maxFractionDeviation": "0.01 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "Alloy C-276",
+      "tempC": 1150,
+      "setsAgree": true,
+      "engineSet": "FCC_A1+MU_PHASE",
+      "referenceSet": "FCC_A1+MU_PHASE",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "6061",
+      "tempC": 200,
+      "setsAgree": true,
+      "engineSet": "AL12MN+ALCRFEMNSI_A+FCC_A1+MG2SI_B",
+      "referenceSet": "AL12MN+ALCRFEMNSI_A+FCC_A1+MG2SI_B",
+      "maxFractionDeviation": "0.01 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "6061",
+      "tempC": 400,
+      "setsAgree": true,
+      "engineSet": "AL12MN+ALCRFEMNSI_A+FCC_A1+MG2SI_B",
+      "referenceSet": "AL12MN+ALCRFEMNSI_A+FCC_A1+MG2SI_B",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "6061",
+      "tempC": 550,
+      "setsAgree": true,
+      "engineSet": "ALCRFEMNSI_A+FCC_A1",
+      "referenceSet": "ALCRFEMNSI_A+FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "7075",
+      "tempC": 200,
+      "setsAgree": true,
+      "engineSet": "AL12MN+ALCRFEMNSI_A+FCC_A1+LC14_ZN2MG+MG2SI_B+MGALCUZN_T+S_PHASE",
+      "referenceSet": "AL12MN+ALCRFEMNSI_A+FCC_A1+LC14_ZN2MG+MG2SI_B+MGALCUZN_T+S_PHASE",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "7075",
+      "tempC": 400,
+      "setsAgree": true,
+      "engineSet": "AL12MN+ALCRFEMNSI_A+FCC_A1+MGALCUZN_T+S_PHASE",
+      "referenceSet": "AL12MN+ALCRFEMNSI_A+FCC_A1+MGALCUZN_T+S_PHASE",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "7075",
+      "tempC": 550,
+      "setsAgree": true,
+      "engineSet": "AL13CR2+ALCRCU_TAU+FCC_A1+LIQUID",
+      "referenceSet": "AL13CR2+ALCRCU_TAU+FCC_A1+LIQUID",
+      "maxFractionDeviation": "0.01 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "5083",
+      "tempC": 200,
+      "setsAgree": true,
+      "engineSet": "AL12MN+AL6MN+ALCRFEMNSI_A+FCC_A1+MG2SI_B",
+      "referenceSet": "AL12MN+AL6MN+ALCRFEMNSI_A+FCC_A1+MG2SI_B",
+      "maxFractionDeviation": "0.01 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "5083",
+      "tempC": 400,
+      "setsAgree": true,
+      "engineSet": "AL12MN+AL6MN+ALCRFEMNSI_A+FCC_A1",
+      "referenceSet": "AL12MN+AL6MN+ALCRFEMNSI_A+FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "5083",
+      "tempC": 550,
+      "setsAgree": true,
+      "engineSet": "AL11CR2+AL6MN+FCC_A1",
+      "referenceSet": "AL11CR2+AL6MN+FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "SAC305 (Sn-3.0Ag-0.5Cu)",
+      "tempC": 120,
+      "setsAgree": true,
+      "engineSet": "BCT_A5+CU6SN5_L+EPSILON",
+      "referenceSet": "BCT_A5+CU6SN5_L+EPSILON",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "SAC305 (Sn-3.0Ag-0.5Cu)",
+      "tempC": 200,
+      "setsAgree": true,
+      "engineSet": "BCT_A5+CU6SN5+EPSILON",
+      "referenceSet": "BCT_A5+CU6SN5+EPSILON",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "Sn-37Pb eutectic",
+      "tempC": 120,
+      "setsAgree": true,
+      "engineSet": "BCT_A5+FCC_A1",
+      "referenceSet": "BCT_A5+FCC_A1",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    },
+    {
+      "name": "Sn-37Pb eutectic",
+      "tempC": 200,
+      "setsAgree": true,
+      "engineSet": "LIQUID",
+      "referenceSet": "LIQUID",
+      "maxFractionDeviation": "0.00 %",
+      "energyDifference": "0.0"
+    }
+  ]
+}

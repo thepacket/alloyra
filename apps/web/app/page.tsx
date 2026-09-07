@@ -8,36 +8,11 @@ import { HomeMiniChart } from "../components/HomeMiniChart";
  * are computed from the dataset, never hardcoded.
  */
 const steps = [
-  {
-    href: "/database",
-    name: "Alloy database",
-    desc: "Browse the seed dataset — spec-min properties, property charts, and searchable microstructural descriptors (mechanisms, twinning, grain-boundary character), all with provenance labels.",
-    cta: "Search alloys & microstructure",
-  },
-  {
-    href: "/profiles",
-    name: "Duty profile",
-    desc: "Capture the application: temperatures, load type, chemistry, welds, couples — the inputs everything downstream consumes.",
-    cta: "Create duty profile",
-  },
-  {
-    href: "/comparisons",
-    name: "Comparison",
-    desc: "Rank up to six alloy-in-condition candidates against the duty with transparent, user-weighted scoring.",
-    cta: "Open comparison",
-  },
-  {
-    href: "/rules",
-    name: "Failure audit",
-    desc: "Interaction failure modes — SCC, hydrogen embrittlement, creep, galvanic — as versioned, cited, editable rules.",
-    cta: "Review rules",
-  },
-  {
-    href: "/studio",
-    name: "Composition studio",
-    desc: "Tune composition off a base grade with live calculators, nearest-grade matching, and CALPHAD equilibrium.",
-    cta: "Open studio",
-  },
+  { href: "/profiles?from=screening", name: "Define the duty", desc: "Record service temperatures, loads, chemistry and fabrication context. Missing inputs stay explicit.", cta: "Define duty" },
+  { href: "/screening", name: "Screen candidates", desc: "Apply staged limits and chart regions. Keep a rationale for every elimination before sending a shortlist to comparison.", cta: "Open screening" },
+  { href: "/comparisons", name: "Compare the shortlist", desc: "Inspect performance contributions, input coverage and condition-specific property records for up to six candidates.", cta: "Compare candidates" },
+  { href: "/comparisons#failure-audit", name: "Inspect risks and evidence", desc: "Review rule hits, unresolved inputs and assumptions. Draft-rule results remain visibly distinct from expert review.", cta: "Inspect failure audit" },
+  { href: "/studio", name: "Explore composition", desc: "Tune a base composition and inspect applicable models with explicit inputs, origins and validity limits.", cta: "Open studio" },
 ];
 
 export default function Home() {
@@ -56,6 +31,12 @@ export default function Home() {
           </p>
         </header>
 
+        <div className="home-actions">
+          <Link className="btn" href="/profiles?from=screening">Define duty →</Link>
+          <Link className="btn ghost" href="/comparisons?example=seawater">Explore seawater example</Link>
+          <Link href="/database">Browse alloy data</Link>
+        </div>
+        <p className="coverage-note">Your active study follows you across the workbench. Name it above; duty and shortlist stay visible as you move between tools.</p>
         <ol className="home-steps">
           {steps.map((s, i) => (
             <li key={s.href}>
@@ -128,7 +109,7 @@ export default function Home() {
             All seed failure rules are drafts awaiting expert review and do not
             run in comparisons unless explicitly included there. Everything you
             create — duty profiles, comparisons, rule edits — is stored in
-            this browser only; each page offers a JSON export for backup.
+            this browser only. Use the available profile, rule, screening and studio exports to keep a record.
           </p>
         </section>
       </div>

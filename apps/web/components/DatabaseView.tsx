@@ -355,7 +355,7 @@ function DetailPanel({
       <section>
         <h3>Conditions &amp; properties</h3>
         {alloy.conditions.map((c) => (
-          <div className="cond" key={c.id}>
+          <div className="cond" id={`condition-${c.id}`} key={c.id}>
             <div className="cname">{c.name}</div>
             <div className="cform">{c.form}</div>
             {c.properties.map((p) => (
