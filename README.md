@@ -218,3 +218,18 @@ must correspond to the evidence still present at save time. Portable imports val
 frozen studies and reject recursive snapshots, dangling selections and incomplete
 alternative dispositions before writing storage. Records have individual HTML
 reports and are also included in the full study bundle/report.
+
+### Traceable 316L physical properties
+
+Dataset `2026.09.1` adds five physical-property references for Supra 316L/4404
+from Outokumpu's Supra datasheet, Table 7 (page 8), accessed 2026-09-07.
+The source replaces the generic 193 GPa modulus with its documented 200 GPa
+reference at 20 °C. Electrical resistivity is converted to the catalog unit;
+mean thermal expansion retains its 20–100 °C interval.
+
+Expand a scalar property in the alloy database to inspect its source,
+temperature, conditions and limitations. Structured citations include the
+publication link, table locator, access date and pending expert-review status;
+they travel with study and decision snapshots. These published references
+remain ESTIMATED, not measured heat evidence or design allowables. Independent
+metallurgical review is still needed before this becomes an expert-reviewed dataset.

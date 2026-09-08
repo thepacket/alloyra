@@ -21,7 +21,16 @@ export interface TestConditions {
   note?: string;
 }
 
+/** Traceable publication evidence; transcription is not engineering approval. */
+export interface PropertyCitation {
+  url: string;
+  locator: string;
+  accessedAt: string;
+  reviewStatus: "pending";
+}
+
 export interface PropertyRecord {
+  citation?: PropertyCitation;
   property: PropertyId;
   /** Headline scalar (for interval records: the representative value). */
   value: number;

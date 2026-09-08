@@ -1175,3 +1175,10 @@ table.data tbody tr.selected { box-shadow: inset 2px 0 0 var(--accent); }
 .verification-filter{max-width:650px;margin:16px 0}
 
 .records-content .decision-ack{flex-direction:row;align-items:flex-start;margin:20px 0;gap:10px}.decision-ack input{margin-top:5px;flex:none}
+
+.property-evidence summary{cursor:pointer;gap:12px}
+.property-evidence summary::before{content:"▸";flex:none}
+.property-evidence[open] summary::before{content:"▾"}
+.property-evidence-body{padding:4px 12px 12px;font-size:12px;line-height:1.6;overflow-wrap:anywhere}
+.property-evidence-body p{margin:6px 0}
+.property-evidence-body a{color:var(--accent)}

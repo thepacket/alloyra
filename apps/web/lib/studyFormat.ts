@@ -105,6 +105,12 @@ export function parseStudyBundle(raw: string): StudyBundle {
     for (const c of a.conditions) {
       requireValue(record(c) && text(c.id) && text(c.name) && text(c.form) && Array.isArray(c.properties), "Invalid condition snapshot.");
       requireValue(c.properties.every((p) => record(p) && text(p.property) && finite(p.value) && finite(p.testTempC) && text(p.unit) && text(p.provenance) && text(p.source)), "Invalid property snapshot.");
+      for (const p of c.properties) {
+        if (record(p) && p.citation !== undefined) {
+          const citation = p.citation;
+          requireValue(record(citation) && text(citation.url) && /^https:\/\/[^\s]+$/.test(citation.url) && text(citation.locator) && text(citation.accessedAt) && Number.isFinite(Date.parse(citation.accessedAt)) && citation.reviewStatus === "pending", "Invalid property citation.");
+        }
+      }
     }
   }
   for (const rule of s.references.rules) requireValue(record(rule) && validateRule(rule as unknown as FailureRule).length === 0, "Invalid source rule snapshot.");

@@ -358,21 +358,23 @@ function DetailPanel({
           <div className="cond" id={`condition-${c.id}`} key={c.id}>
             <div className="cname">{c.name}</div>
             <div className="cform">{c.form}</div>
-            {c.properties.map((p) => (
-              <div className="propline" key={p.property}>
-                <span>
-                  {propertyDef(p.property).label}{" "}
-                  <ProvenanceChip
-                    p={p.provenance}
-                    title={`${p.source}${p.note ? ` — ${p.note}` : ""}${
-                      p.conditions?.note ? ` · ${p.conditions.note}` : ""
-                    }`}
-                  />
-                </span>
-                <span className="val">
-                  {p.interval ? `${p.interval.lo} – ${p.interval.hi}` : p.value} {p.unit}
-                </span>
-              </div>
+            {c.properties.map((p, index) => (
+              <details className="property-evidence" key={`${p.property}-${index}`}>
+                <summary className="propline">
+                  <span>{propertyDef(p.property).label} <ProvenanceChip p={p.provenance} title={p.source} /></span>
+                  <span className="val">{p.interval ? `${p.interval.lo} – ${p.interval.hi}` : p.value} {p.unit}</span>
+                </summary>
+                <div className="property-evidence-body">
+                  <p><b>Temperature:</b> {p.testTempC} °C{p.property === "thermal_expansion" ? " (reference; see conditions)" : ""}</p>
+                  <p><b>Source:</b> {p.source}</p>
+                  {p.conditions && <p><b>Conditions:</b> {Object.entries(p.conditions).map(([key, value]) => `${key}: ${value}`).join(" · ")}</p>}
+                  {p.note && <p>{p.note}</p>}
+                  {p.citation && <>
+                    <p><a href={p.citation.url} target="_blank" rel="noreferrer">Open published source</a> · {p.citation.locator}</p>
+                    <p>Accessed {p.citation.accessedAt} · Expert review pending</p>
+                  </>}
+                </div>
+              </details>
             ))}
             {c.curves && c.curves.length > 0 && (
               <details className="curve-block">

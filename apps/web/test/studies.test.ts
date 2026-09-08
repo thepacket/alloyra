@@ -142,3 +142,28 @@ describe("engineering decision records",()=>{
     const study=prepare(),r=createDecisionRecord(study,{...draft(),reviewer:"<script>unsafe</script>"});study.slices[DECISIONS]=JSON.stringify([r]);const report=studyReport(study);expect(report).toContain("&lt;script&gt;unsafe");expect(report).not.toContain("<script>");
   });
 });
+
+
+describe("property publication citations", () => {
+  it("preserves citations through bundle import and reports", () => {
+    const bundle = exportStudyBundle();
+    const imported = parseStudyBundle(JSON.stringify(bundle));
+    const p = imported.study.references.alloys.find(a=>a.uns==="S31603")!.conditions[0]!.properties.find(p=>p.citation)!;
+    expect(p.citation!.reviewStatus).toBe("pending");
+    expect(studyReport(imported.study)).toContain("Table 7");
+    // Legacy records without structured citations remain portable.
+    for (const a of bundle.study.references.alloys) for (const c of a.conditions) for (const p of c.properties) delete p.citation;
+    expect(()=>parseStudyBundle(JSON.stringify(bundle))).not.toThrow();
+  });
+  it("rejects unsafe citation URLs and fabricated review states without mutation", () => {
+    const bundle=exportStudyBundle();
+    const p=bundle.study.references.alloys.find(a=>a.uns==="S31603")!.conditions[0]!.properties.find(p=>p.citation)!;
+    const before=JSON.stringify(readWorkspace());
+    p.citation!.url="javascript:alert(1)";
+    expect(()=>importStudyBundle(JSON.stringify(bundle))).toThrow(/citation/);
+    p.citation!.url="https://example.com/source";
+    (p.citation as unknown as {reviewStatus:string}).reviewStatus="approved";
+    expect(()=>importStudyBundle(JSON.stringify(bundle))).toThrow(/citation/);
+    expect(JSON.stringify(readWorkspace())).toBe(before);
+  });
+});

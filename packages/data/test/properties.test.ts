@@ -145,3 +145,35 @@ describe("NIST cryogenic fit sanity anchors", () => {
     }
   });
 });
+
+
+describe("316L published physical evidence", () => {
+  const condition = alloys.find(a => a.uns === "S31603")!.conditions.find(c => c.id === "s31603-annealed-plate")!;
+  const records = condition.properties.filter(p => p.citation);
+  it("retains publication location and pending review on each new record", () => {
+    expect(records).toHaveLength(5);
+    for (const p of records) {
+      expect(p.provenance).toBe("estimated");
+      expect(p.citation!.url).toMatch(/^https:\/\/www.outokumpu.com/);
+      expect(p.citation!.locator).toContain("Table 7, page 8");
+      expect(p.citation!.reviewStatus).toBe("pending");
+      expect(p.testTempC).toBe(20);
+    }
+    expect(new Set(condition.properties.map(p => p.property)).size).toBe(condition.properties.length);
+  });
+  it("converts electrical resistivity to the catalog unit", () => {
+    const p = records.find(p => p.property === "electrical_resistivity")!;
+    // 0.75 ohm mm²/m = 0.75e-6 ohm m; one microohm cm = 1e-8 ohm m.
+    expect(p.value * 1e-8).toBeCloseTo(0.75e-6, 12);
+    expect(p.unit).toBe("µΩ·cm");
+  });
+  it("retains the mean expansion interval rather than implying a point value", () => {
+    const p = records.find(p => p.property === "thermal_expansion")!;
+    expect(p.conditions!.note).toContain("20–100 °C");
+    expect(p.conditions!.note).toContain("not a point measurement");
+  });
+  it("keeps source physical values separate from specification strength", () => {
+    expect(records.find(p => p.property === "elastic_modulus")!.value).toBe(200);
+    expect(condition.properties.find(p => p.property === "yield_strength")).toMatchObject({value:170,provenance:"spec-min"});
+  });
+});

@@ -80,7 +80,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           onClick={() => setDrawerOpen(false)}
         />
       )}
-      <div className="work-area"><StudyBar />{storageError && <p className="storage-error" role="alert">{storageError}<button className="btn ghost" onClick={() => setStorageError("")}>Dismiss</button></p>}<main className="main" key={`${activeId}:${externalRevision}`}>{archival && pathname !== "/studies" ? <div className="studies-content"><h1>Archived reference snapshot</h1><p>This imported study uses different reference data. Its saved inputs, results and sources remain available in Saved studies.</p><Link href="/studies" className="btn">Review saved study</Link></div> : activeId ? children : null}</main></div>
+      <div className="work-area"><StudyBar />{storageError && <p className="storage-error" role="alert">{storageError}<button className="btn ghost" onClick={() => setStorageError("")}>Dismiss</button></p>}<main className="main" key={`${activeId}:${externalRevision}`}>{archival && pathname.replace(/\/+$/, "") !== "/studies" ? <div className="studies-content"><h1>Archived reference snapshot</h1><p>This imported study uses different reference data. Its saved inputs, results and sources remain available in Saved studies.</p><Link href="/studies" className="btn">Review saved study</Link></div> : activeId ? children : null}</main></div>
     </div>
   );
 }

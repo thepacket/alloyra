@@ -11,6 +11,7 @@ export type {
   CurveXQuantity,
   Designation,
   PropertyRecord,
+  PropertyCitation,
   PropertyId,
   TestConditions,
 } from "./types.ts";
@@ -39,6 +40,6 @@ export type { MicroConcept } from "./microstructure/concepts.v1.ts";
 export { microConcepts } from "./microstructure/concepts.v1.ts";
 
 /** Bump on any seed change; recorded on every comparison (R-2.6, R-1.7). */
-export const DATASET_VERSION = "2026.08.6";
+export const DATASET_VERSION = "2026.09.1";
 
 export { SCREEN_PROPERTIES, SCREEN_PROPERTY_META, screenProperty, conditionCandidates, type ScreeningCandidate, type ScreenProperty } from "./screening.ts";
