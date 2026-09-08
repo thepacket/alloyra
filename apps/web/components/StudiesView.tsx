@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { readWorkspace, activeStudy, createStudy, switchStudy, exportStudyBundle, importStudyBundle, matchesCurrentData, STUDY_CHANGED } from "../lib/workspace";
+import { readWorkspace, activeStudy, createStudy, switchStudy, exportStudyBundle, importStudyBundle, matchesCurrentData, continueWithCurrentData, STUDY_CHANGED } from "../lib/workspace";
 import { studyReport, downloadStudy } from "../lib/studyReport";
 import type { CalculationRecord } from "../lib/calculationHistory";
 import type { SavedStudy } from "../lib/studyFormat";
@@ -22,8 +22,8 @@ export function StudiesView() {
     <label className="btn ghost">Import bundle<input type="file" accept=".json,application/json" aria-label="Import study bundle" onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (!file) return; if (file.size > 12_000_000) { setError("Study file exceeds the 12 MB import limit."); return; } const raw = await file.text(); perform(() => { importStudyBundle(raw); }); }} /></label></div>
     {error && <p role="alert" className="calc-warn">{error}</p>}
     <div className="study-list">{studies.map((s) => <article key={s.id}><h2>{s.name}</h2><p>Updated {new Date(s.updatedAt).toLocaleString()} · {Object.keys(s.slices).length} saved sections</p><button className="btn" disabled={s.id === id} onClick={() => perform(() => switchStudy(s.id))}>{s.id === id ? "Active study" : "Open study"}</button></article>)}</div>
-    {study && <section><h2>Export {study.name}</h2>{!matchesCurrentData(study) && <p className="calc-warn">This study uses a different reference snapshot. Its records are available here for review and export; calculation panes require the current shipped references. Create a new study to run current models.</p>}
-    <div className="study-actions"><button className="btn" onClick={() => perform(() => downloadStudy(JSON.stringify(exportStudyBundle(), null, 2), `${stem}.json`, "application/json"))}>Export portable bundle</button>
+    {study && <section><h2>Export {study.name}</h2>{!matchesCurrentData(study) && <p className="calc-warn">This study uses a different reference snapshot. Its records are available here for review and export; calculation panes require the current shipped references. Create an updated copy to keep your inputs and recompute with current references. The original retains its results and decisions.</p>}
+    <div className="study-actions">{!matchesCurrentData(study) && <button className="btn" onClick={() => perform(() => { continueWithCurrentData(); })}>Continue in an updated copy</button>}<button className="btn" onClick={() => perform(() => downloadStudy(JSON.stringify(exportStudyBundle(), null, 2), `${stem}.json`, "application/json"))}>Export portable bundle</button>
     <button className="btn ghost" onClick={() => perform(() => downloadStudy(studyReport(activeStudy()!), `${stem}.html`, "text/html"))}>Download readable report</button>
     <button className="btn ghost" aria-expanded={preview} onClick={() => setPreview((v) => !v)}>Preview report</button><Link className="btn ghost" href="/comparisons">Open comparison →</Link></div>
     <p className="calc-src">Import validates the file before saving and creates a separate copy. Recorded calculations include their requests, outputs and engine fingerprints. Historical results remain in this report; run the live pane to recompute.</p>

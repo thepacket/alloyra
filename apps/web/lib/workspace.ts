@@ -105,3 +105,29 @@ export function matchesCurrentData(study: SavedStudy): boolean {
 }
 /** Invalidated on a cross-tab write, never poll localStorage from render. */
 export function reloadWorkspace(): void { memory = undefined; }
+
+/** Fork inputs onto current references; the original retains every result and decision. */
+export function continueWithCurrentData(): string {
+  const w = clone(readWorkspace());
+  const original = w.studies.find(s => s.id === w.activeId);
+  if (!original) throw new Error("Study not found.");
+  if (matchesCurrentData(original)) return original.id;
+  const study = fresh(`${original.name.slice(0, 105)} (current data)`);
+  const inputs: SliceKey[] = ["alloyra.comparison.v1", "alloyra.screening.v1", "alloyra.studio.v1", "alloyra.dutyProfiles.v1", "alloyra.rulesOverlay.v1", "alloyra.engineSettings.v1", "alloyra.materialRecords.v1"];
+  for (const key of inputs) if (original.slices[key] !== undefined) study.slices[key] = original.slices[key];
+  if (study.slices["alloyra.comparison.v1"]) {
+    const c = JSON.parse(study.slices["alloyra.comparison.v1"]);
+    c.studyName = study.name;
+    study.slices["alloyra.comparison.v1"] = JSON.stringify(c);
+  }
+  // A future release may remove a condition or rule. Never silently drop those inputs.
+  try { parseStudyBundle(JSON.stringify(exportStudyBundle(study))); }
+  catch { throw new Error("These inputs are incompatible with the current dataset. Your original is unchanged. Export it from Saved studies and start a new study to rebuild the affected inputs."); }
+  w.studies.push(study); w.activeId = study.id;
+  persist(w, true);
+  return study.id;
+}
+
+export function requiresCurrentStudy(pathname: string): boolean {
+  return !["/studies", "/database"].includes(pathname.replace(/\/+$/, ""));
+}

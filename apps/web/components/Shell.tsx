@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { DATASET_VERSION } from "@alloyra/data";
 import Link from "next/link";
-import { activeStudy, readWorkspace, reloadWorkspace, matchesCurrentData, STUDY_SWITCHED, STUDY_CHANGED, STORAGE_ERROR } from "../lib/workspace";
+import { activeStudy, readWorkspace, reloadWorkspace, matchesCurrentData, continueWithCurrentData, createStudy, requiresCurrentStudy, STUDY_SWITCHED, STUDY_CHANGED, STORAGE_ERROR } from "../lib/workspace";
 import { StudyBar } from "./StudyBar";
 import { Rail } from "./Rail";
 import { CommandPalette } from "./CommandPalette";
@@ -80,7 +80,7 @@ export function Shell({ children }: { children: React.ReactNode }) {
           onClick={() => setDrawerOpen(false)}
         />
       )}
-      <div className="work-area"><StudyBar />{storageError && <p className="storage-error" role="alert">{storageError}<button className="btn ghost" onClick={() => setStorageError("")}>Dismiss</button></p>}<main className="main" key={`${activeId}:${externalRevision}`}>{archival && pathname.replace(/\/+$/, "") !== "/studies" ? <div className="studies-content"><h1>Archived reference snapshot</h1><p>This imported study uses different reference data. Its saved inputs, results and sources remain available in Saved studies.</p><Link href="/studies" className="btn">Review saved study</Link></div> : activeId ? children : null}</main></div>
+      <div className="work-area"><StudyBar />{storageError && <p className="storage-error" role="alert">{storageError}<button className="btn ghost" onClick={() => setStorageError("")}>Dismiss</button></p>}<main className="main" key={`${activeId}:${externalRevision}`}>{archival && requiresCurrentStudy(pathname) ? <div className="studies-content"><h1>Continue with updated reference data</h1><p>This study was saved with an earlier or different dataset. Create a working copy to continue with the current references. Your duty, shortlist, measurements and settings will be copied; prior results, verification notes and decisions stay in the original study.</p><p>Recompute and review the working copy before recording a new decision.</p><div className="study-actions"><button className="btn" onClick={() => { try { continueWithCurrentData(); setStorageError(""); } catch (e) { setStorageError(e instanceof Error ? e.message : String(e)); } }}>Continue in an updated copy</button><button className="btn ghost" onClick={() => { try { createStudy(); setStorageError(""); } catch (e) { setStorageError(String(e)); } }}>Start a blank study</button><Link href="/studies" className="btn ghost">Review original study</Link></div></div> : activeId ? children : null}</main></div>
     </div>
   );
 }

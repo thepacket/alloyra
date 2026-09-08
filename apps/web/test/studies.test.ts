@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
-import { activeStudy, createStudy, exportStudyBundle, getStudyItem, importStudyBundle, matchesCurrentData, readWorkspace, reloadWorkspace, setStudyItem, switchStudy } from "../lib/workspace";
+import { activeStudy, createStudy, exportStudyBundle, getStudyItem, importStudyBundle, matchesCurrentData, continueWithCurrentData, requiresCurrentStudy, readWorkspace, reloadWorkspace, setStudyItem, switchStudy } from "../lib/workspace";
 import { parseStudyBundle } from "../lib/studyFormat";
 import { defaultStored, exampleProfile, EXAMPLE_SLOTS } from "../lib/comparison";
 import { studyReport } from "../lib/studyReport";
@@ -165,5 +165,44 @@ describe("property publication citations", () => {
     (p.citation as unknown as {reviewStatus:string}).reviewStatus="approved";
     expect(()=>importStudyBundle(JSON.stringify(bundle))).toThrow(/citation/);
     expect(JSON.stringify(readWorkspace())).toBe(before);
+  });
+});
+
+
+describe("continuing older studies", () => {
+  it("copies inputs onto current references while preserving the complete original", () => {
+    setStudyItem("alloyra.comparison.v1", JSON.stringify(defaultStored()));
+    const old = activeStudy()!;
+    old.references.datasetVersion = "older-release";
+    old.slices["alloyra.comparisonResults.v1"] = JSON.stringify({oldResult:true});
+    old.slices["alloyra.decisions.v1"] = JSON.stringify([{historic:true}]);
+    old.slices["alloyra.verification.v1"] = JSON.stringify([{historic:true}]);
+    const before = JSON.stringify(old);
+    const id = continueWithCurrentData();
+    expect(id).not.toBe(old.id);
+    expect(JSON.stringify(readWorkspace().studies.find(s=>s.id===old.id))).toBe(before);
+    expect(matchesCurrentData(activeStudy()!)).toBe(true);
+    expect(JSON.parse(getStudyItem("alloyra.comparison.v1")!).slots).toEqual(defaultStored().slots);
+    for (const key of ["alloyra.comparisonResults.v1", "alloyra.decisions.v1", "alloyra.verification.v1"]) expect(getStudyItem(key)).toBeNull();
+    expect(continueWithCurrentData()).toBe(id);
+    expect(readWorkspace().studies).toHaveLength(2);
+  });
+  it("leaves the active study untouched if its inputs cannot migrate", () => {
+    setStudyItem("alloyra.comparison.v1", JSON.stringify({...defaultStored(), slots:[{uns:"REMOVED",conditionId:"missing",pinned:false,excluded:false}]}));
+    activeStudy()!.references.datasetVersion="older-release";
+    const before=JSON.stringify(readWorkspace());
+    expect(()=>continueWithCurrentData()).toThrow(/incompatible/);
+    expect(JSON.stringify(readWorkspace())).toBe(before);
+  });
+  it("keeps the original active if saving the updated copy fails", () => {
+    activeStudy()!.references.datasetVersion="older-release";
+    const before=JSON.stringify(readWorkspace());
+    vi.stubGlobal("localStorage",{getItem:(key:string)=>data.get(key)??null,setItem:()=>{throw new Error("Quota exceeded");}});
+    expect(()=>continueWithCurrentData()).toThrow(/Quota/);
+    expect(JSON.stringify(readWorkspace())).toBe(before);
+  });
+  it("allows saved studies and reference browsing with or without trailing slashes", () => {
+    for (const path of ["/studies","/studies/","/database","/database/"]) expect(requiresCurrentStudy(path)).toBe(false);
+    for (const path of ["/comparisons/","/studio","/records/","/decisions/"]) expect(requiresCurrentStudy(path)).toBe(true);
   });
 });
